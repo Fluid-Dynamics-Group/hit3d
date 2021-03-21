@@ -2,7 +2,9 @@
 
 # Define the correct flags and compilers
 
-MPIF90 = blah
+MPIF90 = mpif90
+FCFLAGS = -O3
+LDFLAGS = -O3
 
 # Franklin cluster, NERSC
 ifeq ($(NERSC_HOST), franklin)
@@ -104,11 +106,11 @@ $(PROG):  $(MODULES) $(OBJ)
 
 $(OBJ): $(MODULES) 
 
-%.o: %.f
-	$(MPIF90) $(FCFLAGS) $(FCFLAGS_F77)  $<
+#%.o: %.f
+	#$(MPIF90) $(FCFLAGS) $(FCFLAGS_F77)  $<
 
 %.o: %.f90
-	$(MPIF90) $(FCFLAGS) $<
+	$(MPIF90) $(FCFLAGS) -c $< -o $@
 
 clean:
 	rm *.o *.mod $(PROG)
