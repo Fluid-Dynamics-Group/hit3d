@@ -3,8 +3,8 @@
 # Define the correct flags and compilers
 
 MPIF90 = mpif90
-FCFLAGS = -O3
-LDFLAGS = -O3
+FCFLAGS = -O4 -c -fallow-argument-mismatch
+LDFLAGS = -O4 -L/usr/local/lib -lfftw3
 
 # Franklin cluster, NERSC
 ifeq ($(NERSC_HOST), franklin)
@@ -103,11 +103,12 @@ $(PROG):  $(MODULES) $(OBJ)
 	$(MPIF90) $(MODULES) $(OBJ) -o $(PROG) $(LDFLAGS)
 # -------------------------------------------------------
 # compile
+#$(MPIF90) $(FCFLAGS) $(FCFLAGS_F77)  $<
 
 $(OBJ): $(MODULES) 
 
-#%.o: %.f
-	#$(MPIF90) $(FCFLAGS) $(FCFLAGS_F77)  $<
+%.o: %.f
+	$(MPIF90) $(FCFLAGS) -c $< -o $@
 
 %.o: %.f90
 	$(MPIF90) $(FCFLAGS) -c $< -o $@
