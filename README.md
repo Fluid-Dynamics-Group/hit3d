@@ -42,107 +42,110 @@ wcr.sub     	Example script for WCR cluster at Center for Turbuience Research
 		at Stanford University
 
 ## THE INPUT FILE
-NX,NY,NZ  Number of grid points in one dimension.  The grid will be NX x NY x NZ.
+`NX`,`NY`,`NZ`  Number of grid points in one dimension.  The grid will be NX x NY x NZ.
 	  The physical dimensions will be 2*pi x 2*pi x 2*pi
 
-ITMIN	The timestep number of the restart file.  The restart files have names 
+`ITMIN`	The timestep number of the restart file.  The restart files have names 
 	such as "test__this.64.123456".  Here, "test__this" is the run name, 
 	"64" signifies that the file is written with double precision and 
 	"123456" is the timestep number.  If the ITMIN is set to 0, the 
 	subroutine that defines	the initial conditionis for the flow is called.
 
-ITMAX	The maximum number of timesteps in the simulation.
+`ITMAX`	The maximum number of timesteps in the simulation.
 
-IPRNT1	How often to generate the statistics.
+`IPRNT1` How often to generate the statistics.
 
-IPRNT2	How often to write restart files
+`IPRNT2` How often to write restart files
 
-IWRITE4	How often to write the real*4 files that are used for post-processing.
+`IWRITE4` How often to write the real*4 files that are used for post-processing.
 
-TMAX	The runtime of the simulation (not the wallclocok time)
+`TMAX` The runtime of the simulation (not the wallclocok time)
 
-TRESCALE  The time at which to rescale the velocity.  This is used in decaying
+`TRESCALE` The time at which to rescale the velocity.  This is used in decaying
 	  simulations when we want to establish some correlations first and 
 	  then rescale the velocity field so it has higher kinetic energy.
 
-TSCALAR	  When to start moving the passive scalars.
+`TSCALAR` When to start moving the passive scalars.
 
-flow_type Parameter that switches the flow type
+`flow_type` Parameter that switches the flow type
 	  0 - decaying turbulence
 	  1 - forced turbulence
 
-RE	  The local Reynolds number (1/nu, where nu is viscosity)
+`RE` The local Reynolds number (1/nu, where nu is viscosity)
 
-DT	  The timestep.
+`DT` The timestep.
 	  If DT is negative, then the timestep is fixed to be (-DT)
 	  If DT is positive, the timestep is found from the stability
 	  criteria for the time-stepping scheme that is used.
 
-ISPCV1   Initial spectrum type (see init_velocity.f90)
-mv1      initial infrared exponent in the spectrum
-wm0v1    initial peak wavenumber in the spectrum
+`ISPCV1` Initial spectrum type (see init_velocity.f90)
+`mv1` initial infrared exponent in the spectrum
+`wm0v1` initial peak wavenumber in the spectrum
 
 
-force_type	   The type of the forcing that is applied for the case of
-		   forced turbulence.
-		   1 - forcing from Michaels PRL paper (PRL #79(18) p.3411)
-		   So far no other forcing has been implemented
+`force_type` The type of the forcing that is applied for the case of forced turbulence.
+	* 1 - forcing from Michaels PRL paper (PRL #79(18) p.3411)
+	* So far no other forcing has been implemented
 
-KFMAX	The upper bound for the forcing band in the Fourier space.
+`KFMAX`	The upper bound for the forcing band in the Fourier space.
 
-FAMP	The magnitude of the forcing (usually set to 0.5)
+`FAMP` The magnitude of the forcing (usually set to 0.5)
 
-det_rand 	The parameter that switches the random generation for the
-		random seeds for the code.
-	DEFUNCTIONAL.  In the current version of the code, the seeds for the
-	random number generator are fixed and are taken from the input file.
-	The fixed seeds have the effect of producing the initial data that
-	looks similar for different resolutions (the large features of 
-	initial flow in 32^3 simulation will look similar to the large features
-	of a 1024^3 simulation if the seeds are the same).
+`det_rand` The parameter that switches the random generation for the random seeds for the code.
 
-RN1, RN2, RN3  - random number seeds
+DEFUNCTIONAL.  In the current version of the code, the seeds for the
+random number generator are fixed and are taken from the input file.
+The fixed seeds have the effect of producing the initial data that
+looks similar for different resolutions (the large features of 
+initial flow in 32^3 simulation will look similar to the large features
+of a 1024^3 simulation if the seeds are the same).
+
+`RN1`, `RN2`, `RN3` - random number seeds
 
 
-DEALIAS		The parameter that switches between the dealiasing algorithms.
-	0 - the standard 3/2-rule (or 2/3 rule).  Faster computations, but
-	fewer modes.
-	1 - the phase shift combined with truncation.  This retains much more
+`DEALIAS` The parameter that switches between the dealiasing algorithms.
+
+* 0 - the standard 3/2-rule (or 2/3 rule).  Faster computations, but fewer modes.
+* 1 - the phase shift combined with truncation.  This retains much more
 	modes than the 2/3-rule, while increasing the computations 60% or so.
 	The most economical mode for DNS in terms of flops per the number of
 	Fourier modes in the resulting data.
 
-np	The number of Lagrangian particles
+`np` The number of Lagrangian particles
 
-*       particle tracking mechanism:
-	0 - trilinear interpolations
-	1 - 4-point cubic interpolation
+`particle tracking mechanism`:
+
+* 0 - trilinear interpolations
+* 1 - 4-point cubic interpolation
 	
-time_p  time in the simulation when to release the particles in the flow
+`time_p` time in the simulation when to release the particles in the flow
 
-particle_filter_size
-        The particles can be advected by fully resolved field or by locally averaged
-	field.  The filter size determines the size of the filter that is applied
-	to the velocity field before computing the particles' velocities.
+`particle_filter_size`
 
-les_model  The LES model.  See m_les.f90 for list of the current models.
+The particles can be advected by fully resolved field or by locally averaged
+field.  The filter size determines the size of the filter that is applied
+to the velocity field before computing the particles' velocities.
 
-NUMS  The number of passive scalars to carry around
+`les_model` The LES model.  See m_les.f90 for list of the current models.
+
+`NUMS` The number of passive scalars to carry around
 
 The last section contains the parameters of the passive scalars.  Each scalar
 must have the type, Schmidt number, infrared exponent, peak wavenumber and 
 reaction rate.
 
-TYPE:
-0	The scalar that is forced by the mean gradient.
-1-9	The initial conditions for the scalar are generated using Fourier space.
-	1: Exponential spectrum
-	2: von Karman spectrum
-	3: double-delta PDF
->10	The initial conditions for the scalar are generated in the real space.
-	11: single slab of the scalar.
-	12: two slabs of the scalar
-	13: 1-D sinusoidal wave of the scalar
+`TYPE`:
+*0	The scalar that is forced by the mean gradient.
+
+* 1-9 The initial conditions for the scalar are generated using Fourier space.
+	* 1: Exponential spectrum
+	* 2: von Karman spectrum
+	* 3: double-delta PDF
+
+* 10 The initial conditions for the scalar are generated in the real space.
+	* 11: single slab of the scalar.
+	* 12: two slabs of the scalar
+	* 13: 1-D sinusoidal wave of the scalar
 
 
 The reaction rate parameter is defunctional in this version of the code.
@@ -159,6 +162,9 @@ The solver may be run on the sample input file with
 ```
 
 If there is no output some diagnostic information can be found in a newly created ./d00000.txt.
+
+Also note that the solver really doesnt like input file names that start with "NUM_...". I have
+no idea why, probably related to how fortran parses command line arguments.
 
 ## Questions
 
