@@ -166,6 +166,15 @@ If there is no output some diagnostic information can be found in a newly create
 Also note that the solver really doesnt like input file names that start with "NUM_...". I have
 no idea why, probably related to how fortran parses command line arguments.
 
+After running the above command a `stat1.gp` and `stat2.gp` file will be produced. These
+files can be plotted with `./scripts/snapshot.gp`:
+
+```
+./scripts/snapshot.gp
+```
+
+which will produce `1.png` and `2.png` for viewing.
+
 ## Questions
 
 email Sergei Chumakov at sergei@chumakov.info
