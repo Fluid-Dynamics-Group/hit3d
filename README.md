@@ -1,31 +1,23 @@
---------------------------------------------------------------------------------
-GENERAL
---------------------------------------------------------------------------------
+# Hit3DP
 HIT3DP is a pseudospectral DNS code, that is, it performs direct numerical 
 simulation of incompressible isotripic homogeneous turbulence with or without 
 forcing.  The code has capability of carrying passive scalars, Lagrangian 
 particles and Large Eddy Simulation
 
 
---------------------------------------------------------------------------------
-EXTRA PACKAGES
---------------------------------------------------------------------------------
+## Extra Packages
 The code is written in Fortran 90 and uses the two open libraries:
 - Open-MPI  (www.open-mpi.org)
 - FFTW3	    (www.fftw.org)
 
---------------------------------------------------------------------------------
-LICENSING
---------------------------------------------------------------------------------
+## LICENSING
 The code is distributed under the terms of GNU GPLv3 license.  You can read
 the full text of the license at http://www.gnu.org/licenses/gpl.html
 
 Copyright (C) 2006-2010 Sergei Chumakov, Natalia Vladimirova, Misha Stepanov
 
 
---------------------------------------------------------------------------------
-COMPILING THE CODE
---------------------------------------------------------------------------------
+## COMPILING THE CODE
 First, edit the Makefile:
 - add a section that corresponds to the name of your machine.  Ideally it should
   be a wrapper from your MPI implementation.
@@ -35,9 +27,7 @@ First, edit the Makefile:
 
 Run "gmake".
 
---------------------------------------------------------------------------------
-RUNNING THE CODE
---------------------------------------------------------------------------------
+## RUNNING THE CODE
 The directory "scripts" provides some examples of the batch job submission files.
 
 The directory "scripts" contains the following files:
@@ -51,9 +41,7 @@ coyote.sub	Running script for the Coyote cluster at LANL
 wcr.sub     	Example script for WCR cluster at Center for Turbuience Research 
 		at Stanford University
 
---------------------------------------------------------------------------------
-THE INPUT FILE
---------------------------------------------------------------------------------
+## THE INPUT FILE
 NX,NY,NZ  Number of grid points in one dimension.  The grid will be NX x NY x NZ.
 	  The physical dimensions will be 2*pi x 2*pi x 2*pi
 
@@ -159,7 +147,19 @@ TYPE:
 
 The reaction rate parameter is defunctional in this version of the code.
 
---------------------------------------------------------------------------------
-ANY QUESTIONS?
---------------------------------------------------------------------------------
+## Example
+The provided example in scripts/00_example.in is somewhat difficult to run out of the box. The
+solver requires that the file name (not including the .in extension) is 10 characters in length.
+Therefore, I have moved the example file to the project root (./input_file.in). 
+
+The solver may be run on the sample input file with 
+
+```
+./hit3d.x input_file
+```
+
+If there is no output some diagnostic information can be found in a newly created ./d00000.txt.
+
+## Questions
+
 email Sergei Chumakov at sergei@chumakov.info
