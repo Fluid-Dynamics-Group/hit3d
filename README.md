@@ -1,7 +1,15 @@
+# HIT3D Conservative Dissipation Control
+
+Control of 3D homogeneous isotropic turbulence with conservative dissipation.
+
+Author: Muralikrishnan Gopalakrishnan Meena, Oak Ridge National Laboratory
+
+The HIT3D code is a modified version of the original code forked from Sergei Chumakov's repository (http://schumakov.info/codes-hit3d.php).
+
 # Hit3DP
-HIT3DP is a pseudospectral DNS code, that is, it performs direct numerical 
-simulation of incompressible isotripic homogeneous turbulence with or without 
-forcing.  The code has capability of carrying passive scalars, Lagrangian 
+HIT3DP is a pseudospectral DNS code, that is, it performs direct numerical
+simulation of incompressible isotripic homogeneous turbulence with or without
+forcing.  The code has capability of carrying passive scalars, Lagrangian
 particles and Large Eddy Simulation
 
 
@@ -32,23 +40,45 @@ The directory "scripts" provides some examples of the batch job submission files
 
 The directory "scripts" contains the following files:
 
-00_example.in 	a sample input file
+00_example.in a sample input file
 
-snapshot.gp	a Gnuplot instruction file that creates two plots that 
- 		can get attached to the notification emails 
+snapshot.gp	a Gnuplot instruction file that creates two plots that
+ 		can get attached to the notification emails
 
-coyote.sub	Running script for the Coyote cluster at LANL
-wcr.sub     	Example script for WCR cluster at Center for Turbuience Research 
+coyote.sub Running script for the Coyote cluster at LANL
+wcr.sub Example script for WCR cluster at Center for Turbuience Research
 		at Stanford University
+
+## MGM's NOTES: COMPLING \& RUNNING THE CODE
+
+Edited: 05/22/2021
+
+1. Edit `MAKEFILE` and add details for your machine. See above and sample machine binaries given in the Makefile.
+1. Check input file `sample_inp.in`. File name (also run name) should have 10 characters.
+2. Compile:
+```
+make clean
+make
+```
+3. Run code:
+```
+mpirun -np <nproc> ./hit3d <run-name> "nosplit"
+```
+Add this to submission file to run in HPC.
+
+Notes:
+1. File extension edited! Check `io_write_4.f90`, `m_io.f90`, `restart_io.f90`
+1. Scalar statistics: `stat1.gp` \& `stat2.gp` (see `m_stat.f90`)
+1. E-spectra in time: `es.gp` (see `m_stat.f90`)
 
 ## THE INPUT FILE
 `NX`,`NY`,`NZ`  Number of grid points in one dimension.  The grid will be NX x NY x NZ.
 	  The physical dimensions will be 2*pi x 2*pi x 2*pi
 
-`ITMIN`	The timestep number of the restart file.  The restart files have names 
-	such as "test__this.64.123456".  Here, "test__this" is the run name, 
-	"64" signifies that the file is written with double precision and 
-	"123456" is the timestep number.  If the ITMIN is set to 0, the 
+`ITMIN`	The timestep number of the restart file.  The restart files have names
+	such as "test__this.64.123456".  Here, "test__this" is the run name,
+	"64" signifies that the file is written with double precision and
+	"123456" is the timestep number.  If the ITMIN is set to 0, the
 	subroutine that defines	the initial conditionis for the flow is called.
 
 `ITMAX`	The maximum number of timesteps in the simulation.
@@ -62,7 +92,7 @@ wcr.sub     	Example script for WCR cluster at Center for Turbuience Research
 `TMAX` The runtime of the simulation (not the wallclocok time)
 
 `TRESCALE` The time at which to rescale the velocity.  This is used in decaying
-	  simulations when we want to establish some correlations first and 
+	  simulations when we want to establish some correlations first and
 	  then rescale the velocity field so it has higher kinetic energy.
 
 `TSCALAR` When to start moving the passive scalars.
@@ -96,7 +126,7 @@ wcr.sub     	Example script for WCR cluster at Center for Turbuience Research
 DEFUNCTIONAL.  In the current version of the code, the seeds for the
 random number generator are fixed and are taken from the input file.
 The fixed seeds have the effect of producing the initial data that
-looks similar for different resolutions (the large features of 
+looks similar for different resolutions (the large features of
 initial flow in 32^3 simulation will look similar to the large features
 of a 1024^3 simulation if the seeds are the same).
 
@@ -117,7 +147,7 @@ of a 1024^3 simulation if the seeds are the same).
 
 * 0 - trilinear interpolations
 * 1 - 4-point cubic interpolation
-	
+
 `time_p` time in the simulation when to release the particles in the flow
 
 `particle_filter_size`
@@ -131,7 +161,7 @@ to the velocity field before computing the particles' velocities.
 `NUMS` The number of passive scalars to carry around
 
 The last section contains the parameters of the passive scalars.  Each scalar
-must have the type, Schmidt number, infrared exponent, peak wavenumber and 
+must have the type, Schmidt number, infrared exponent, peak wavenumber and
 reaction rate.
 
 `TYPE`:
@@ -153,9 +183,9 @@ The reaction rate parameter is defunctional in this version of the code.
 ## Example
 The provided example in scripts/00_example.in is somewhat difficult to run out of the box. The
 solver requires that the file name (not including the .in extension) is 10 characters in length.
-Therefore, I have moved the example file to the project root (./input_file.in). 
+Therefore, I have moved the example file to the project root (./input_file.in).
 
-The solver may be run on the sample input file with 
+The solver may be run on the sample input file with
 
 ```
 ./hit3d.x input_file

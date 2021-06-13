@@ -2,9 +2,9 @@
 
 # Define the correct flags and compilers
 
-#MPIF90 = mpif90
-HOSTNAME = mgmwork.ornl
-# HOSTNAME = gordon.navydsrc.hpc.mil
+MPIF90 = mpif90
+FCFLAGS = -O4 -c -fallow-argument-mismatch
+LDFLAGS = -O4 -L/usr/local/lib -lfftw3
 
 # Franklin cluster, NERSC
 ifeq ($(NERSC_HOST), franklin)
@@ -52,21 +52,14 @@ endif
 # sparrow.stanford.edu, Mac OS X box
 ifeq ($(HOSTNAME), sparrow.stanford.edu)
         MPIF90 = mpif90
-        FCFLAGS = -fdefault-real-8 -fdefault-integer-8 -finit-integer=0 -finit-real=zero -c
+        FCFLAGS = -fdefault-real-8 -fdefault-integer-8 -finit-integer=0 -finit-real=zero -c 
         FCFLAGS_F77 = -ffixed-form -ffixed-line-length-none
         FCFLAGS_F90 = -ffree-form -ffree-line-length-none
         LDFLAGS = -fdefault-real-8 -fdefault-integer-8 -finit-integer=0 -finit-real=zero -lmpi -lmpi -lfftw3 -lm
 endif
 
-# MGM_work, ORNL laptop
-ifeq ($(HOSTNAME), mgmwork.ornl)
-        MPIF90 = mpif90
-        FCFLAGS = -O3 -c -fallow-argument-mismatch
-        LDFLAGS = -O3 -L/usr/local/Cellar/fftw/3.3.9/lib -lfftw3
-endif
-
 # Program name
-PROG    = hit3d
+PROG    = hit3d.x
 
 # Modules
 MODULES = m_openmpi.o\
@@ -110,14 +103,16 @@ $(PROG):  $(MODULES) $(OBJ)
 	$(MPIF90) $(MODULES) $(OBJ) -o $(PROG) $(LDFLAGS)
 # -------------------------------------------------------
 # compile
+#$(MPIF90) $(FCFLAGS) $(FCFLAGS_F77)  $<
 
-$(OBJ): $(MODULES)
+$(OBJ): $(MODULES) 
 
 %.o: %.f
-	$(MPIF90) $(FCFLAGS) $(FCFLAGS_F77)  $<
+	$(MPIF90) $(FCFLAGS) -c $< -o $@
 
 %.o: %.f90
-	$(MPIF90) $(FCFLAGS) $<
+	$(MPIF90) $(FCFLAGS) -c $< -o $@
 
 clean:
 	rm *.o *.mod $(PROG)
+
