@@ -22,6 +22,7 @@ program x_code
   call m_timing_init   ! Setting the time zero
   call m_openmpi_init
   call m_io_init
+  ! read the input file (subroutine read_input_file)
   call m_parameters_init
   call m_les_init
   call m_fields_init
@@ -66,7 +67,7 @@ program x_code
   if (task.eq.'hydro') call divergence
 
 
-  ! indicators whether to use first-order in time 
+  ! indicators whether to use first-order in time
   ! for velocities and scalars
   fov = .true.
   fos = .true.
@@ -93,7 +94,7 @@ program x_code
 !  This is done with "if" rather than "select case" because if we're not
 !  splitting tasks then we want everything to be done consequently by the
 !  same set of processors.
-!  
+!
 !  All the syncronization calls (fields_to_parts, fields_to_stats) will be
 !  called only if (task_split).
 !--------------------------------------------------------------------------------
@@ -108,7 +109,7 @@ program x_code
         ! taking care of rescaling when running decaying turbulence
         ! if the time just was divisible by TRESCALE
         ! ------------------------------------------------------------
-        if (flow_type.eq.0 .and. floor((time-dt)/TRESCALE) .lt. floor(time/TRESCALE)) then 
+        if (flow_type.eq.0 .and. floor((time-dt)/TRESCALE) .lt. floor(time/TRESCALE)) then
            ! ...and if we haven't rescaled NRESCALE times
            if (floor(time/TRESCALE) .le. NRESCALE .and. itime.ne.1) then
               write(out,*) "MAIN: Rescaling velocities"
@@ -227,7 +228,7 @@ program x_code
 
 !--------------------------------------------------------------------------------
 !                             PARTICLE PARTS
-!  NOTE: This is not enabled to work when not task_split.  
+!  NOTE: This is not enabled to work when not task_split.
 !  Need to return to it later.
 !  Currently the particles can be calculated only if we split the tasks due to
 !  requirements on the wrk array sizes in the particle interpolation routines.
@@ -259,7 +260,7 @@ program x_code
 !--------------------------------------------------------------------------------
 
 
-     ! every 10 iterations checking 
+     ! every 10 iterations checking
      ! 1) for the run time: are we getting close to the job_runlimit?
      ! 2) for the user termination: is there a file "stop" in directory?
      if (mod(ITIME,10).eq.0) then
@@ -352,5 +353,5 @@ program x_code
 
   close(out)
 
-  stop 
+  stop
 end subroutine benchmark

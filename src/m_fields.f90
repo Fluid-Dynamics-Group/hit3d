@@ -2,6 +2,7 @@ module m_fields
 
   implicit none
 
+  ! TODO: what is this variable
   real*8, allocatable :: fields(:,:,:,:)
 
 !================================================================================
@@ -50,7 +51,7 @@ contains
 
 
 !--------------------------------------------------------------------------------
-!  Subroutine that broadcasts the array "fields" from the hydro part to the 
+!  Subroutine that broadcasts the array "fields" from the hydro part to the
 !  "stats" part of the code
 !--------------------------------------------------------------------------------
   subroutine fields_to_stats
@@ -153,7 +154,7 @@ contains
 
     else
 
-       ! now doing the same for the case when more processors are involved in 
+       ! now doing the same for the case when more processors are involved in
        ! the "stat" part than in "hydro" part
 
        ratio = numprocs_stats / numprocs_hydro
@@ -238,7 +239,7 @@ contains
     ! if have not yet started moving particles, return
     if (TIME.lt.starttime_particles) return
 
-    ! if this is the first timestep when we need to start moving particles, 
+    ! if this is the first timestep when we need to start moving particles,
     ! change the int_particle variable
     if (TIME.ge.starttime_particles .and. .not. int_particles) then
        write(out,*) 'Starting to move particles'
@@ -310,7 +311,7 @@ contains
 
     else
 
-       ! now doing the same for the case when more processors are involved in 
+       ! now doing the same for the case when more processors are involved in
        ! the "parts" part than in "hydro" part
 
        ratio = numprocs_parts / numprocs_hydro
@@ -407,8 +408,4 @@ contains
 !!$  end subroutine check_bcast
 !!$
 
-
-
 end module m_fields
-
-

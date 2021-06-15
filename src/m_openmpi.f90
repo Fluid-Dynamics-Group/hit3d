@@ -55,10 +55,10 @@ contains
     integer*4 :: np_local
     integer :: i
 
-    ! first getting the run name form the command line 
+    ! first getting the run name form the command line
     ! (it's local, not  global run_name)
     ! also getting the parameter "split" which governs the process splitting:
-    ! split="split" means that hydro, statistics and particles are assigned three 
+    ! split="split" means that hydro, statistics and particles are assigned three
     ! separate process groups (they differ by the char*5 parameter "task").
     ! split="never" (default if the parameter is missing) means that all
     ! processes do all tasks. (does not work for the particles at this point)
@@ -96,7 +96,7 @@ contains
     ! first finding out if there are any particles involved.
     ! if there are no particles, then we split the processors in two parts:
     ! hydro and stats.  If there are some particles, we split the processors
-    ! in three parts: "hydro", "stats" and "parts".  The variables that 
+    ! in three parts: "hydro", "stats" and "parts".  The variables that
     ! determines which part the process belongs to is "task".
 
     ! first see, how many particles are there
@@ -104,6 +104,9 @@ contains
        ! opening the inupt file
        open(99,file=run_name_local//'.in')
        ! skipping the first 35 lines
+       ! TODO: update this to the new input file specification. This is currently reading wrong information
+       ! TODO: i think this code will be avoided if running with "nosplit" since it hits the GOTO
+       !        and barrels down the page
        do i = 1,35
           read(99,*)
        end do
@@ -179,16 +182,16 @@ contains
        myid = myid_world - numprocs_hydro - numprocs_stats
     end if
 
-!--------------------------------------------------------------------------------   
+!--------------------------------------------------------------------------------
 !  The actual task splitting happens here
-!--------------------------------------------------------------------------------   
+!--------------------------------------------------------------------------------
 1000 continue
     call MPI_COMM_SPLIT(MPI_COMM_WORLD,color,myid,MPI_COMM_TASK,mpi_err)
     call MPI_COMM_SIZE(MPI_COMM_TASK,numprocs,mpi_err)
     call MPI_COMM_RANK(MPI_COMM_TASK,myid,mpi_err)
 
 
-    ! each task will have its master process 
+    ! each task will have its master process
     master = 0
     iammaster = .false.
     if (myid.eq.master) iammaster=.true.
@@ -196,7 +199,7 @@ contains
 
 !!$    ! The following is put on hold because it looks like a crazy idea
 
-!!$    ! now creating separate exclusive communicator for the master nodes only 
+!!$    ! now creating separate exclusive communicator for the master nodes only
 !!$    ! the name of the new communicator is MPI_COMM_ROOTS
 !!$    ! if we want quickly broadcast something, then we can use two BCAST calls
 !!$    color = 1
@@ -243,7 +246,7 @@ contains
 
     ! getting the split parameter, if it's there
     if(iargc().eq.2) call getarg(2,split)
-       
+
 
   end subroutine openmpi_get_command_line
 
