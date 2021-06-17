@@ -52,7 +52,7 @@ endif
 # sparrow.stanford.edu, Mac OS X box
 ifeq ($(HOSTNAME), sparrow.stanford.edu)
         MPIF90 = mpif90
-        FCFLAGS = -fdefault-real-8 -fdefault-integer-8 -finit-integer=0 -finit-real=zero -c 
+        FCFLAGS = -fdefault-real-8 -fdefault-integer-8 -finit-integer=0 -finit-real=zero -c
         FCFLAGS_F77 = -ffixed-form -ffixed-line-length-none
         FCFLAGS_F90 = -ffree-form -ffree-line-length-none
         LDFLAGS = -fdefault-real-8 -fdefault-integer-8 -finit-integer=0 -finit-real=zero -lmpi -lmpi -lfftw3 -lm
@@ -93,7 +93,8 @@ OBJ     = main.o\
 	rhs_velocity.o\
 	rhs_scalars.o\
 	velocity_rescale.o\
-	write_tmp4.o
+	write_tmp4.o \
+	write_data.o
 
 
 # -------------------------------------------------------
@@ -105,7 +106,7 @@ $(PROG):  $(MODULES) $(OBJ)
 # compile
 #$(MPIF90) $(FCFLAGS) $(FCFLAGS_F77)  $<
 
-$(OBJ): $(MODULES) 
+$(OBJ): $(MODULES)
 
 %.o: %.f
 	$(MPIF90) $(FCFLAGS) -c $< -o $@

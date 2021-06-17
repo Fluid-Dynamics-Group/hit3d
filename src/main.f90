@@ -293,14 +293,19 @@ program x_code
 !  In a case when we've gone to ITMAX, write the restart file
 !--------------------------------------------------------------------------------
 
-     ITIME = ITIME-1
-     if (task.eq.'hydro') call restart_write_parallel
-     call my_exit(0)
-     call m_openmpi_exit
+    write(out, *) "WRITE VELOCITY FIELD"
+    call write_velocity_field
 
-     stop
+    ITIME = ITIME-1
+    if (task.eq.'hydro') call restart_write_parallel
+    call my_exit(0)
+    call m_openmpi_exit
+
+    stop
 9000 format('ITIME=',i6,3x,'TIME=',f8.4,4x,'DT=',f8.5,3x,'Courn= ',f6.4, &
           2x,'CPU:(',i4.4,':',i2.2,':',i2.2,')',x,a1,x,a3)
+
+
    end program x_code
 
 
