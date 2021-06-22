@@ -20,6 +20,7 @@ contains
     n = 3 + n_scalars + n_les
 
     allocate(fields(nx+2,ny,nz,n), stat=ierr)
+
     if (ierr.ne.0) then
        write(out,*) "Cannot allocate fields, stopping."
        call my_exit(-1)

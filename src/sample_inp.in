@@ -42,6 +42,8 @@ INPUT FILE FOR THE SPECTRAL CODE WITH SCALARS   (example for v.1.0.0)
 0.1		time_p, when to release the particles into the flow
 0.7		particle_filter_size, in case we average the velocity
 ----------------------------------------------------------------------
+1       skip_diffusion: skip calculating diffusion term in rhs_velocity (1=yes, 0=no)
+----------------------------------------------------------------------
 0               les_model, the LES model (0=none, see the README.txt)
 ----------------------------------------------------------------------
 1		nums, # of passive scalars. if > 0, read the following

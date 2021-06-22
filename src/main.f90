@@ -115,7 +115,7 @@ program x_code
               write(out,*) "MAIN: Rescaling velocities"
               call flush(out)
               call velocity_rescale
-              ! after rescaling, the time-sceping needs to be first order
+              ! after rescaling, the time-stepping needs to be first order
               fov = .true.; fos = .true.
               if (.not. task_split .and. mod(itime,iprint1).eq.0) call stat_main
            end if
@@ -221,7 +221,12 @@ program x_code
            ! these are executed regardless of the processor configuration
            if (task_split) call fields_to_stats
            if (mod(itime,iprint1).eq.0) call stat_main
-           if (mod(itime,iwrite4).eq.0) call io_write_4
+           if (mod(itime,iwrite4).eq.0) then
+               call io_write_4
+               ! we can write the velocity data from after calling io_write_4 since
+               ! io_write_4 modifies the wrk variable to be isotropic
+               if (itime == itmax) call write_velocity_field(int(itime))
+           end if
 
         end if
      end if stats
@@ -293,8 +298,6 @@ program x_code
 !  In a case when we've gone to ITMAX, write the restart file
 !--------------------------------------------------------------------------------
 
-    write(out, *) "WRITE VELOCITY FIELD"
-    call write_velocity_field
 
     ITIME = ITIME-1
     if (task.eq.'hydro') call restart_write_parallel

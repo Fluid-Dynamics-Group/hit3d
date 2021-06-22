@@ -1,28 +1,31 @@
-subroutine write_velocity_field
-    use m_fields     ! fields
+subroutine write_velocity_field(current_timestep)
+    use m_work ! fields
     use m_parameters ! nx, ny, nz
+
     implicit none
 
-    integer :: filenumber, meta_file, i, j, k
+    integer :: filenumber, meta_file, i, j, k, current_timestep
+    !real*8, allocatable :: fields(:,:,:,:)
     real*8 :: u, v,w
-    character(len=30) :: filename, sizefile
+
+    character(len=60) :: filename, sizefile
 
     write(*,*) "writing velocity field out"
 
     filenumber = 619
 
-    write(filename, "('output/velocity_field/', i2.2, '.csv')") myid_world
+    write(filename, "('output/velocity_field/', i2.2, '_', i5.5, '.csv')") myid_world, current_timestep
     write(*,*) filename
-    open(filenumber, file=filename)
+    open(filenumber, file=filename, status="new")
 
     write(filenumber, "(A5)") "u,v,w"
 
     do k = 1,nz
       do j = 1,ny
           do i = 1,nx
-              u = fields(i,j,k,1)
-              v = fields(i,j,k,2)
-              w = fields(i,j,k,3)
+              u = wrk(i,j,k,1)
+              v = wrk(i,j,k,2)
+              w = wrk(i,j,k,3)
               write(filenumber, "(E16.10, A1, E16.10, A1, E16.10)") u, ",", v, ",", w
           end do
       end do

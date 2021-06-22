@@ -185,22 +185,37 @@ subroutine rhs_velocity
 
                  ! RHS for u, v and w
                  do n = 1,3
-                    ! ===========================MGM-Forcing=====================
-                    ! ! taking the convective term, multiply it by "i"
-                    ! ! (see how it's done in x_fftw.f90)
-                    ! ! and adding the diffusion term
-                    ! rtmp =           - wrk(i+1,j,k,n) + wrk(i  ,j,k,4) * fields(i  ,j,k,n) &
-                    !                                   + fcomp(i  ,j,k,n)
-                    ! wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) + wrk(i+1,j,k,4) * fields(i+1,j,k,n) &
-                    !                                   + fcomp(i+1,j,k,n)
-                    ! wrk(i  ,j,k,n) = rtmp
 
-                    ! Validation by inviscid flow
-                    rtmp =           - wrk(i+1,j,k,n) & ! + wrk(i  ,j,k,4) * fields(i  ,j,k,n) &
-                                                      + fcomp(i  ,j,k,n)
-                    wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) & ! + wrk(i+1,j,k,4) * fields(i+1,j,k,n) &
-                                                      + fcomp(i+1,j,k,n)
-                    wrk(i  ,j,k,n) = rtmp
+                    ! this is what the code was like before MGM
+                    ! https://github.com/Fluid-Dynamics-Group/hit3d/blob/92db6d9e864bdbf2248b025a71f315cba21d72fd/rhs_velocity.f90#L129-L135
+                    if (skip_diffusion == 1) then ! skip diffusion calculation
+                        ! ===========================MGM-Forcing=====================
+                        ! Validation by inviscid flow
+                        rtmp =           - wrk(i+1,j,k,n) & ! + wrk(i  ,j,k,4) * fields(i  ,j,k,n) &
+                                                          + fcomp(i  ,j,k,n)
+                        wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) & ! + wrk(i+1,j,k,4) * fields(i+1,j,k,n) &
+                                                          + fcomp(i+1,j,k,n)
+                        wrk(i  ,j,k,n) = rtmp
+                    else ! dont skip the diffusion calculation
+                        ! ==========================================================
+                        ! BROOKS: original hit3d code with MGM forcing is here (with diffusion, i think)
+                        ! ==========================================================
+
+                        ! taking the convective term, multiply it by "i"
+                        ! (see how it's done in x_fftw.f90)
+                        ! and adding the diffusion term
+                            !rtmp =           - wrk(i+1,j,k,n) + wrk(i  ,j,k,4) * fields(i  ,j,k,n) &
+                            !                                  + fcomp(i  ,j,k,n)
+                            !wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) + wrk(i+1,j,k,4) * fields(i+1,j,k,n) &
+                            !                                  + fcomp(i+1,j,k,n)
+                            !wrk(i  ,j,k,n) = rtmp
+                        rtmp =           - wrk(i+1,j,k,n) & ! + wrk(i  ,j,k,4) * fields(i  ,j,k,n) &
+                                                          + fcomp(i  ,j,k,n)
+                        wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) & ! + wrk(i+1,j,k,4) * fields(i+1,j,k,n) &
+                                                          + fcomp(i+1,j,k,n)
+                        wrk(i  ,j,k,n) = rtmp
+
+                    end if
 
                  end do
 
@@ -256,8 +271,15 @@ subroutine rhs_velocity
               t1(1) = - ( akx(i) * wrk(i,j,k,1) + aky(k) * wrk(i,j,k,2) + akz(j) * wrk(i,j,k,3) )
               t1(2) = - ( akx(i) * wrk(i,j,k,2) + aky(k) * wrk(i,j,k,4) + akz(j) * wrk(i,j,k,5) )
               t1(3) = - ( akx(i) * wrk(i,j,k,3) + aky(k) * wrk(i,j,k,5) + akz(j) * wrk(i,j,k,6) )
-              ! putting a factor from the diffusion term into t1(4) (and later in wrk4)
-              t1(4) = - nu * ( akx(i)**2 + aky(k)**2 + akz(j)**2 )
+
+
+              if (skip_diffusion == 1) then ! we are not handling any diffusion terms
+                  t1(4) = 0
+              else ! we _ARE_ handling diffusion terms
+                  ! putting a factor from the diffusion term into t1(4) (and later in wrk4)
+                  t1(4) = - nu * ( akx(i)**2 + aky(k)**2 + akz(j)**2 )
+              end if
+
               do n = 1,4
                  wrk(i,j,k,n) = t1(n)
               end do
@@ -286,14 +308,24 @@ subroutine rhs_velocity
                  wrk(i  ,j,k,1:3) = zip
                  wrk(i+1,j,k,1:3) = zip
               else
-                 ! RHS for u, v and w
-                 do n = 1,3
-                    ! taking the HALF of the convective term, multiply it by "i"
-                    ! and adding the diffusion term
-                    rtmp =           - 0.5d0 * wrk(i+1,j,k,n) + wrk(i  ,j,k,4) * fields(i  ,j,k,n)
-                    wrk(i+1,j,k,n) =   0.5d0 * wrk(i  ,j,k,n) + wrk(i+1,j,k,4) * fields(i+1,j,k,n)
-                    wrk(i  ,j,k,n) = rtmp
-                 end do
+                  if (skip_diffusion == 1) then ! we _ARE NOT_ doing diffusion calculations
+                     ! RHS for u, v and w
+                    do n = 1,3
+                        rtmp =           - 0.5d0 * wrk(i+1,j,k,n) !+ wrk(i  ,j,k,4) * fields(i  ,j,k,n)
+                        wrk(i+1,j,k,n) =   0.5d0 * wrk(i  ,j,k,n) !+ wrk(i+1,j,k,4) * fields(i+1,j,k,n)
+                        wrk(i  ,j,k,n) = rtmp
+                    end do
+                else ! we _ARE_ doing diffusion calculations
+                     ! RHS for u, v and w
+                     do n = 1,3
+                        ! taking the HALF of the convective term, multiply it by "i"
+                        ! and adding the diffusion term
+                        rtmp =           - 0.5d0 * wrk(i+1,j,k,n) + wrk(i  ,j,k,4) * fields(i  ,j,k,n)
+                        wrk(i+1,j,k,n) =   0.5d0 * wrk(i  ,j,k,n) + wrk(i+1,j,k,4) * fields(i+1,j,k,n)
+                        wrk(i  ,j,k,n) = rtmp
+                    end do
+
+                 end if
               end if
 
            end do

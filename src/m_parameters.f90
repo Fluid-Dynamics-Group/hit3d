@@ -71,6 +71,9 @@ module m_parameters
   ! the following variables address that concern
   real*8  :: particles_filter_size
 
+  ! whether or not to skip calculating the diffusion term of euler
+  integer :: skip_diffusion;
+
   ! number of particles assigned to the processor
   ! and the total number of particles
   integer(kind=MPI_INTEGER_KIND) :: np, np1, nptot
@@ -421,7 +424,14 @@ contains
 
     read(in,*)
 
+    ! -------------------------------------------------------------
 
+    ! check if w diffusion terms should be calculated
+
+    read(in, *, err=9000) skip_diffusion
+    write(out, *) "skip_diffusion: ", skip_diffusion
+
+    read(in,*)
     ! -------------------------------------------------------------
 
     read(in,*,ERR=9000,END=9000) les_model
@@ -470,6 +480,7 @@ contains
 
        end do
     end if
+
 
     ! -------------------------------------------------------------
 

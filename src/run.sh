@@ -9,7 +9,7 @@ touch output/velocity/.gitignore
 touch output/velocity_field/.gitignore
 
 make
-nproc=1
+nproc=16
 mpirun -np "$nproc" ./hit3d.x sample_inp "nosplit"
 
 # run postprocessing stuff
