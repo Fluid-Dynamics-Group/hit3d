@@ -177,11 +177,14 @@ subroutine rhs_velocity
               ! The rest of the modes is purged
 
               if (ialias(i,j,k) .gt. 0) then ! run for dealias=0
+                  !write(*,*) "AVOIDING THE MGM CODE"
+
                  ! setting the Fourier components to zero
                  wrk(i  ,j,k,1:3) = zip
                  wrk(i+1,j,k,1:3) = zip
 
               else ! run for dealias=1
+                  !write(*,*) "RUNNING THE MGM CODE"
 
                  ! RHS for u, v and w
                  do n = 1,3
@@ -204,14 +207,9 @@ subroutine rhs_velocity
                         ! taking the convective term, multiply it by "i"
                         ! (see how it's done in x_fftw.f90)
                         ! and adding the diffusion term
-                            !rtmp =           - wrk(i+1,j,k,n) + wrk(i  ,j,k,4) * fields(i  ,j,k,n) &
-                            !                                  + fcomp(i  ,j,k,n)
-                            !wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) + wrk(i+1,j,k,4) * fields(i+1,j,k,n) &
-                            !                                  + fcomp(i+1,j,k,n)
-                            !wrk(i  ,j,k,n) = rtmp
-                        rtmp =           - wrk(i+1,j,k,n) & ! + wrk(i  ,j,k,4) * fields(i  ,j,k,n) &
+                        rtmp =           - wrk(i+1,j,k,n) + wrk(i  ,j,k,4) * fields(i  ,j,k,n) &
                                                           + fcomp(i  ,j,k,n)
-                        wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) & ! + wrk(i+1,j,k,4) * fields(i+1,j,k,n) &
+                        wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) + wrk(i+1,j,k,4) * fields(i+1,j,k,n) &
                                                           + fcomp(i+1,j,k,n)
                         wrk(i  ,j,k,n) = rtmp
 
@@ -272,13 +270,7 @@ subroutine rhs_velocity
               t1(2) = - ( akx(i) * wrk(i,j,k,2) + aky(k) * wrk(i,j,k,4) + akz(j) * wrk(i,j,k,5) )
               t1(3) = - ( akx(i) * wrk(i,j,k,3) + aky(k) * wrk(i,j,k,5) + akz(j) * wrk(i,j,k,6) )
 
-
-              if (skip_diffusion == 1) then ! we are not handling any diffusion terms
-                  t1(4) = 0
-              else ! we _ARE_ handling diffusion terms
-                  ! putting a factor from the diffusion term into t1(4) (and later in wrk4)
-                  t1(4) = - nu * ( akx(i)**2 + aky(k)**2 + akz(j)**2 )
-              end if
+              t1(4) = - nu * ( akx(i)**2 + aky(k)**2 + akz(j)**2 )
 
               do n = 1,4
                  wrk(i,j,k,n) = t1(n)
@@ -304,10 +296,13 @@ subroutine rhs_velocity
               ! The rest of the modes is purged.
 
               if  (ialias(i,j,k) .gt. 1) then ! run for dealias = 1
+                !write(*,*) "AVOIDING THE BROOKS CODE CODE"
                  ! setting the Fourier components to zero
                  wrk(i  ,j,k,1:3) = zip
                  wrk(i+1,j,k,1:3) = zip
               else ! run for dealias = 0
+                  !write(*,*) "RUNNING THE BROOKS CODE"
+
                   if (skip_diffusion == 1) then ! we _ARE NOT_ doing diffusion calculations
                      ! RHS for u, v and w
                     do n = 1,3

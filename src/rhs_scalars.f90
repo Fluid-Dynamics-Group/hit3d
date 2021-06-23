@@ -17,7 +17,7 @@ subroutine rhs_scalars
   ! calculate turbulent viscosity, if any
   if (les) call les_get_turb_visc
 
-  ! If we're not advancing scalars, put the real-space velocities 
+  ! If we're not advancing scalars, put the real-space velocities
   ! in wrk1...3 and return
   ! same is done if dealias=0, that is, we use 2/3 rule.
   ! if dealias=1 (phase shifts) then this is done later in the subroutine
@@ -53,7 +53,7 @@ subroutine rhs_scalars
         call xFFT3d(-1,n)
      end do
 
-     ! Do each scalar one at a time.  Keep the velocities in wrk1:3 intact 
+     ! Do each scalar one at a time.  Keep the velocities in wrk1:3 intact
      ! because they are needed later.
 
      ! first we need to know which scalars do we want to transport.
@@ -65,11 +65,11 @@ subroutine rhs_scalars
      ! This is possible when n_les > 0 and int_scalars=.true.
      ! (2) Only LES extra scalars are transported
      ! This is possible if and only if (.not.int_scalars .and. n_les>0)
-     ! 
-     ! The last two cases are taken care of by prescribing ns_lo and ns_hi, the 
+     !
+     ! The last two cases are taken care of by prescribing ns_lo and ns_hi, the
      ! smallest and largest number of the scalar that needs to be transported.
 
-     ns_lo = 1; 
+     ns_lo = 1;
      ns_hi = n_scalars + n_les
      if (.not.int_scalars) ns_lo = n_scalars + 1
 
@@ -99,7 +99,7 @@ subroutine rhs_scalars
                     wrk(i+1,j,k,3+n) = zip
 
                  else
-                    ! taking the convective term, multiply it by "i" 
+                    ! taking the convective term, multiply it by "i"
                     ! (see how it's done in x_fftw.f90)
                     ! and adding the diffusion term
 
@@ -144,7 +144,7 @@ subroutine rhs_scalars
   phase_shifting_dealiasing: if (dealias.eq.1) then
 
      ! define the sin/cos factors that are used in phase shifting.
-     ! computing sines and cosines for the phase shift of dx/2,dy/2,dz/2 
+     ! computing sines and cosines for the phase shift of dx/2,dy/2,dz/2
      ! and putting them into wrk0
      do k = 1,nz
         do j = 1,ny
@@ -176,7 +176,7 @@ subroutine rhs_scalars
      end do
 
      ! now we have two vacant arrays: n_scalars+n_les+4 and n_scalars+n_les+5.  Work in them
-     n1 = n_scalars + n_les + 4 
+     n1 = n_scalars + n_les + 4
      n2 = n_scalars + n_les + 5
 
      ! do one scalar at a time
@@ -188,8 +188,8 @@ subroutine rhs_scalars
         wrk(:,:,:,n2) = wrk(:,:,:,n) * wrk(:,:,:,2)
         wrk(:,:,:,n ) = wrk(:,:,:,n) * wrk(:,:,:,3)
         ! transforming them to Fourier space
-        call xFFT3d(1,n1)  
-        call xFFT3d(1,n2)  
+        call xFFT3d(1,n1)
+        call xFFT3d(1,n2)
         call xFFT3d(1,n )
 
         ! phase shifting them back using wrk0 and adding -0.5*(ik) to the RHS for the scalar
@@ -231,7 +231,7 @@ subroutine rhs_scalars
         call xFFT3d(-1,n)
      end do
 
-     ! now do scalars one at a time since we don't have enough storage to do them 
+     ! now do scalars one at a time since we don't have enough storage to do them
      ! all at once
 
      not_phase_shifted_rhs: do n = 4, 3 + n_scalars + n_les
@@ -259,7 +259,15 @@ subroutine rhs_scalars
                     rtmp1 =   akx(i+1)*wrk(i+1,j,k,n1) + aky(k)*wrk(i+1,j,k,n2) + akz(j)*wrk(i+1,j,k,0)
                     rtmp2 =   akx(i  )*wrk(i  ,j,k,n1) + aky(k)*wrk(i  ,j,k,n2) + akz(j)*wrk(i  ,j,k,0)
 
-                    wnum2 = akx(i)**2 + aky(k)**2 + akz(j)**2
+                    ! i think this is a valid way to skip the diffusion term
+                    ! but im really just throwing science at the wall here
+                    ! and seeing what sticks
+                    if (skip_diffusion ==1) then
+                        wnum2 = 0.0
+                    else
+                        wnum2 = akx(i)**2 + aky(k)**2 + akz(j)**2
+                    endif
+
                     wrk(i  ,j,k,n) = wrk(i  ,j,k,n) + 0.5d0 * rtmp1 - pe(n-3) * wnum2*fields(i  ,j,k,n)
                     wrk(i+1,j,k,n) = wrk(i+1,j,k,n) - 0.5d0 * rtmp2 - pe(n-3) * wnum2*fields(i+1,j,k,n)
 
@@ -271,9 +279,9 @@ subroutine rhs_scalars
      end do not_phase_shifted_rhs
 
      ! ------------------------------------------------------------
-     ! Add the reaction rates to the RHS     
-     ! 
-     ! The LES-related scalars are not affected because the 
+     ! Add the reaction rates to the RHS
+     !
+     ! The LES-related scalars are not affected because the
      ! upper bound for n is 3+n_scalars, not 3+n_scalars+n_les
      ! -----------------------------------------------------------
 
@@ -420,7 +428,7 @@ subroutine add_reaction(n)
   ! reaction type
   rtype =  scalar_type(n)/100
 
-  ! raction rate 
+  ! raction rate
   rrate = reac_sc(n)
 
   select case (rtype)
@@ -431,7 +439,7 @@ subroutine add_reaction(n)
 
   case (2)
 
-     ! symmetric bistable       
+     ! symmetric bistable
      wrk(:,:,:,0) = rrate * (1.d0 - wrk(:,:,:,0)**2) * wrk(:,:,:,0)
 
   case (3)
@@ -561,7 +569,7 @@ subroutine test_rhs_scalars
               z = dx*real(myid*nz + k-1)
 
 
-              ! checking 
+              ! checking
               wrk(i,j,k,0) = -a*cos(2.*a*x) - cos(a*x)*(b*cos(b*y) + c*cos(c*z) + nu*a**2)
 
            end do

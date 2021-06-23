@@ -111,6 +111,8 @@ subroutine calculate_energy(energy)
     integer:: i, j, k
     real*8 :: energy, u, v, w
 
+    energy = 0
+
     !write(*,*) "energy"
 
     do i =1,nx
@@ -134,12 +136,14 @@ subroutine calculate_helicity(helicity)
     use m_parameters ! dx, dy, dz
 
     implicit none
-    real*8 :: helicity
+    real*8 :: helicity, tmp
     real*8 :: u,v,w
     real*8 :: omg_x, omg_y, omg_z
     integer :: i, j, k
 
-    !write(*,*) "helicity"
+    helicity = 0
+
+    ! write(*,*) "helicity"
 
     ! start by calculating the vorticity,
     ! store the results in OmgX, OmgY, OmgZ
@@ -152,26 +156,48 @@ subroutine calculate_helicity(helicity)
                 v = wrk(i,j,k,2)
                 w = wrk(i,j,k,3)
 
-                if (u/=u) write(*,*) "u nan"
-                if (v/=v) write(*,*) "v nan"
-                if (w/=w) write(*,*) "w nan"
+                ! if (u/=u) write(*,*) "u nan"
+                ! if (v/=v) write(*,*) "v nan"
+                ! if (w/=w) write(*,*) "w nan"
 
                 omg_x = OmgX(i,j,k)
                 omg_y = OmgY(i,j,k)
                 omg_z = OmgZ(i,j,k)
 
-                if (omg_x/=omg_x) write(*,*) "omgx nan"
-                if (omg_y/=omg_y) write(*,*) "omgy nan"
-                if (omg_z/=omg_z) write(*,*) "omgz nan"
+                ! if (omg_x/=omg_x) write(*,*) "omgx nan"
+                ! if (omg_y/=omg_y) write(*,*) "omgy nan"
+                ! if (omg_z/=omg_z) write(*,*) "omgz nan"
 
-                helicity = helicity + (u*omg_x) + (v * omg_y) + (w *omg_z)
+                tmp = (u*omg_x) + (v * omg_y) + (w *omg_z)
+
+                helicity = helicity + tmp
+
+
             end do
         end do
     end do
 
-    helicity = helicity * dx * dy * dz
+    if (helicity /= helicity) then
+        write(*,*) "HELICITY IS NAN! This is a hard error - stopping"
 
-    if (helicity /= helicity) write(*,*) "helicity is nan"
+        !write(*, *) "u", u
+        !write(*, *) "v", v
+        !write(*, *) "w", w
+
+        !write(*, *) "omg x", omg_x
+        !write(*, *) "omg y", omg_y
+        !write(*, *) "omg z", omg_z
+
+        !write(*,*) "u * omgx", u*omg_x
+        !write(*,*) "v * omgy", v*omg_y
+        !write(*,*) "w * omgz", w*omg_z
+
+        !write(*,*) "tmp", tmp
+
+        stop 1
+    end if
+
+    helicity = helicity * dx * dy * dz
 
 end subroutine calculate_helicity
 

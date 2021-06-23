@@ -12,8 +12,7 @@ touch output/energy/.gitignore
 
 make
 nproc=16
-mpirun -np "$nproc" ./hit3d.x sample_inp "nosplit"
-
+mpirun -np "$nproc" ./hit3d.x sample_inp "nosplit" &&\
 # run postprocessing stuff
-cd ~/github/hit3d-utils/
+cd ~/github/hit3d-utils/ &&\
 sh run.sh
