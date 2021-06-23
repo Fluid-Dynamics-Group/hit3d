@@ -27,6 +27,7 @@ program x_code
   call m_les_init
   call m_fields_init
   call m_work_init
+  call init_write_energy
 
 
   ! allocating and initializing FFTW arrays
@@ -223,6 +224,8 @@ program x_code
            if (mod(itime,iprint1).eq.0) call stat_main
            if (mod(itime,iwrite4).eq.0) then
                call io_write_4
+               ! write energy and helicity to a csv
+               call write_energy(int(itime))
                ! we can write the velocity data from after calling io_write_4 since
                ! io_write_4 modifies the wrk variable to be isotropic
                if (itime == itmax) call write_velocity_field(int(itime))

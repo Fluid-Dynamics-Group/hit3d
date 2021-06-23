@@ -176,12 +176,12 @@ subroutine rhs_velocity
               ! inside the cube described by $| k_i | \leq  k_{max}$, $i=1,2,3$.
               ! The rest of the modes is purged
 
-              if (ialias(i,j,k) .gt. 0) then
+              if (ialias(i,j,k) .gt. 0) then ! run for dealias=0
                  ! setting the Fourier components to zero
                  wrk(i  ,j,k,1:3) = zip
                  wrk(i+1,j,k,1:3) = zip
 
-              else
+              else ! run for dealias=1
 
                  ! RHS for u, v and w
                  do n = 1,3
@@ -303,11 +303,11 @@ subroutine rhs_velocity
               ! for which no more than one component of the k-vector is larger than nx/3.
               ! The rest of the modes is purged.
 
-              if  (ialias(i,j,k) .gt. 1) then
+              if  (ialias(i,j,k) .gt. 1) then ! run for dealias = 1
                  ! setting the Fourier components to zero
                  wrk(i  ,j,k,1:3) = zip
                  wrk(i+1,j,k,1:3) = zip
-              else
+              else ! run for dealias = 0
                   if (skip_diffusion == 1) then ! we _ARE NOT_ doing diffusion calculations
                      ! RHS for u, v and w
                     do n = 1,3
