@@ -22,14 +22,11 @@ subroutine io_write_4
 
   ! number of variables to write out
   ! =============================================================================
-  ! brooks: used to be =3 but added +1 so that pressure could be modified as well
+  ! brooks: used to be =3 but make =6 so that pressure could be modified as well
   ! =============================================================================
-  n_out = 4
+  n_out = 3
   if (int_scalars) n_out = n_out + n_scalars
   if (les .and. n_les>0) n_out = n_out + n_les
-
-  ! copy over the pressure variables to fields(:,:,:,4) so that the iterator will catch it
-  fields(:,:,:,4) = pressure_field
 
   ! putting all variables in wrk array
   do k = 1,nz
@@ -53,6 +50,7 @@ subroutine io_write_4
   tmp4(1:nx,1:ny,1:nz) = wrk(1:nx,1:ny,1:nz,1)
   call write_tmp4
 
+
   call xFFT3d(-1,2)
   fname = 'output/velocity/v.'//file_ext
   tmp4(1:nx,1:ny,1:nz) = wrk(1:nx,1:ny,1:nz,2)
@@ -62,6 +60,27 @@ subroutine io_write_4
   fname = 'output/velocity/w.'//file_ext
   tmp4(1:nx,1:ny,1:nz) = wrk(1:nx,1:ny,1:nz,3)
   call write_tmp4
+
+  ! putting all variables in wrk array
+  do k = 1,nz
+     do j = 1,ny
+        do i = 1,nx+2
+           wmag2 = akx(i)**2 + aky(k)**2 + akz(j)**2
+
+           if (wmag2 .gt. rkmax2) then
+              wrk(i,j,k,4:6) = zip
+           else
+              wrk(i,j,k,4:6) = pressure_field(i,j,k,1:3)
+           end if
+
+        end do
+     end do
+  end do
+
+  ! invert all the pressures
+  call xFFT3d(-1,4)
+  call xFFT3d(-1,5)
+  call xFFT3d(-1,6)
 
   ! scalars
   if (int_scalars) then

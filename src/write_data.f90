@@ -259,23 +259,27 @@ subroutine de_dt_term_2(term)
     real*8 term, a, b, c
     term = 0
 
+    ! from `io_write_4` the pressure field was copied into `wrk(:,:,:,4:6)`
+    ! and transformed into to isotropic conditions - we can now
+    ! work with it and the dot product
+
     ! ! calculate_vortiticity has already been called so we know
     ! ! dU/dX,dU/dY,dU/dZ,
     ! ! dV/dX,dV/dY,dV/dZ,
     ! ! dW/dX,dW/dY,dW/dZ,
     ! ! have been calculated
 
-    ! do i=1,nx
-    !     do j=1,ny
-    !         do k=1,nz
-    !             a = dUdX(i,j,k) * wrk(i,j,k,1)
-    !             b = dVdY(i,j,k) * wrk(i,j,k,2)
-    !             c = dWdZ(i,j,k) * wrk(i,j,k,3)
+    do i=1,nx
+        do j=1,ny
+            do k=1,nz
+                a = wrk(i,j,k,1)* wrk(i,j,k,4)
+                b = wrk(i,j,k,2)* wrk(i,j,k,5)
+                c = wrk(i,j,k,3)* wrk(i,j,k,6)
 
-    !             term = term + ((a + b + c) * dx * dy * dz)
-    !         end do
-    !     end do
-    ! end do
+                term = term + ((a + b + c) * dx * dy * dz)
+            end do
+        end do
+    end do
 
 end subroutine de_dt_term_2
 
@@ -307,7 +311,7 @@ subroutine de_dt_term_3(term)
                 b = dVdY2(i,j,k) * wrk(i,j,k,2)
                 c = dWdZ2(i,j,k) * wrk(i,j,k,3)
 
-                term = term + ((a + b + c) * dx * dy * dz)
+                term = term + (nu*(a + b + c) * dx * dy * dz)
             end do
         end do
     end do

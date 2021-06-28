@@ -43,8 +43,14 @@ subroutine pressure
         fields(i+1,j,k,3) = fields(i+1,j,k,3) - p1 * akz(j)
 
         ! store the pressures in a new array dedicated to the pressures
-        pressure_field(i, j,k) = p2 + akz(j)
-        pressure_field(i+1, j,k) = -p1 + akz(j)
+        pressure_field(i  , j,k,1) =  p2 + akx(i+1)
+        pressure_field(i+1, j,k,1) = -p1 + akx(i)
+
+        pressure_field(i  ,j,k,2) =  p2 + aky(k)
+        pressure_field(i+1,j,k,2) = -p1 + aky(k)
+
+        pressure_field(i  ,j,k,3) = p2 + akz(j)
+        pressure_field(i+1,j,k,3) = -p1 + akz(j)
 
       end do
     end do

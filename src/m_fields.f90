@@ -4,7 +4,7 @@ module m_fields
 
   ! TODO: what is this variable
   real*8, allocatable :: fields(:,:,:,:)
-  real*8, allocatable :: pressure_field(:,:,:)
+  real*8, allocatable :: pressure_field(:,:,:,:)
 
 !================================================================================
 contains
@@ -28,7 +28,7 @@ contains
     end if
     fields = zip
 
-    allocate(pressure_field(nx+2,ny,nz), stat=ierr)
+    allocate(pressure_field(nx+2,ny,nz, 3), stat=ierr)
 
     if (ierr.ne.0) then
        write(out,*) "Cannot allocate fields, stopping."

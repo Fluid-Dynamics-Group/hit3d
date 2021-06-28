@@ -42,6 +42,7 @@ program x_code
      call particles_init
   end if
 
+
   write(out,*) "IN THE PROGRAM."
   call flush(out)
 
@@ -51,7 +52,6 @@ program x_code
   ! getting the wallclock runlimit for the job
   call get_job_runlimit
 
-
 !-----------------------------------------------------------------------
 !     Starting from the beginning or from the saved flowfield
 !-----------------------------------------------------------------------
@@ -60,6 +60,7 @@ program x_code
   else
      call begin_restart
   endif
+
 
   ! Initializing the LES stuff
   if (les) call m_les_begin

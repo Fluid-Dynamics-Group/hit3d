@@ -97,13 +97,13 @@ CONTAINS
             plan_r2c_f(nz, LBOUND(fields,4):UBOUND(fields,4)), &
             plan_c2r_f(nz, LBOUND(fields,4):UBOUND(fields,4)), &
             xy_sheet(nx, ny), buff(nx + 2, nz, nz), &
-            z_stick(2 * nz_all), akx(nx + 2), aky(nz), akz(nz_all), & 
+            z_stick(2 * nz_all), akx(nx + 2), aky(nz), akz(nz_all), &
             rezkax(nx + 2), rezkay(nz), rezkaz(nx), &
             coskx2(nx + 2), cosky2(nz), coskz2(nx), &
             sinkx2(nx + 2), sinky2(nz), sinkz2(nx), &
             order(numprocs - 1), &
             buff2(nx+2, nz, nz), &
-            ialias(nx+2, ny, nz), stat = ierr) 
+            ialias(nx+2, ny, nz), stat = ierr)
 
 
 
@@ -343,7 +343,7 @@ CONTAINS
 !------------------------------------------------------------------------------!
 !  Direct FFT, step 1: 2-D real-to-complex transform
 !------------------------------------------------------------------------------!
-!  
+!
 !   R2C           (# = ny) A y          A y                 (# = ny) A k_y
 !                          |            |                            |
 !          +---+---+---+---+            +            +---+---+---+---+
@@ -436,7 +436,7 @@ CONTAINS
                & (nx + 2) * nz * nz, MPI_REAL8, &
                & order(iproc), myid * numprocs + order(iproc), &
                & order(iproc), order(iproc) * numprocs + myid, &
-               & MPI_COMM_TASK, mpi_status, mpi_err) 
+               & MPI_COMM_TASK, mpi_status, mpi_err)
 
           do iy = 1, nz
              do iz = 1, nz
@@ -465,9 +465,9 @@ CONTAINS
 !      +---+---+---+---+                              +---+---+---+---+
 !                     /                                              /
 !                    V k_x                                          V k_x
-!  
+!
 !        3   2   1   0  --- myid                        3   2   1   0  --- myid
-!  
+!
 !------------------------------------------------------------------------------!
 
 !!$          write(out,*) 'before 1d fft'
@@ -497,7 +497,7 @@ CONTAINS
 !------------------------------------------------------------------------------!
 !  Inverse FFT, step 1: one-dimensionsal complex-to-complex transform
 !------------------------------------------------------------------------------!
-!   
+!
 !   <-C2C                  A k_z                                          A z
 !                          |        A k_z    A z                          |
 !          +---+---+---+---+        |        |            +---+---+---+---+
@@ -515,7 +515,7 @@ CONTAINS
 !      +---+---+---+---+                              +---+---+---+---+
 !                     /                                              /
 !                    V k_x                                          V k_x
-!  
+!
 !        3   2   1   0  --- myid                        3   2   1   0  --- myid
 !
 !------------------------------------------------------------------------------!
@@ -579,7 +579,7 @@ CONTAINS
                & (nx + 2) * nz * nz, MPI_REAL8, &
                & order(iproc), myid * numprocs + order(iproc), &
                & order(iproc), order(iproc) * numprocs + myid, &
-               & MPI_COMM_TASK, mpi_status, mpi_err) 
+               & MPI_COMM_TASK, mpi_status, mpi_err)
           do iz = 1, nz
              do iy = 1, nz
                 wrk(:, order(iproc) * nz + iy, iz, n) = buff(:, iy, iz)
@@ -910,7 +910,7 @@ CONTAINS
 
        do iproc = 1, numprocs - 1
 
-!!$          ! The following order  should be implemented in the future, 
+!!$          ! The following order  should be implemented in the future,
 !!$          ! because it shaves off about 4% of time
 !!$          id_to   = mod(myid+iproc,numprocs)
 !!$          id_from = mod(myid-iproc+numprocs,numprocs)
@@ -1003,6 +1003,7 @@ CONTAINS
           bm(4) = bm(4) + i82 - i81
           i81 = i82
        end if
+
 !------------------------------------------------------------------------------!
 !  Inverse FFT, step 2: transposing the variable via MPI messaging
 !------------------------------------------------------------------------------!
@@ -1017,7 +1018,6 @@ CONTAINS
              end do
           end do
        end do
-
 
        ! - sending and receiving MPI messages
 
@@ -1145,7 +1145,7 @@ CONTAINS
 
        do iproc = 1, numprocs - 1
 
-!!$          ! The following order  should be implemented in the future, 
+!!$          ! The following order  should be implemented in the future,
 !!$          ! because it shaves off about 4% of time
 !!$          id_to   = mod(myid+iproc,numprocs)
 !!$          id_from = mod(myid-iproc+numprocs,numprocs)
