@@ -226,7 +226,7 @@ program x_code
            if (mod(itime,iwrite4).eq.0) then
                call io_write_4
                ! write energy and helicity to a csv
-               call write_energy(int(itime))
+               call write_energy(int(itime),dt)
                ! we can write the velocity data from after calling io_write_4 since
                ! io_write_4 modifies the wrk variable to be isotropic
                if (itime == itmax) call write_velocity_field(int(itime))

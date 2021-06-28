@@ -62,7 +62,7 @@ subroutine init_write_energy
     call create_energy_filename(filename)
 
     open(filenumber, file=filename)
-    write(filenumber, "('energy,helicity,term1,term2,term3,divu')")
+    write(filenumber, "('energy,helicity,term1,term2,term3,divu,dt')")
 
     allocate(dUdX(nx,ny,nz));allocate(dUdY(nx,ny,nz));allocate(dUdZ(nx,ny,nz));
     allocate(dVdX(nx,ny,nz));allocate(dVdY(nx,ny,nz));allocate(dVdZ(nx,ny,nz));
@@ -85,14 +85,14 @@ end subroutine create_energy_filename
 ! calculate and write the energy and helicity values for the current time step
 ! you must ensure that you call init_write_energy to open the correct files
 ! before calling this subroutine
-subroutine write_energy(current_timestep)
+subroutine write_energy(current_timestep, dt_value)
     use m_work ! wrk
     use m_parameters
     implicit none
 
     integer::filenumber, current_timestep
     character(len=40) :: filename
-    real*8 :: energy, h, term1, term2, term3, divu
+    real*8 :: energy, h, term1, term2, term3, divu, dt_value
 
     ! initialize the name of the csv that this mpi process will write to
     call create_energy_filename(filename)
@@ -111,7 +111,9 @@ subroutine write_energy(current_timestep)
     ! The file will have already been opened by the init process
     ! now we write the calculated data to the file
     open(filenumber)
-    write(filenumber, "(E16.10, ',', E16.10, ',', E16.10, ',',E16.10, ',',E16.10, ',',E16.10)") energy, h, term1, term2, term3, divu
+    write(filenumber, "(E16.10, ',', E16.10, ',', E16.10, ',',E16.10, ',',E16.10, ',',E16.10, ',', E16.10)") energy, h, &
+        term1, term2, term3, divu, dt_value
+
     flush(filenumber)
 end subroutine
 
