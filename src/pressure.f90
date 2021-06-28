@@ -21,7 +21,7 @@ subroutine pressure
         div2 =     akx(i  )*fields(i  ,j,k,1) + aky(k)*fields(i  ,j,k,2) + akz(j)*fields(i  ,j,k,3)
         div1 = - ( akx(i+1)*fields(i+1,j,k,1) + aky(k)*fields(i+1,j,k,2) + akz(j)*fields(i+1,j,k,3) )
 
-        ! inverce laplace operator
+        ! inverse laplace operator
         lapl1 =  akx(i  )**2 + aky(k)**2 + akz(j)**2
         lapl2 =  akx(i+1)**2 + aky(k)**2 + akz(j)**2
 
@@ -41,6 +41,10 @@ subroutine pressure
 
         fields(i  ,j,k,3) = fields(i  ,j,k,3) + p2 * akz(j)
         fields(i+1,j,k,3) = fields(i+1,j,k,3) - p1 * akz(j)
+
+        ! store the pressures in a new array dedicated to the pressures
+        pressure_field(i, j,k) = p2 + akz(j)
+        pressure_field(i+1, j,k) = -p1 + akz(j)
 
       end do
     end do

@@ -21,9 +21,15 @@ subroutine io_write_4
   rkmax2 = real(kmax,8)**2
 
   ! number of variables to write out
-  n_out = 3
+  ! =============================================================================
+  ! brooks: used to be =3 but added +1 so that pressure could be modified as well
+  ! =============================================================================
+  n_out = 4
   if (int_scalars) n_out = n_out + n_scalars
   if (les .and. n_les>0) n_out = n_out + n_les
+
+  ! copy over the pressure variables to fields(:,:,:,4) so that the iterator will catch it
+  fields(:,:,:,4) = pressure_field
 
   ! putting all variables in wrk array
   do k = 1,nz

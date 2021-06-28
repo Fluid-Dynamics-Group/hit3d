@@ -1,6 +1,8 @@
 module m_data
     real*8, dimension(:,:,:), allocatable :: dUdX, dUdY, dUdZ, dVdX, dVdY, dVdZ, dWdX, dWdY, dWdZ
     real*8, dimension(:,:,:), allocatable :: OmgX, OmgY, OmgZ
+    ! second order derivatives for third term in dE/dt
+    real*8, dimension(:,:,:), allocatable :: dUdX2, dUdY2, dUdZ2, dVdX2, dVdY2, dVdZ2, dWdX2, dWdY2, dWdZ2
 end module m_data
 
 subroutine write_velocity_field(current_timestep)
@@ -60,12 +62,17 @@ subroutine init_write_energy
     call create_energy_filename(filename)
 
     open(filenumber, file=filename)
-    write(filenumber, "('energy,helicity')")
+    write(filenumber, "('energy,helicity,term1,term2,term3,divu')")
 
     allocate(dUdX(nx,ny,nz));allocate(dUdY(nx,ny,nz));allocate(dUdZ(nx,ny,nz));
     allocate(dVdX(nx,ny,nz));allocate(dVdY(nx,ny,nz));allocate(dVdZ(nx,ny,nz));
     allocate(dWdX(nx,ny,nz));allocate(dWdY(nx,ny,nz));allocate(dWdZ(nx,ny,nz));
     allocate(OmgX(nx,ny,nz));allocate(OmgY(nx,ny,nz));allocate(OmgZ(nx,ny,nz));
+
+    ! second order vars for Del^2(u)
+    allocate(dUdX2(nx,ny,nz));allocate(dUdY2(nx,ny,nz));allocate(dUdZ2(nx,ny,nz));
+    allocate(dVdX2(nx,ny,nz));allocate(dVdY2(nx,ny,nz));allocate(dVdZ2(nx,ny,nz));
+    allocate(dWdX2(nx,ny,nz));allocate(dWdY2(nx,ny,nz));allocate(dWdZ2(nx,ny,nz));
 end subroutine init_write_energy
 
 ! initalize the name of the file that we are writing to with E(t) and h(t) values
@@ -85,7 +92,7 @@ subroutine write_energy(current_timestep)
 
     integer::filenumber, current_timestep
     character(len=40) :: filename
-    real*8 :: energy, h
+    real*8 :: energy, h, term1, term2, term3, divu
 
     ! initialize the name of the csv that this mpi process will write to
     call create_energy_filename(filename)
@@ -95,11 +102,16 @@ subroutine write_energy(current_timestep)
     ! calculate the variables
     call calculate_energy(energy)
     call calculate_helicity(h)
+    ! all the terms in dE/dt
+    call de_dt_term_1(term1)
+    call de_dt_term_2(term2)
+    call de_dt_term_3(term3)
+    call calculate_divu(divu)
 
     ! The file will have already been opened by the init process
     ! now we write the calculated data to the file
     open(filenumber)
-    write(filenumber, "(E16.10, ',', E16.10)") energy, h
+    write(filenumber, "(E16.10, ',', E16.10, ',', E16.10, ',',E16.10, ',',E16.10, ',',E16.10)") energy, h, term1, term2, term3, divu
     flush(filenumber)
 end subroutine
 
@@ -201,6 +213,129 @@ subroutine calculate_helicity(helicity)
 
 end subroutine calculate_helicity
 
+! \int_V  dot(u, div(u)) dV
+subroutine de_dt_term_1(term)
+    use m_parameters
+    use m_data ! d( )/d( ) values from vorticity
+    use m_work ! wrk
+    implicit none
+
+    integer :: i, j, k
+    real*8 term, a, b, c, divu, u, v,w, outer_dot_product
+    term = 0
+
+    ! calculate_vortiticity has already been called so we know
+    ! dU/dX,dU/dY,dU/dZ,
+    ! dV/dX,dV/dY,dV/dZ,
+    ! dW/dX,dW/dY,dW/dZ,
+    ! have been calculated
+
+    do i=1,nx
+        do j=1,ny
+            do k=1,nz
+                ! \nabla \cdot u
+                divu = dUdX(i,j,k) + dVdY(i,j,k) + dWdZ(i,j,k)
+                u = wrk(i,j,k,1)
+                v = wrk(i,j,k,2)
+                w = wrk(i,j,k,3)
+
+                ! calculating the whole term
+                outer_dot_product = divu* (u**2+ v**2 + w**2)
+
+                term = term + (outer_dot_product * dx * dy * dz)
+            end do
+        end do
+    end do
+end subroutine de_dt_term_1
+
+! \int_V  dot(p,u) dV
+subroutine de_dt_term_2(term)
+    use m_parameters
+    use m_data ! d( )/d( ) values from vorticity
+    use m_work ! wrk
+    implicit none
+
+    integer :: i, j, k
+    real*8 term, a, b, c
+    term = 0
+
+    ! ! calculate_vortiticity has already been called so we know
+    ! ! dU/dX,dU/dY,dU/dZ,
+    ! ! dV/dX,dV/dY,dV/dZ,
+    ! ! dW/dX,dW/dY,dW/dZ,
+    ! ! have been calculated
+
+    ! do i=1,nx
+    !     do j=1,ny
+    !         do k=1,nz
+    !             a = dUdX(i,j,k) * wrk(i,j,k,1)
+    !             b = dVdY(i,j,k) * wrk(i,j,k,2)
+    !             c = dWdZ(i,j,k) * wrk(i,j,k,3)
+
+    !             term = term + ((a + b + c) * dx * dy * dz)
+    !         end do
+    !     end do
+    ! end do
+
+end subroutine de_dt_term_2
+
+! nu * \int dot(del^2(u) , u) dV
+subroutine de_dt_term_3(term)
+    use m_parameters
+    use m_data ! d( )/d( ) values from vorticity
+    use m_work ! wrk
+    implicit none
+
+    ! dUdX, dVdY, dWdZ have all ready been calculated in vortitcity
+
+    integer :: i, j, k
+    real*8 term, a, b, c
+
+    term = 0
+
+    ! calculate second order gradients
+    CALL gradient3D(nx,ny,nz,dUdX,dx,dy,dz,dUdX2,dUdY2,dUdZ2)
+    CALL gradient3D(nx,ny,nz,dVdY,dx,dy,dz,dVdX2,dVdY2,dVdZ2)
+    CALL gradient3D(nx,ny,nz,dWdZ,dx,dy,dz,dWdX2,dWdY2,dWdZ2)
+
+    ! now we have the second order derivatives
+
+    do i=1,nx
+        do j=1,ny
+            do k=1,nz
+                a = dUdX2(i,j,k) * wrk(i,j,k,1)
+                b = dVdY2(i,j,k) * wrk(i,j,k,2)
+                c = dWdZ2(i,j,k) * wrk(i,j,k,3)
+
+                term = term + ((a + b + c) * dx * dy * dz)
+            end do
+        end do
+    end do
+
+end subroutine de_dt_term_3
+
+subroutine calculate_divu(divu)
+    use m_parameters
+    use m_data
+    use m_work
+    implicit none
+
+    real*8 :: divu, u, v, w
+    integer:: i, j, k
+    divu = 0
+
+    do i = 1,nx
+        do j = 1,ny
+            do k = 1,nz
+                divu = divu + (dUdX(i,j,k) + dVdY(i,j,k) + dWdZ(i,j,k))
+            end do
+        end do
+    end do
+
+    divu = divu * dx * dy * dz
+
+end subroutine calculate_divu
+
 subroutine calculate_vorticity
     use m_work
     use m_data
@@ -210,9 +345,9 @@ subroutine calculate_vorticity
 
     !write(*,*) "voriticity"
 
-    u = wrk(:,:,:,1)*100
-    v = wrk(:,:,:,2)*100
-    w = wrk(:,:,:,3)*100
+    u = wrk(:,:,:,1)
+    v = wrk(:,:,:,2)
+    w = wrk(:,:,:,3)
 
     ! calculate the gradients, store then in the d( )d( ) variables
     CALL gradient3D(nx,ny,nz,u,dx,dy,dz,dUdX,dUdY,dUdZ)

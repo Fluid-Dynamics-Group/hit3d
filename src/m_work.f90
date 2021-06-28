@@ -69,6 +69,7 @@ contains
        case default
           stop 'wrong particles_tracking_scheme'
        end select
+
        allocate(tmp4(nx,ny,nz), stat=ierr)
        write(out,*) "Allocated tmp4."
        call flush(out)

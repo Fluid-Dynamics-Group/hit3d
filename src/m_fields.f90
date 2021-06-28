@@ -4,6 +4,7 @@ module m_fields
 
   ! TODO: what is this variable
   real*8, allocatable :: fields(:,:,:,:)
+  real*8, allocatable :: pressure_field(:,:,:)
 
 !================================================================================
 contains
@@ -26,6 +27,14 @@ contains
        call my_exit(-1)
     end if
     fields = zip
+
+    allocate(pressure_field(nx+2,ny,nz), stat=ierr)
+
+    if (ierr.ne.0) then
+       write(out,*) "Cannot allocate fields, stopping."
+       call my_exit(-1)
+    end if
+    pressure_field= zip
 
     write(out,"('Allocated ',i3,' fields.')") n
     call flush(out)
