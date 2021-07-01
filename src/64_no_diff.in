@@ -8,7 +8,7 @@ INPUT FILE FOR THE SPECTRAL CODE WITH SCALARS   (example for v.1.0.0)
 0.0             PERTamp2  amplitude of 2nd component (epsilon2)
 ----------------------------------------------------------------------
 0               ITMIN    first timestep (if >0, restart from saved)
-10000		ITMAX    last timestep
+50000		ITMAX    last timestep
 10		IPRNT1   how often to calculate statistics
 100		IPRNT2   how often to write restart files
 100		IWRITE4  how often to write real*4 binary files
@@ -42,7 +42,7 @@ INPUT FILE FOR THE SPECTRAL CODE WITH SCALARS   (example for v.1.0.0)
 0.1		time_p, when to release the particles into the flow
 0.7		particle_filter_size, in case we average the velocity
 ----------------------------------------------------------------------
-0       skip_diffusion: skip calculating diffusion term in rhs_velocity (1=yes, 0=no)
+1       skip_diffusion: skip calculating diffusion term in rhs_velocity (1=yes, 0=no)
 ----------------------------------------------------------------------
 0               les_model, the LES model (0=none, see the README.txt)
 ----------------------------------------------------------------------

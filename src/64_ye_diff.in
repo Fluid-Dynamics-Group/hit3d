@@ -8,7 +8,7 @@ INPUT FILE FOR THE SPECTRAL CODE WITH SCALARS   (example for v.1.0.0)
 0.0             PERTamp2  amplitude of 2nd component (epsilon2)
 ----------------------------------------------------------------------
 0               ITMIN    first timestep (if >0, restart from saved)
-10000		ITMAX    last timestep
+50000		ITMAX    last timestep
 10		IPRNT1   how often to calculate statistics
 100		IPRNT2   how often to write restart files
 100		IWRITE4  how often to write real*4 binary files

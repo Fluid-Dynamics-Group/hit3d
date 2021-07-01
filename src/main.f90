@@ -152,7 +152,7 @@ program x_code
         ! RHS for velocities
         call rhs_velocity
 
-        ! adding forcing, if computing a forced flow
+        ! adding forcing, if computing asdf forced flow
         if (flow_type.eq.1) call force_velocity
 
         ! advance velocity - either Euler or Adams-Bashforth
