@@ -44,22 +44,22 @@ subroutine io_write_4
      end do
   end do
 
-  ! velocities
-  call xFFT3d(-1,1)
-  fname = 'output/velocity/u.'//file_ext
-  tmp4(1:nx,1:ny,1:nz) = wrk(1:nx,1:ny,1:nz,1)
-  call write_tmp4
+  ! ! velocities
+  ! call xFFT3d(-1,1)
+  ! fname = 'output/velocity/u.'//file_ext
+  ! tmp4(1:nx,1:ny,1:nz) = wrk(1:nx,1:ny,1:nz,1)
+  ! call write_tmp4
 
 
-  call xFFT3d(-1,2)
-  fname = 'output/velocity/v.'//file_ext
-  tmp4(1:nx,1:ny,1:nz) = wrk(1:nx,1:ny,1:nz,2)
-  call write_tmp4
+  ! call xFFT3d(-1,2)
+  ! fname = 'output/velocity/v.'//file_ext
+  ! tmp4(1:nx,1:ny,1:nz) = wrk(1:nx,1:ny,1:nz,2)
+  ! call write_tmp4
 
-  call xFFT3d(-1,3)
-  fname = 'output/velocity/w.'//file_ext
-  tmp4(1:nx,1:ny,1:nz) = wrk(1:nx,1:ny,1:nz,3)
-  call write_tmp4
+  ! call xFFT3d(-1,3)
+  ! fname = 'output/velocity/w.'//file_ext
+  ! tmp4(1:nx,1:ny,1:nz) = wrk(1:nx,1:ny,1:nz,3)
+  ! call write_tmp4
 
   ! putting all variables in wrk array
   do k = 1,nz

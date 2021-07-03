@@ -1,5 +1,6 @@
 module m_data
     real*8, dimension(:,:,:), allocatable :: dUdX, dUdY, dUdZ, dVdX, dVdY, dVdZ, dWdX, dWdY, dWdZ
+    real*8, dimension(:,:,:), allocatable :: dPxdX, dPxdY, dPxdZ, dPydX, dPydY, dPydZ, dPzdX, dPzdY, dPzdZ
     real*8, dimension(:,:,:), allocatable :: OmgX, OmgY, OmgZ
     ! second order derivatives for third term in dE/dt
     real*8, dimension(:,:,:), allocatable :: dUdX2, dUdY2, dUdZ2, dVdX2, dVdY2, dVdZ2, dWdX2, dWdY2, dWdZ2
@@ -73,6 +74,12 @@ subroutine init_write_energy
     allocate(dUdX2(nx,ny,nz));allocate(dUdY2(nx,ny,nz));allocate(dUdZ2(nx,ny,nz));
     allocate(dVdX2(nx,ny,nz));allocate(dVdY2(nx,ny,nz));allocate(dVdZ2(nx,ny,nz));
     allocate(dWdX2(nx,ny,nz));allocate(dWdY2(nx,ny,nz));allocate(dWdZ2(nx,ny,nz));
+
+    ! pressure terms
+    allocate(dPxdX(nx,ny,nz));allocate(dPxdY(nx,ny,nz));allocate(dPxdZ(nx,ny,nz));
+    allocate(dPydX(nx,ny,nz));allocate(dPydY(nx,ny,nz));allocate(dPydZ(nx,ny,nz));
+    allocate(dPzdX(nx,ny,nz));allocate(dPzdY(nx,ny,nz));allocate(dPzdZ(nx,ny,nz));
+
 end subroutine init_write_energy
 
 ! initalize the name of the file that we are writing to with E(t) and h(t) values
@@ -242,7 +249,7 @@ subroutine de_dt_term_1(term)
                 w = wrk(i,j,k,3)
 
                 ! calculating the whole term
-                outer_dot_product = divu* (u**2+ v**2 + w**2)
+                outer_dot_product = -0.5 * divu* (u**2+ v**2 + w**2)
 
                 term = term + (outer_dot_product * dx * dy * dz)
             end do
@@ -258,25 +265,26 @@ subroutine de_dt_term_2(term)
     implicit none
 
     integer :: i, j, k
-    real*8 term, a, b, c
+    real*8 term, a, b, c, u, v, w
     term = 0
 
     ! from `io_write_4` the pressure field was copied into `wrk(:,:,:,4:6)`
     ! and transformed into to isotropic conditions - we can now
     ! work with it and the dot product
-
-    ! ! calculate_vortiticity has already been called so we know
-    ! ! dU/dX,dU/dY,dU/dZ,
-    ! ! dV/dX,dV/dY,dV/dZ,
-    ! ! dW/dX,dW/dY,dW/dZ,
-    ! ! have been calculated
+    CALL gradient3D(nx,ny,nz,wrk(:,:,:,4),dx,dy,dz,dPxdX,dPxdY,dPxdZ)
+    CALL gradient3D(nx,ny,nz,wrk(:,:,:,5),dx,dy,dz,dPydX,dPydY,dPydZ)
+    CALL gradient3D(nx,ny,nz,wrk(:,:,:,6),dx,dy,dz,dPzdX,dPzdY,dPzdZ)
 
     do i=1,nx
         do j=1,ny
             do k=1,nz
-                a = wrk(i,j,k,1)* wrk(i,j,k,4)
-                b = wrk(i,j,k,2)* wrk(i,j,k,5)
-                c = wrk(i,j,k,3)* wrk(i,j,k,6)
+                u = wrk(i,j,k,1)
+                v = wrk(i,j,k,2)
+                w = wrk(i,j,k,3)
+
+                a = u * dPxdX(i,j,k)
+                b = v * dPydY(i,j,k)
+                c = w * dPzdZ(i,j,k)
 
                 term = term + ((a + b + c) * dx * dy * dz)
             end do
