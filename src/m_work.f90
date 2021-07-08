@@ -24,6 +24,7 @@ module m_work
   real*8, allocatable :: wrkp(:,:)
 
   real*8, allocatable :: rhs_old(:,:,:,:)
+  real*8, allocatable :: rhs_saved(:,:,:,:)
 
 contains
 
@@ -118,6 +119,7 @@ contains
     ! array for the spare RHS for Adams-Bashforth time-stepping scheme methods
     if (task.eq.'hydro') then
        allocate(rhs_old(nx+2,ny,nz,3+n_scalars+n_les),stat=i); ierr = ierr + i
+       allocate(rhs_saved(nx+2,ny,nz,3+n_scalars+n_les),stat=i); ierr = ierr + i
     end if
 
     if (ierr.ne.0) then

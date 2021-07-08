@@ -63,7 +63,11 @@ subroutine init_write_energy
     call create_energy_filename(filename)
 
     open(filenumber, file=filename)
-    write(filenumber, "('energy,helicity,term1,term2,term3,divu,dt')")
+    write(filenumber, "('energy,helicity,term1,term2,term3,divu,current_time,solver_energy,solver_helicity')")
+
+    filenumber = 622
+    open(filenumber, file="output/velocity.csv")
+    write(filenumber, "('u,v,w')")
 
     allocate(dUdX(nx,ny,nz));allocate(dUdY(nx,ny,nz));allocate(dUdZ(nx,ny,nz));
     allocate(dVdX(nx,ny,nz));allocate(dVdY(nx,ny,nz));allocate(dVdZ(nx,ny,nz));
@@ -92,14 +96,14 @@ end subroutine create_energy_filename
 ! calculate and write the energy and helicity values for the current time step
 ! you must ensure that you call init_write_energy to open the correct files
 ! before calling this subroutine
-subroutine write_energy(current_timestep, dt_value)
+subroutine write_energy(current_time)
     use m_work ! wrk
     use m_parameters
     implicit none
 
-    integer::filenumber, current_timestep
+    integer::filenumber
     character(len=40) :: filename
-    real*8 :: energy, h, term1, term2, term3, divu, dt_value
+    real*8 :: energy, helicity, term1, term2, term3, divu, current_time, solver_energy, solver_helicity
 
     ! initialize the name of the csv that this mpi process will write to
     call create_energy_filename(filename)
@@ -107,8 +111,8 @@ subroutine write_energy(current_timestep, dt_value)
     filenumber = 621
 
     ! calculate the variables
-    call calculate_energy(energy)
-    call calculate_helicity(h)
+    call calculate_energy(energy, solver_energy)
+    call calculate_helicity(helicity,solver_helicity)
     ! all the terms in dE/dt
     call de_dt_term_1(term1)
     call de_dt_term_2(term2)
@@ -118,21 +122,29 @@ subroutine write_energy(current_timestep, dt_value)
     ! The file will have already been opened by the init process
     ! now we write the calculated data to the file
     open(filenumber)
-    write(filenumber, "(E16.10, ',', E16.10, ',', E16.10, ',',E16.10, ',',E16.10, ',',E16.10, ',', E16.10)") energy, h, &
-        term1, term2, term3, divu, dt_value
+    write(filenumber, "(E16.10, ',', E16.10, ',', E16.10, ',', E16.10, &
+        ',',E16.10, ',',E16.10, ',', E16.10, ',', E16.10, ',', E16.10)") &
+        energy, helicity, term1, term2, term3, divu, current_time, solver_energy, solver_helicity
 
     flush(filenumber)
+
+    filenumber = 622
+    open(filenumber)
+    write(filenumber, "(E16.10, ',', E16.10, ',', E16.10)") wrk(32,32,32,1), wrk(32,32,32,2), wrk(32,32,32,3)
+    flush(filenumber)
+
 end subroutine
 
-subroutine calculate_energy(energy)
+subroutine calculate_energy(energy, solver_energy)
     use m_work !wrk
     use m_parameters ! dx, dy, dz
 
     implicit none
     integer:: i, j, k
-    real*8 :: energy, u, v, w
+    real*8 :: energy, solver_energy, u, v, w
 
     energy = 0
+    solver_energy = 0
 
     !write(*,*) "energy"
 
@@ -144,25 +156,29 @@ subroutine calculate_energy(energy)
                 w = wrk(i,j,k,3)
 
                 energy = energy + u**2 + v**2 + w**2
+                solver_energy = solver_energy + (rhs_saved(i,j,k,1) * u + rhs_saved(i,j,k,2) * v +rhs_saved(i,j,k,3) * w)
             end do
         end do
     end do
 
-    energy = energy * dx * dy * dz
+    energy = energy * dx * dy * dz * 0.5
+    solver_energy = solver_energy * dx * dy * dz
+
 end subroutine calculate_energy
 
-subroutine calculate_helicity(helicity)
+subroutine calculate_helicity(helicity, solver_helicity)
     use m_work !wrk
     use m_data !allocatable arrays for vorticity calculation
     use m_parameters ! dx, dy, dz
 
     implicit none
-    real*8 :: helicity, tmp
+    real*8 :: helicity, solver_helicity, tmp
     real*8 :: u,v,w
     real*8 :: omg_x, omg_y, omg_z
     integer :: i, j, k
 
-    helicity = 0
+    helicity = 0.
+    solver_helicity = 0.
 
     ! write(*,*) "helicity"
 
@@ -192,8 +208,10 @@ subroutine calculate_helicity(helicity)
                 tmp = (u*omg_x) + (v * omg_y) + (w *omg_z)
 
                 helicity = helicity + tmp
-
-
+                solver_helicity = solver_helicity + &
+                    (rhs_saved(i,j,k,1) * omg_x &
+                   + rhs_saved(i,j,k,2) * omg_y &
+                   + rhs_saved(i,j,k,3) * omg_z )
             end do
         end do
     end do
@@ -219,6 +237,7 @@ subroutine calculate_helicity(helicity)
     end if
 
     helicity = helicity * dx * dy * dz
+    solver_helicity = solver_helicity * dx * dy * dz
 
 end subroutine calculate_helicity
 
@@ -274,6 +293,8 @@ subroutine de_dt_term_2(term)
     CALL gradient3D(nx,ny,nz,wrk(:,:,:,4),dx,dy,dz,dPxdX,dPxdY,dPxdZ)
     CALL gradient3D(nx,ny,nz,wrk(:,:,:,5),dx,dy,dz,dPydX,dPydY,dPydZ)
     CALL gradient3D(nx,ny,nz,wrk(:,:,:,6),dx,dy,dz,dPzdX,dPzdY,dPzdZ)
+
+    ! TODO: wrk(:,:,:,4:6) might already be the gradient of P
 
     do i=1,nx
         do j=1,ny

@@ -149,6 +149,7 @@ subroutine rhs_velocity
               t1(3) = - ( akx(i) * wrk(i,j,k,3) + aky(k) * wrk(i,j,k,5) + akz(j) * wrk(i,j,k,6) )
 
 
+              ! this looks like a diffusion term
               t1(4) = - nu * ( akx(i)**2 + aky(k)**2 + akz(j)**2 )
 
               do n = 1,4

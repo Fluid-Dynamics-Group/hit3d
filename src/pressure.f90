@@ -10,6 +10,7 @@ subroutine pressure
   integer :: i, j, k, n
   real*8  :: div1, div2, lapl1, lapl2, p1, p2
 
+  ! pressure poisson equation
   do k = 1,nz
     do j = 1,ny
       do i = 1,nx+1,2

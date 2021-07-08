@@ -157,16 +157,24 @@ program x_code
 
         ! advance velocity - either Euler or Adams-Bashforth
         if (fov) then
+           ! copy to this new variable to work with later
+           rhs_saved(:,:,:,:) = wrk(:,:,:,1:3)
+
            rhs_old(:,:,:,1:3) = wrk(:,:,:,1:3)
            fields(:,:,:,1:3) = fields(:,:,:,1:3) + dt * rhs_old(:,:,:,1:3)
            fov = .false.
         else
+           ! dot this varaible with u and omega to get helicity
+           rhs_saved(:,:,:,:) =  1.5d0 * wrk(:,:,:,1:3)  - 0.5d0 * rhs_old(:,:,:,1:3)
+
            fields(:,:,:,1:3) = fields(:,:,:,1:3) + &
-                dt * ( 1.5d0 * wrk(:,:,:,1:3)  - 0.5d0 * rhs_old(:,:,:,1:3) )
+                dt * (rhs_saved)
            rhs_old(:,:,:,1:3) = wrk(:,:,:,1:3)
         end if
 
         ! solve for pressure and update velocities so they are incompressible
+        ! we solve for the pressure after finding the pressure
+        ! fractionary step method
         call pressure
 
         ! advance the time
@@ -226,7 +234,7 @@ program x_code
            if (mod(itime,iwrite4).eq.0) then
                call io_write_4
                ! write energy and helicity to a csv
-               call write_energy(int(itime),dt)
+               call write_energy(time)
                ! we can write the velocity data from after calling io_write_4 since
                ! io_write_4 modifies the wrk variable to be isotropic
                if (itime == itmax) call write_velocity_field(int(itime))
