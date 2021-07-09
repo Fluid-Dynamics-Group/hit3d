@@ -108,6 +108,9 @@ subroutine write_energy(current_time)
     ! initialize the name of the csv that this mpi process will write to
     call create_energy_filename(filename)
 
+    ! ifft the RHS variables so we are in x-space
+    call ifft_rhs
+
     filenumber = 621
 
     ! calculate the variables
@@ -132,8 +135,30 @@ subroutine write_energy(current_time)
     open(filenumber)
     write(filenumber, "(E16.10, ',', E16.10, ',', E16.10)") wrk(32,32,32,1), wrk(32,32,32,2), wrk(32,32,32,3)
     flush(filenumber)
-
 end subroutine
+
+subroutine ifft_rhs
+    use m_work !tmp_wrk + wrk + rhs_saved
+    use x_fftw ! fft stuff
+
+    ! save the current wrk array
+    tmp_wrk(:,:,:,1:3) = wrk(:,:,:,1:3)
+
+    ! copy the RHS variables into wrk
+    wrk(:,:,:,1:3) = rhs_saved(:,:,:,1:3)
+
+    ! do the iffts using the wrk array
+    call xFFT3d(-1,1)
+    call xFFT3d(-1,2)
+    call xFFT3d(-1,3)
+
+    ! copy the data out of wrk and into the rhs
+    rhs_saved(:,:,:,1:3) = wrk(:,:,:,1:3)
+
+    ! copy the original data back into wrk
+    wrk(:,:,:,1:3) = tmp_wrk(:,:,:,1:3)
+
+end subroutine ifft_rhs
 
 subroutine calculate_energy(energy, solver_energy)
     use m_work !wrk
@@ -279,22 +304,13 @@ end subroutine de_dt_term_1
 ! \int_V  dot(p,u) dV
 subroutine de_dt_term_2(term)
     use m_parameters
-    use m_data ! d( )/d( ) values from vorticity
     use m_work ! wrk
+    use m_fields! pressure_field
     implicit none
 
     integer :: i, j, k
     real*8 term, a, b, c, u, v, w
     term = 0
-
-    ! from `io_write_4` the pressure field was copied into `wrk(:,:,:,4:6)`
-    ! and transformed into to isotropic conditions - we can now
-    ! work with it and the dot product
-    CALL gradient3D(nx,ny,nz,wrk(:,:,:,4),dx,dy,dz,dPxdX,dPxdY,dPxdZ)
-    CALL gradient3D(nx,ny,nz,wrk(:,:,:,5),dx,dy,dz,dPydX,dPydY,dPydZ)
-    CALL gradient3D(nx,ny,nz,wrk(:,:,:,6),dx,dy,dz,dPzdX,dPzdY,dPzdZ)
-
-    ! TODO: wrk(:,:,:,4:6) might already be the gradient of P
 
     do i=1,nx
         do j=1,ny
@@ -303,9 +319,9 @@ subroutine de_dt_term_2(term)
                 v = wrk(i,j,k,2)
                 w = wrk(i,j,k,3)
 
-                a = u * dPxdX(i,j,k)
-                b = v * dPydY(i,j,k)
-                c = w * dPzdZ(i,j,k)
+                a = u * pressure_field(i,j,k,1)
+                b = v * pressure_field(i,j,k,2)
+                c = w * pressure_field(i,j,k,3)
 
                 term = term + ((a + b + c) * dx * dy * dz)
             end do

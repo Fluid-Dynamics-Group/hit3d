@@ -23,11 +23,11 @@ character(6) :: boxchar
 character(2) :: boxchar1
 character*80 :: fname
 !real, dimension(:,:,:), allocatable :: u, v, w
-real*4, allocatable :: u(:,:,:), v(:,:,:), w(:,:,:), phi(:,:,:)
+real*4, allocatable :: u(:,:,:), v(:,:,:), w(:,:,:)!, phi(:,:,:)
 real, dimension(:,:,:), allocatable :: dUdX, dUdY, dUdZ, dVdX, dVdY, dVdZ, dWdX, dWdY, dWdZ, omgmag, strmag
 real, dimension(:,:,:), allocatable :: OmgX, OmgY, OmgZ, omg1, omg2, omg3, gam1, gam2, gam3, sig1, sig2, sig3, qcrit
 real, dimension(:), allocatable :: u_vec, v_vec, w_vec, OmgX_vec, OmgY_vec, OmgZ_vec, qcrit_vec, omgmag_vec, strmag_vec
-real, dimension(:), allocatable :: phi_vec
+!real, dimension(:), allocatable :: phi_vec
 
 real*4 :: a,b,c, energy
 
@@ -72,12 +72,13 @@ write(*,*) 'Enter numer of passive scalars = '
 read(*,*) nscalars
 write(boxchar1,"(I2.2)") nscalars
 
-fname = "output/sc"//boxchar1//"."//boxchar
-allocate(phi(nx,ny,nz));
-open(unit=100,file=fname,form="unformatted",access='stream')
-read(100)
-read(100) ( ( (phi(i,j,k),i=1,nx) ,j=1,ny) ,k= 1,nz )
-close(100)
+!fname = "output/sc"//boxchar1//"."//boxchar
+!write(*,*) "fname for scalars is", fname
+!allocate(phi(nx,ny,nz));
+!open(unit=100,file=fname,form="unformatted",access='stream')
+!read(100)
+!read(100) ( ( (phi(i,j,k),i=1,nx) ,j=1,ny) ,k= 1,nz )
+!close(100)
 
 print *, 'Data loaded...'
 
@@ -89,7 +90,7 @@ allocate(xx_v(nx)); allocate(yy_v(ny)); allocate(zz_v(nz));
 allocate(XX(npoints)); allocate(YY(npoints)); allocate(ZZ(npoints));
 allocate(points(3,npoints));
 allocate(u_vec(npoints)); allocate(v_vec(npoints)); allocate(w_vec(npoints));
-allocate(phi_vec(npoints));
+!allocate(phi_vec(npoints));
 
 dx = (2.*pi) / nx; dy = dx; dz = dx;
 
@@ -118,7 +119,7 @@ do i =1,nx
             b = v(i,j,k)
             c = w(i,j,k)
             !write(*,*) a*a + b*b + c*c
-            energy = energy + ((a**2 + b**2 + c**2) * dx * dy* dz)
+            energy = energy + ((a**2 + b**2 + c**2) * dx * dy* dz * 0.5)
 
             !write(*,*) energy
 
@@ -164,7 +165,7 @@ do k = 1, nz
             u_vec(l) = u(i,j,k)
             v_vec(l) = v(i,j,k)
             w_vec(l) = w(i,j,k)
-            phi_vec(l) = phi(i,j,k)
+            !phi_vec(l) = phi(i,j,k)
             OmgX_vec(l) = OmgX(i,j,k)
             OmgY_vec(l) = OmgY(i,j,k)
             OmgZ_vec(l) = OmgZ(i,j,k)
@@ -199,7 +200,7 @@ write(100) OmgZ_vec
 write(100) qcrit_vec
 write(100) omgmag_vec
 write(100) strmag_vec
-write(100) phi_vec
+!write(100) phi_vec
 close(100)
 write(*,*) 'Data written (binary)'
 
@@ -243,7 +244,7 @@ WRITE(100,*) '"VortY"'
 WRITE(100,*) '"VortZ"'
 WRITE(100,*) '"Q"'
 WRITE(100,*) '"Str"'
-WRITE(100,*) '"Phi"'
+!WRITE(100,*) '"Phi"'
 WRITE(100,*) 'ZONE T="Rectangular zone"'
 WRITE(100,*) 'I=',nx,', J=',ny,', K=',nz, ', ZONETYPE=Ordered'
 WRITE(100,*) 'DATAPACKING=POINT'
@@ -252,8 +253,8 @@ WRITE(100,*) 'DT=(SINGLE SINGLE SINGLE)'
 do i = 1,npoints
     write(100,*) points(1,i), points(2,i), points(3,i),&
     u_vec(i), v_vec(i), w_vec(i),&
-    OmgX_vec(i), OmgY_vec(i), OmgZ_vec(i), qcrit_vec(i), strmag_vec(i),&
-    phi_vec(i)
+    OmgX_vec(i), OmgY_vec(i), OmgZ_vec(i), qcrit_vec(i), strmag_vec(i)!,&
+    !phi_vec(i)
 end do
 close(100)
 write(*,*) 'Figure plotted (TECPLOT)'

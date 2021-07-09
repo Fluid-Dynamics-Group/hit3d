@@ -24,7 +24,11 @@ module m_work
   real*8, allocatable :: wrkp(:,:)
 
   real*8, allocatable :: rhs_old(:,:,:,:)
+
+  ! ======= new varaibles from brooks
   real*8, allocatable :: rhs_saved(:,:,:,:)
+  real*8, allocatable :: tmp_wrk(:,:,:,:)
+
 
 contains
 
@@ -109,6 +113,7 @@ contains
 
     ! main working array, needed for FFT etc, so (nx+2,ny,nz)
     allocate(wrk(nx+2,ny,nz,0:number),stat=i);  ierr = ierr + i
+    allocate(tmp_wrk(nx+2,ny,nz,0:number),stat=i);  ierr = ierr + i
 
     !------------------------------------------------------------
     ! ================MGM-Forcing=====================
