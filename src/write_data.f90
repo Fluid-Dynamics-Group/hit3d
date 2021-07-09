@@ -63,7 +63,7 @@ subroutine init_write_energy
     call create_energy_filename(filename)
 
     open(filenumber, file=filename)
-    write(filenumber, "('energy,helicity,term1,term2,term3,divu,current_time,solver_energy,solver_helicity')")
+    write(filenumber, "('energy,helicity,term1,term2,term3,divu,current_time,solver_energy,solver_helicity,enstrophy')")
 
     filenumber = 622
     open(filenumber, file="output/velocity.csv")
@@ -103,7 +103,7 @@ subroutine write_energy(current_time)
 
     integer::filenumber
     character(len=40) :: filename
-    real*8 :: energy, helicity, term1, term2, term3, divu, current_time, solver_energy, solver_helicity
+    real*8 :: energy, helicity, term1, term2, term3, divu, current_time, solver_energy, solver_helicity,enstrophy
 
     ! initialize the name of the csv that this mpi process will write to
     call create_energy_filename(filename)
@@ -115,7 +115,7 @@ subroutine write_energy(current_time)
 
     ! calculate the variables
     call calculate_energy(energy, solver_energy)
-    call calculate_helicity(helicity,solver_helicity)
+    call calculate_helicity(helicity,solver_helicity, enstrophy)
     ! all the terms in dE/dt
     call de_dt_term_1(term1)
     call de_dt_term_2(term2)
@@ -126,8 +126,8 @@ subroutine write_energy(current_time)
     ! now we write the calculated data to the file
     open(filenumber)
     write(filenumber, "(E16.10, ',', E16.10, ',', E16.10, ',', E16.10, &
-        ',',E16.10, ',',E16.10, ',', E16.10, ',', E16.10, ',', E16.10)") &
-        energy, helicity, term1, term2, term3, divu, current_time, solver_energy, solver_helicity
+        ',',E16.10, ',',E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',', E16.10)") &
+        energy, helicity, term1, term2, term3, divu, current_time, solver_energy, solver_helicity, enstrophy
 
     flush(filenumber)
 
@@ -140,12 +140,37 @@ end subroutine
 subroutine ifft_rhs
     use m_work !tmp_wrk + wrk + rhs_saved
     use x_fftw ! fft stuff
+    use m_parameters ! kmax
 
     ! save the current wrk array
     tmp_wrk(:,:,:,1:3) = wrk(:,:,:,1:3)
 
     ! copy the RHS variables into wrk
     wrk(:,:,:,1:3) = rhs_saved(:,:,:,1:3)
+
+    ! do the magic truncation stuff here
+    rkmax2 = real(kmax,8)**2
+
+    ! number of variables to write out
+    ! =============================================================================
+    ! brooks: used to be =3 but make =6 so that pressure could be modified as well
+    ! =============================================================================
+    ! putting all variables in wrk array
+    do k = 1,nz
+       do j = 1,ny
+          do i = 1,nx+2
+             ! magnitude of the wave number
+             wmag2 = akx(i)**2 + aky(k)**2 + akz(j)**2
+
+             if (wmag2 .gt. rkmax2) then
+                wrk(i,j,k,1:3) = zip
+             else
+                wrk(i,j,k,1:3) = wrk(i,j,k,1:3)
+             end if
+
+          end do
+       end do
+    end do
 
     ! do the iffts using the wrk array
     call xFFT3d(-1,1)
@@ -191,19 +216,20 @@ subroutine calculate_energy(energy, solver_energy)
 
 end subroutine calculate_energy
 
-subroutine calculate_helicity(helicity, solver_helicity)
+subroutine calculate_helicity(helicity, solver_helicity, enstrophy)
     use m_work !wrk
     use m_data !allocatable arrays for vorticity calculation
     use m_parameters ! dx, dy, dz
 
     implicit none
-    real*8 :: helicity, solver_helicity, tmp
+    real*8 :: helicity, solver_helicity, tmp, enstrophy
     real*8 :: u,v,w
     real*8 :: omg_x, omg_y, omg_z
     integer :: i, j, k
 
     helicity = 0.
     solver_helicity = 0.
+    enstrophy = 0.
 
     ! write(*,*) "helicity"
 
@@ -237,6 +263,8 @@ subroutine calculate_helicity(helicity, solver_helicity)
                     (rhs_saved(i,j,k,1) * omg_x &
                    + rhs_saved(i,j,k,2) * omg_y &
                    + rhs_saved(i,j,k,3) * omg_z )
+
+               enstrophy = enstrophy + (omg_x**2 + omg_y**2 + omg_z**2) * dx * dy  * dz
             end do
         end do
     end do
@@ -293,9 +321,12 @@ subroutine de_dt_term_1(term)
                 w = wrk(i,j,k,3)
 
                 ! calculating the whole term
-                outer_dot_product = -0.5 * divu* (u**2+ v**2 + w**2)
+                !outer_dot_product = -0.5 * divu* (u**2+ v**2 + w**2)
+                !term = term + (outer_dot_product * dx * dy * dz)
 
-                term = term + (outer_dot_product * dx * dy * dz)
+                term = term + (-1*(u* dUdX(i,j,k) + v*dUdX(i,j,k) + w*dUdZ(i,j,k)) * dx * dy * dz * u)
+                term = term + (-1*(u* dVdX(i,j,k) + v*dVdX(i,j,k) + w*dVdZ(i,j,k)) * dx * dy * dz * v)
+                term = term + (-1*(u* dWdX(i,j,k) + v*dWdX(i,j,k) + w*dWdZ(i,j,k)) * dx * dy * dz * w)
             end do
         end do
     end do
@@ -323,7 +354,7 @@ subroutine de_dt_term_2(term)
                 b = v * pressure_field(i,j,k,2)
                 c = w * pressure_field(i,j,k,3)
 
-                term = term + ((a + b + c) * dx * dy * dz)
+                term = term + (-1.* (a + b + c) * dx * dy * dz)
             end do
         end do
     end do
@@ -358,7 +389,8 @@ subroutine de_dt_term_3(term)
                 b = dVdY2(i,j,k) * wrk(i,j,k,2)
                 c = dWdZ2(i,j,k) * wrk(i,j,k,3)
 
-                term = term + (nu*(a + b + c) * dx * dy * dz)
+                !!term = term + (-1.*nu*(a + b + c) * dx * dy * dz)
+                term = term + (nu * (a + b + c) * dx * dy * dz)
             end do
         end do
     end do

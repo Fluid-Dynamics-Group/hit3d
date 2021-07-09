@@ -32,6 +32,7 @@ subroutine io_write_4
   do k = 1,nz
      do j = 1,ny
         do i = 1,nx+2
+           ! magnitude of the wave number
            wmag2 = akx(i)**2 + aky(k)**2 + akz(j)**2
 
            if (wmag2 .gt. rkmax2) then

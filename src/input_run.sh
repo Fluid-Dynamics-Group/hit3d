@@ -27,7 +27,7 @@ mv "$input_file_name.in" "$save_location/$input_file_name.in" &&\
 
 # run postprocessing stuff
 cd ~/github/hit3d-utils/ &&\
-sh run.sh "/home/brooks/github/hit3d/src/output/" "$save_location" "3.00"
+sh run.sh "/home/brooks/github/hit3d/src/output/" "$save_location" "0.00"
 
 cd /home/brooks/github/hit3d/src/
 mv output/energy.csv "$save_location"

@@ -178,14 +178,11 @@ subroutine rhs_velocity
               ! The rest of the modes is purged
 
               if (ialias(i,j,k) .gt. 0) then ! run for dealias=0
-                  !write(*,*) "AVOIDING THE MGM CODE"
-
                  ! setting the Fourier components to zero
                  wrk(i  ,j,k,1:3) = zip
                  wrk(i+1,j,k,1:3) = zip
 
               else ! run for dealias=1
-                  !write(*,*) "RUNNING THE MGM CODE"
 
                  ! RHS for u, v and w
                  do n = 1,3
@@ -195,10 +192,8 @@ subroutine rhs_velocity
                     if (skip_diffusion == 1) then ! skip diffusion calculation
                         ! ===========================MGM-Forcing=====================
                         ! Validation by inviscid flow
-                        rtmp =           - wrk(i+1,j,k,n) & ! + wrk(i  ,j,k,4) * fields(i  ,j,k,n) &
-                                                          + fcomp(i  ,j,k,n)
-                        wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) & ! + wrk(i+1,j,k,4) * fields(i+1,j,k,n) &
-                                                          + fcomp(i+1,j,k,n)
+                        rtmp =           - wrk(i+1,j,k,n) !+ fcomp(i  ,j,k,n)
+                        wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) !+ fcomp(i+1,j,k,n)
                         wrk(i  ,j,k,n) = rtmp
                     else ! dont skip the diffusion calculation
                         ! ==========================================================
@@ -208,11 +203,13 @@ subroutine rhs_velocity
                         ! taking the convective term, multiply it by "i"
                         ! (see how it's done in x_fftw.f90)
                         ! and adding the diffusion term
-                        rtmp =           - wrk(i+1,j,k,n) + wrk(i  ,j,k,4) * fields(i  ,j,k,n) &
-                                                          + fcomp(i  ,j,k,n)
-                        wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) + wrk(i+1,j,k,4) * fields(i+1,j,k,n) &
-                                                          + fcomp(i+1,j,k,n)
+                        rtmp =           - wrk(i+1,j,k,n) + wrk(i  ,j,k,4) * fields(i  ,j,k,n) !&
+                                                          !+ fcomp(i  ,j,k,n)
+                        wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) + wrk(i+1,j,k,4) * fields(i+1,j,k,n) !&
+                                                          !+ fcomp(i+1,j,k,n)
                         wrk(i  ,j,k,n) = rtmp
+
+                        ! dot this wrk variable with u - can try doing truncation here based on rtmp
 
                     end if
 
@@ -223,6 +220,7 @@ subroutine rhs_velocity
            end do
         end do
      end do
+
 
   end if two_thirds_rule
 
