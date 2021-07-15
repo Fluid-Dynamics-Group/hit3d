@@ -18,6 +18,9 @@ program x_code
 
   integer :: n
   character :: sym
+  logical :: finished_restarts
+  finished_restarts = .false.
+
 
   call m_timing_init   ! Setting the time zero
   call m_openmpi_init
@@ -42,6 +45,7 @@ program x_code
      call particles_init
   end if
 
+  if (NRESCALE == 0) finished_restarts = .true.
 
   write(out,*) "IN THE PROGRAM."
   call flush(out)
@@ -120,6 +124,10 @@ program x_code
               ! after rescaling, the time-stepping needs to be first order
               fov = .true.; fos = .true.
               if (.not. task_split .and. mod(itime,iprint1).eq.0) call stat_main
+
+              if (floor(time/TRESCALE)+1 == NRESCALE) then
+                finished_restarts = .true.
+              end if
            end if
         end if
 
@@ -237,7 +245,14 @@ program x_code
                call write_energy(time)
                ! we can write the velocity data from after calling io_write_4 since
                ! io_write_4 modifies the wrk variable to be isotropic
-               if (itime == itmax) call write_velocity_field(int(itime))
+
+               ! we only write vtk files once every 400 time steps because the post processessing
+               ! is very slow
+               ! also only write them after the restarts are done
+               if (finished_restarts .AND. mod(itime, iwrite4*4) .eq.0 ) then 
+                   call write_velocity_field(int(itime))
+               endif
+
            end if
 
         end if

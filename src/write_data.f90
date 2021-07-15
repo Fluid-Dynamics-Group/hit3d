@@ -21,7 +21,6 @@ subroutine write_velocity_field(current_timestep)
     filenumber = 619
 
     write(filename, "('output/velocity_field/', i2.2, '_', i5.5, '.csv')") myid_world, current_timestep
-    write(*,*) filename
     open(filenumber, file=filename, status="new")
 
     write(filenumber, "(A5)") "u,v,w"
@@ -63,7 +62,8 @@ subroutine init_write_energy
     call create_energy_filename(filename)
 
     open(filenumber, file=filename)
-    write(filenumber, "('energy,helicity,term1,term2,term3,divu,current_time,solver_energy,solver_helicity,enstrophy')")
+    write(filenumber, "('energy,helicity,advection_u,pressure_u,diffusion_u,divu,current_time,&
+        solver_energy,solver_helicity,enstrophy,advection_omega,pressure_omega,diffusion_omega')")
 
     filenumber = 622
     open(filenumber, file="output/velocity.csv")
@@ -103,7 +103,8 @@ subroutine write_energy(current_time)
 
     integer::filenumber
     character(len=40) :: filename
-    real*8 :: energy, helicity, term1, term2, term3, divu, current_time, solver_energy, solver_helicity,enstrophy
+    real*8 :: energy, helicity, advection_u, pressure_u, diffusion_u, divu, current_time, solver_energy, solver_helicity,enstrophy
+    real*8 :: advection_omega, pressure_omega, diffusion_omega
 
     ! initialize the name of the csv that this mpi process will write to
     call create_energy_filename(filename)
@@ -117,17 +118,20 @@ subroutine write_energy(current_time)
     call calculate_energy(energy, solver_energy)
     call calculate_helicity(helicity,solver_helicity, enstrophy)
     ! all the terms in dE/dt
-    call de_dt_term_1(term1)
-    call de_dt_term_2(term2)
-    call de_dt_term_3(term3)
+    call advection_dot(advection_u, advection_omega)
+    call pressure_dot(pressure_u, pressure_omega)
+    call diffusion_dot(diffusion_u, diffusion_omega)
+
     call calculate_divu(divu)
 
     ! The file will have already been opened by the init process
     ! now we write the calculated data to the file
     open(filenumber)
     write(filenumber, "(E16.10, ',', E16.10, ',', E16.10, ',', E16.10, &
-        ',',E16.10, ',',E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',', E16.10)") &
-        energy, helicity, term1, term2, term3, divu, current_time, solver_energy, solver_helicity, enstrophy
+        ',',E16.10, ',',E16.10, ',', E16.10, ',', E16.10, ',', E16.10, &
+        ',',E16.10 ',',E16.10, ',', E16.10, ',', E16.10)") &
+        energy, helicity, advection_u, pressure_u, diffusion_u, divu, current_time, solver_energy, solver_helicity, enstrophy,&
+        advection_omega, pressure_omega, diffusion_omega
 
     flush(filenumber)
 
@@ -295,15 +299,20 @@ subroutine calculate_helicity(helicity, solver_helicity, enstrophy)
 end subroutine calculate_helicity
 
 ! \int_V  dot(u, div(u)) dV
-subroutine de_dt_term_1(term)
+subroutine advection_dot(udot, omegadot)
     use m_parameters
     use m_data ! d( )/d( ) values from vorticity
     use m_work ! wrk
     implicit none
 
     integer :: i, j, k
-    real*8 term, a, b, c, divu, u, v,w, outer_dot_product
-    term = 0
+    real*8 :: a, b, c, divu, u, v,w, outer_dot_product
+    real*8 :: omg_x, omg_y, omg_z
+
+    real*8 ::udot ! argument, the advection term dotted with u
+    real*8 ::omegadot ! argumnet, the advection term dotted with omega
+    udot = 0.
+    omegadot = 0.
 
     ! calculate_vortiticity has already been called so we know
     ! dU/dX,dU/dY,dU/dZ,
@@ -320,49 +329,76 @@ subroutine de_dt_term_1(term)
                 v = wrk(i,j,k,2)
                 w = wrk(i,j,k,3)
 
+                omg_x = OmgX(i,j,k)
+                omg_y= OmgY(i,j,k)
+                omg_z= OmgZ(i,j,k)
+
                 ! calculating the whole term
                 !outer_dot_product = -0.5 * divu* (u**2+ v**2 + w**2)
                 !term = term + (outer_dot_product * dx * dy * dz)
 
-                term = term + (-1*(u* dUdX(i,j,k) + v*dUdX(i,j,k) + w*dUdZ(i,j,k)) * dx * dy * dz * u)
-                term = term + (-1*(u* dVdX(i,j,k) + v*dVdX(i,j,k) + w*dVdZ(i,j,k)) * dx * dy * dz * v)
-                term = term + (-1*(u* dWdX(i,j,k) + v*dWdX(i,j,k) + w*dWdZ(i,j,k)) * dx * dy * dz * w)
+                udot = udot + (-1*(u* dUdX(i,j,k) + v*dUdX(i,j,k) + w*dUdZ(i,j,k)) * dx * dy * dz * u)
+                udot = udot + (-1*(u* dVdX(i,j,k) + v*dVdX(i,j,k) + w*dVdZ(i,j,k)) * dx * dy * dz * v)
+                udot = udot + (-1*(u* dWdX(i,j,k) + v*dWdX(i,j,k) + w*dWdZ(i,j,k)) * dx * dy * dz * w)
+
+                omegadot= omegadot + (-1*(u* dUdX(i,j,k) + v*dUdX(i,j,k) + w*dUdZ(i,j,k)) * dx * dy * dz * omg_x)
+                omegadot= omegadot + (-1*(u* dVdX(i,j,k) + v*dVdX(i,j,k) + w*dVdZ(i,j,k)) * dx * dy * dz * omg_y)
+                omegadot= omegadot + (-1*(u* dWdX(i,j,k) + v*dWdX(i,j,k) + w*dWdZ(i,j,k)) * dx * dy * dz * omg_z)
             end do
         end do
     end do
-end subroutine de_dt_term_1
+end subroutine advection_dot
 
 ! \int_V  dot(p,u) dV
-subroutine de_dt_term_2(term)
+subroutine pressure_dot(udot, omegadot)
     use m_parameters
     use m_work ! wrk
     use m_fields! pressure_field
+    use m_data ! omega terms for dot product
     implicit none
 
     integer :: i, j, k
-    real*8 term, a, b, c, u, v, w
-    term = 0
+    real*8 a, b, c, u, v, w
+
+    real*8 :: omg_x, omg_y, omg_z
+
+    real*8 ::udot ! argument, the advection term dotted with u
+    real*8 ::omegadot ! argumnet, the advection term dotted with omega
+    udot = 0.
+    omegadot = 0.
 
     do i=1,nx
         do j=1,ny
             do k=1,nz
+                ! fetch variables from their terms
                 u = wrk(i,j,k,1)
                 v = wrk(i,j,k,2)
                 w = wrk(i,j,k,3)
+
+                omg_x = OmgX(i,j,k)
+                omg_y= OmgY(i,j,k)
+                omg_z= OmgZ(i,j,k)
+
+                ! calculate values
 
                 a = u * pressure_field(i,j,k,1)
                 b = v * pressure_field(i,j,k,2)
                 c = w * pressure_field(i,j,k,3)
 
-                term = term + (-1.* (a + b + c) * dx * dy * dz)
+                udot = udot + (-1.* (a + b + c) * dx * dy * dz)
+
+                a = omg_x * pressure_field(i,j,k,1)
+                b = omg_y * pressure_field(i,j,k,2)
+                c = omg_z * pressure_field(i,j,k,3)
+
+                omegadot= omegadot+ (-1.* (a + b + c) * dx * dy * dz)
             end do
         end do
     end do
-
-end subroutine de_dt_term_2
+end subroutine pressure_dot
 
 ! nu * \int dot(del^2(u) , u) dV
-subroutine de_dt_term_3(term)
+subroutine diffusion_dot(udot, omegadot)
     use m_parameters
     use m_data ! d( )/d( ) values from vorticity
     use m_work ! wrk
@@ -371,9 +407,13 @@ subroutine de_dt_term_3(term)
     ! dUdX, dVdY, dWdZ have all ready been calculated in vortitcity
 
     integer :: i, j, k
-    real*8 term, a, b, c
+    real*8 term, a, b, c, u,v,w
+    real*8 :: omg_x, omg_y, omg_z
 
-    term = 0
+    real*8 ::udot ! argument, the advection term dotted with u
+    real*8 ::omegadot ! argumnet, the advection term dotted with omega
+    udot = 0.
+    omegadot = 0.
 
     ! calculate second order gradients
     CALL gradient3D(nx,ny,nz,dUdX,dx,dy,dz,dUdX2,dUdY2,dUdZ2)
@@ -385,17 +425,39 @@ subroutine de_dt_term_3(term)
     do i=1,nx
         do j=1,ny
             do k=1,nz
-                a = dUdX2(i,j,k) * wrk(i,j,k,1)
-                b = dVdY2(i,j,k) * wrk(i,j,k,2)
-                c = dWdZ2(i,j,k) * wrk(i,j,k,3)
+                !
+                ! fetch the variables from their containers
+                !
+                u = wrk(i,j,k,1)
+                v = wrk(i,j,k,2)
+                w = wrk(i,j,k,3)
 
-                !!term = term + (-1.*nu*(a + b + c) * dx * dy * dz)
-                term = term + (nu * (a + b + c) * dx * dy * dz)
+                omg_x = OmgX(i,j,k)
+                omg_y= OmgY(i,j,k)
+                omg_z= OmgZ(i,j,k)
+
+                !
+                ! calculate DP for u
+                !
+                a = dUdX2(i,j,k) * u
+                b = dVdY2(i,j,k) * v
+                c = dWdZ2(i,j,k) * w
+
+                udot = udot + (nu * (a + b + c) * dx * dy * dz)
+
+                !
+                ! calculate DP for omega
+                !
+                a = dUdX2(i,j,k) * omg_x
+                b = dVdY2(i,j,k) * omg_y
+                c = dWdZ2(i,j,k) * omg_z
+
+                omegadot = omegadot + (nu * (a + b + c) * dx * dy * dz)
             end do
         end do
     end do
 
-end subroutine de_dt_term_3
+end subroutine diffusion_dot
 
 subroutine calculate_divu(divu)
     use m_parameters

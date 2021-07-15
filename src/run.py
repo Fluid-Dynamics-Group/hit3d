@@ -1,0 +1,205 @@
+import subprocess
+import shutil
+import os
+
+BASE_SAVE = "/home/brooks/sync/hit3d-extra"
+MPI_PROC = 16
+
+def main():
+    if os.path.exists(BASE_SAVE):
+        shutil.rmtree(BASE_SAVE)
+    os.mkdir(BASE_SAVE)
+
+    run_shell_command("make")
+    i = 0
+    for skip_diffusion_param in [1,0]:
+        for size_param in [64, 128]:
+            for steps, dt in [(10000, 0.001), (20000, 0.0005)]:
+                for restarts in [0,1,2,3]:
+                    for reynolds_number in [40,80]:
+                        run_case(skip_diffusion_param, size_param, steps, dt, restarts, reynolds_number, None)
+
+                        i+=1
+                        percentage = i / (2*2*2*4*2)
+                        print(f"{i} of {2*2*2*4*2} cases finished ({percentage})")
+
+# skip diffusion - 0 / 1 - whether or not to skip the diffusion calculations in rhs_velocity
+# size param - the number of divisions in each dimension (size_param=64 means 64x64x64 slices)
+# steps - the number of steps the solver will take
+# dt - the constant time step used in the solver
+# restarts - the number of restarts the solver has, each restart lasts 1 second
+# reynolds_number - the reynolds number of the simulation (float)
+# save_folder - a hard coded save folder. if none is provided then one will be generated based on the parameters
+def run_case(skip_diffusion_param, size_param, steps,dt, restarts, reynolds_number, save_folder=None):
+    if save_folder is None:
+        save_folder = BASE_SAVE + f"/{size_param}N-dt{dt}-{skip_diffusion_to_str(skip_diffusion_param)}-{restarts}-restarts-re{reynolds_number}-steps{steps}"
+
+    # delete the entire folder and remake it
+    if os.path.exists(save_folder):
+        shutil.rmtree(save_folder)
+    os.mkdir(save_folder)
+
+    print(f"creating a config for N={size_param} | {skip_diffusion_to_str(skip_diffusion_param)} | dt={dt} | restarts = {restarts} | steps = {steps}")
+    run_shell_command(f"hit3d-config --n {size_param} --steps {steps} --steps-between-io 100 --flow-type 0 --skip-diffusion {skip_diffusion_param} --dt -{dt} --restarts {restarts} --reynolds {reynolds_number} input_file.in ")
+
+    restart_time_slice = restarts * 1.
+
+    if restart_time_slice > steps*dt:
+        print(steps*dt, restart_time_slice)
+        raise ValueError("restarts last longer than the simulation - this will cause a crash down the line")
+
+    run_hit3d()
+
+    postprocessing(save_folder, restart_time_slice, steps, dt)
+
+def run_hit3d():
+    clean_output_dir()
+
+    run_shell_command(f'mpirun -np {MPI_PROC} ./hit3d.x "input_file" "nosplit"')
+
+def postprocessing(output_folder, restart_time_slice, steps, dt):
+    #shutil.move("input_file.in", output_folder + "/input_file.in")
+
+    os.mkdir(output_folder + '/flowfield')
+
+    flowfield_files = [i for i in os.listdir("output/velocity_field") if i !=".gitignore"]
+    print(flowfield_files)
+
+    # group each of the flowfield files by the timestep that they belong to
+    # so that we can combine all of the files that are from the same t
+    groupings = {}
+    for filename in flowfield_files:
+        _mpi_id, timestep = parse_filename(filename)
+
+        if groupings.get(timestep) is None:
+            groupings[timestep] = []
+
+        groupings[timestep].append(filename)
+
+    # move all of the files in each group to a tmp directory and process all of the
+    # files in that directory with hit3d-utils
+    for filegroup in groupings.values():
+
+        #
+        # Combine all partial flowfield csv files written by each mpi process into a
+        # singular csv file - add q criterion information to the csv file and then
+        # re-export that csv to a vtk file for viewing in paraview
+        #
+
+        # clear the tmp file
+        if os.path.exists("output/tmp_velo"):
+            shutil.rmtree("output/tmp_velo")
+        os.mkdir("output/tmp_velo")
+
+        # move all of the current files into the tmp folder to compress them
+        for current_file in filegroup:
+            shutil.move("output/velocity_field/" + current_file, "output/tmp_velo/" + current_file)
+
+        _, timestep = parse_filename(filegroup[0])
+
+        concat_csv = f"output/velocity_field/{timestep}.csv"
+        combined_csv = "output/combined_csv.csv"
+        vtk_save = output_folder + f"/flowfield/flowfield_{timestep}.vtk"
+
+        # concat all of the data together
+        run_shell_command(f'hit3d-utils concat output/tmp_velo output/size.csv "{concat_csv}" {combined_csv}')
+
+        # add qcriterion data to the csv
+        run_shell_command(f'python3 /home/brooks/github/hit3d-utils/src/q_criterion.py {concat_csv} {combined_csv}')
+
+        # re-export the csv file to a vtk for viewing
+        run_shell_command(f'hit3d-utils vtk {concat_csv} {combined_csv} {vtk_save}')
+
+    #
+    # Handle time step energy files
+    #
+
+    run_shell_command("hit3d-utils add output/energy/ output/energy.csv")
+
+    #
+    # parse and re-export spectral information
+    #
+
+    # the number of points on the spectra that we want
+    NUM_DATAPOINTS = 5
+    steps_for_restarts = int(restart_time_slice / dt) + 1
+    effective_steps = steps - steps_for_restarts
+    # how many actual values from es.gp are available after restarts are complete
+    datapoints = int(effective_steps / 10)
+
+    stepby = int(datapoints / NUM_DATAPOINTS) - 5
+
+    run_shell_command(f"hit3d-utils spectral output/es.gp output/spectra.json --step-by {stepby} --skip-before-time {restart_time_slice}")
+
+    #
+    # run plotting for energy / helicity information from energy.csv
+    # and for the spectra
+    #
+
+    run_shell_command(f'python3 /home/brooks/github/hit3d-utils/src/energy_helicity.py output/energy.csv {output_folder} "{restart_time_slice}"')
+    run_shell_command(f'python3 /home/brooks/github/hit3d-utils/src/spectra.py output/spectra.json {output_folder}')
+
+    # move some of the important files to the save folder so they do not get purged
+    shutil.move("output/energy.csv", output_folder + '/energy.csv')
+    shutil.move("output/es.gp", output_folder + '/es.gp')
+
+# parse csv files for flowfield output by fortran
+def parse_filename(filename):
+    mpi_id = filename[0:2]
+    timestep = filename[3:8]
+    return mpi_id,timestep
+
+
+# clean out the output directory and  place gitignore files in it
+def clean_output_dir():
+    shutil.rmtree("output")
+    os.mkdir("output")
+    os.mkdir("output/velocity")
+    os.mkdir("output/energy")
+    os.mkdir("output/velocity_field")
+
+    create_file("output/.gitignore")
+    create_file("output/velocity/.gitignore")
+    create_file("output/velocity_field/.gitignore")
+    create_file("output/energy/.gitignore")
+
+def create_file(path):
+    with open(path,'w') as _:
+        pass
+
+def run_shell_command(command):
+    print(f"running {command}")
+    output = subprocess.run(command,shell=True, check=True)
+    if not output.stdout is None:
+        print(output.stdout)
+
+def skip_diffusion_to_str(skip_diffusion):
+    if skip_diffusion == 1:
+        return "no-diffusion"
+    elif skip_diffusion == 0:
+        return "yes-diffusion"
+    else:
+        raise ValueError("skip diffusion must be either 0 or 1")
+
+# helpful function for runnning one-off cases
+def one_case():
+    run_shell_command("make")
+    # adjustable variables
+    skip_diffusion = 0
+    size_param= 64
+    steps = 10000
+    dt = 0.001
+    restarts = 0
+    reynolds_number = 40.
+    save_folder = "/home/brooks/sync/hit3d/testrun"
+
+    # calculated varaibles
+    restart_slice = restarts * 1.00
+
+    run_case(skip_diffusion, size_param, steps, dt, restarts, reynolds_number, save_folder)
+    postprocessing(save_folder, restart_slice, steps, dt)
+
+if __name__ == "__main__":
+    main()
+    #postprocessing("",1)
+    #one_case()
