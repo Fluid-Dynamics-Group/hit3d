@@ -4,7 +4,7 @@ import os
 import traceback
 
 BASE_SAVE = "/home/brooks/sync/hit3d"
-MPI_PROC = 16
+MPI_PROC = 1
 
 class RunCase():
     def __init__(self,skip_diffusion, size, dt, steps, restarts, reynolds_number,path):
@@ -132,7 +132,7 @@ def run_case(skip_diffusion_param, size_param, steps,dt, restarts, reynolds_numb
 def run_hit3d():
     clean_output_dir()
 
-    run_shell_command(f'mpirun -np {MPI_PROC} ./hit3d.x "input_file" "nosplit"')
+    run_shell_command(f'mpirun -np {MPI_PROC} --mca opal_warn_on_missing_libcuda 0 ./hit3d.x "input_file" "nosplit"')
 
 def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, iteration):
     shutil.move("input_file.in", output_folder + "/input_file.in")
@@ -224,7 +224,7 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     # how many actual values from es.gp are available after restarts are complete
     datapoints = int(effective_steps / 10)
 
-    stepby = int(datapoints / NUM_DATAPOINTS) - 5
+    stepby = max(int(datapoints / NUM_DATAPOINTS) - 5,1)
 
     run_shell_command(f"hit3d-utils spectral {solver_folder}/es.gp {solver_folder}/spectra.json --step-by {stepby} --skip-before-time {restart_time_slice}")
 
@@ -239,8 +239,6 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     # move some of the important files to the save folder so they do not get purged
     shutil.move(f"{solver_folder}/energy.csv", output_folder + '/energy.csv')
     shutil.move(f"{solver_folder}/es.gp", output_folder + '/es.gp')
-    
-    print(f"finished postprocessing for {solver_folder}... deleting now")
 
 # parse csv files for flowfield output by fortran
 def parse_filename(filename):
@@ -287,7 +285,8 @@ def skip_diffusion_to_str(skip_diffusion):
 # helpful function for runnning one-off cases
 def one_case():
     run_shell_command("make")
-    case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/testcase')
+    case =  RunCase(skip_diffusion=0,size=128, dt=0.001, steps=100, restarts=0, reynolds_number=40, path= BASE_SAVE + '/testcase_1proc')
+    #case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/12proc_10000')
     case.run(0)
 
 if __name__ == "__main__":

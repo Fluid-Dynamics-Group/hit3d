@@ -10,13 +10,13 @@ program MgmTurbNetTools
 
     implicit none
 
-    integer:: i
+    integer:: brooks_step
 
     write(*,*) "printing relevant information for first 10 timesteps"
 
-    do i=1,10
-        write(*,*) "========================== i=", i*100, " =================="
-        call data_step(i*100)
+    do brooks_step=1,1
+        !write(*,*) "========================== step=", brooks_step*100, " =================="
+        call data_step(brooks_step*100)
     end do
 
 
@@ -134,11 +134,12 @@ subroutine data_step(itr)
     write(boxchar,"(I6.6)") itr
     
     fname = "output/velocity/u."//boxchar
+    !write(*,*) "opening file", fname
     open(unit=100,file=fname,form="unformatted",access='stream')
     read(100) sizes
     nx = sizes(1); ny = sizes(2); nz = sizes(3);
     npoints = nx*ny*nz;
-    print *, 'Sizes: ', nx, ny, nz
+    !print *, 'Sizes: ', nx, ny, nz
     allocate(u(nx,ny,nz)); allocate(v(nx,ny,nz)); allocate(w(nx,ny,nz))
     read(100) ( ( (u(i,j,k),i=1,nx) ,j=1,ny) ,k= 1,nz )   ! +(fact*(p-1))
     close(100)
@@ -148,7 +149,7 @@ subroutine data_step(itr)
     read(100)
     read(100) ( ( (v(i,j,k),i=1,nx) ,j=1,ny) ,k= 1,nz )
     close(100)
-    print *, 'v(2,1,1) = ', v(2,1,1)
+    !print *, 'v(2,1,1) = ', v(2,1,1)
     
     fname = "output/velocity/w."//boxchar
     open(unit=100,file=fname,form="unformatted",access='stream')
@@ -165,7 +166,7 @@ subroutine data_step(itr)
     !read(100) ( ( (phi(i,j,k),i=1,nx) ,j=1,ny) ,k= 1,nz )
     !close(100)
     
-    print *, 'Data loaded...'
+    !print *, 'Data loaded...'
     
     != ====
     
@@ -212,7 +213,7 @@ subroutine data_step(itr)
         end do
     end do
     
-    write(*,*) "energy is ", energy
+    !write(*,*) "energy is ", energy
     
     OmgX = dUdY-dVdX
     OmgY = dUdZ-dWdX
@@ -231,7 +232,7 @@ subroutine data_step(itr)
     qcrit = (omg1**2+omg2**2+omg3**2) - ((gam1**2+gam2**2+gam3**2) + 0.5*(sig1**2+sig2**2+sig3**2))
     omgmag = omg1**2+omg2**2+omg3**2
     strmag = (gam1**2+gam2**2+gam3**2) + 0.5*(sig1**2+sig2**2+sig3**2)
-    print *, 'Vorticity & Q-criterion calculated...'
+    !print *, 'Vorticity & Q-criterion calculated...'
     
     !Mesh generation
     xx_v(1) = 0.0; yy_v(1) = 0.0; zz_v(1) = 0.0;
@@ -240,12 +241,23 @@ subroutine data_step(itr)
         yy_v(i) = yy_v(i-1) + dy
         zz_v(i) = zz_v(i-1) + dz
     end do
+
+    !write(*,*) "outputting dUdX before other variables"
+    !do i = 1, nx
+    !    write(*,*) dUdX(i,1,1), dUdX(i,1,1), dUdX(i,1,1)
+    !end do
+
+    write(*,*) "moving on to other variables"
     
     brooks_helicity =0.
     l = 1
     do k = 1, nz
         do j = 1, ny
             do i = 1, nx
+                if (k ==  1 .and. j==1) then 
+                    write(*,*) u(i,j,k), v(i,j,k),w(i,j,k),OmgX(i,j,k), OmgY(i,j,k),OmgZ(i,j,k)
+                end if
+
                 XX(l) = xx_v(i)
                 YY(l) = yy_v(j)
                 ZZ(l) = zz_v(k)
@@ -270,11 +282,12 @@ subroutine data_step(itr)
     points(1, :) = XX
     points(2, :) = YY
     points(3, :) = ZZ
-    print *, 'Cartesian mesh generated...'
+    !print *, 'Cartesian mesh generated...'
     
+    !write(*,*) "MGM helicity calculation is before resize", brooks_helicity
     brooks_helicity = brooks_helicity * dx * dy * dz
     
-    write(*,*) "MGM helicity calculation is ", brooks_helicity
+    write(*,*) brooks_helicity
     
     !!===============Write data (Binary)========================
     !inquire(file="post/veldata_"//boxchar//".dat",exist=readforce)

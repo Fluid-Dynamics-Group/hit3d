@@ -33,7 +33,7 @@ subroutine write_tmp4
         call MPI_RECV(tmp4,count,MPI_REAL4,id_from,tag,MPI_COMM_TASK,mpi_status,mpi_err)
         write(my_out) (((tmp4(i,j,k),i=1,nx),j=1,ny),k=1,nz)
 
-!        write(100,*) (((tmp4(i,j,k),i=1,nx),j=1,ny),k=1,nz)
+        !write(100,*) (((tmp4(i,j,k),i=1,nx),j=1,ny),k=1,nz)
      end do
      close(my_out)
 
