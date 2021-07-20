@@ -4,6 +4,9 @@ module m_data
     real*8, dimension(:,:,:), allocatable :: OmgX, OmgY, OmgZ
     ! second order derivatives for third term in dE/dt
     real*8, dimension(:,:,:), allocatable :: dUdX2, dUdY2, dUdZ2, dVdX2, dVdY2, dVdZ2, dWdX2, dWdY2, dWdZ2
+    ! curl ( RHS) terms 
+    real*8, dimension(:,:,:), allocatable :: dRHS1dX, dRHS1dY, dRHS1dZ, dRHS2dX, dRHS2dY, dRHS2dZ, dRHS3dX, dRHS3dY, dRHS3dZ
+
 end module m_data
 
 subroutine write_velocity_field(current_timestep)
@@ -63,7 +66,7 @@ subroutine init_write_energy
 
     open(filenumber, file=filename)
     write(filenumber, "('energy,helicity,advection_u,pressure_u,diffusion_u,divu,current_time,&
-        solver_energy,solver_helicity,enstrophy,advection_omega,pressure_omega,diffusion_omega')")
+        solver_energy,solver_helicity,enstrophy,advection_omega,pressure_omega,diffusion_omega,alt_dh_dt')")
 
     filenumber = 622
     open(filenumber, file="output/velocity.csv")
@@ -83,6 +86,12 @@ subroutine init_write_energy
     allocate(dPxdX(nx,ny,nz));allocate(dPxdY(nx,ny,nz));allocate(dPxdZ(nx,ny,nz));
     allocate(dPydX(nx,ny,nz));allocate(dPydY(nx,ny,nz));allocate(dPydZ(nx,ny,nz));
     allocate(dPzdX(nx,ny,nz));allocate(dPzdY(nx,ny,nz));allocate(dPzdZ(nx,ny,nz));
+    
+    ! RHS curl terms
+    allocate(dRHS1dX(nx,ny,nz));allocate(dRHS1dY(nx,ny,nz));allocate(dRHS1dZ(nx,ny,nz));
+    allocate(dRHS2dX(nx,ny,nz));allocate(dRHS2dY(nx,ny,nz));allocate(dRHS2dZ(nx,ny,nz));
+    allocate(dRHS3dX(nx,ny,nz));allocate(dRHS3dY(nx,ny,nz));allocate(dRHS3dZ(nx,ny,nz));
+
 
 end subroutine init_write_energy
 
@@ -104,7 +113,7 @@ subroutine write_energy(current_time)
     integer::filenumber
     character(len=40) :: filename
     real*8 :: energy, helicity, advection_u, pressure_u, diffusion_u, divu, current_time, solver_energy, solver_helicity,enstrophy
-    real*8 :: advection_omega, pressure_omega, diffusion_omega
+    real*8 :: advection_omega, pressure_omega, diffusion_omega, alt_dh_dt
 
     ! initialize the name of the csv that this mpi process will write to
     call create_energy_filename(filename)
@@ -124,14 +133,16 @@ subroutine write_energy(current_time)
 
     call calculate_divu(divu)
 
+    call alternate_dh_dt_calculation(alt_dh_dt)
+
     ! The file will have already been opened by the init process
     ! now we write the calculated data to the file
     open(filenumber)
     write(filenumber, "(E16.10, ',', E16.10, ',', E16.10, ',', E16.10, &
         ',',E16.10, ',',E16.10, ',', E16.10, ',', E16.10, ',', E16.10, &
-        ',',E16.10 ',',E16.10, ',', E16.10, ',', E16.10)") &
+        ',',E16.10, ',',E16.10, ',', E16.10, ',', E16.10, ',', E16.10)") &
         energy, helicity, advection_u, pressure_u, diffusion_u, divu, current_time, solver_energy, solver_helicity, enstrophy,&
-        advection_omega, pressure_omega, diffusion_omega
+        advection_omega, pressure_omega, diffusion_omega,alt_dh_dt
 
     flush(filenumber)
 
@@ -490,20 +501,72 @@ subroutine calculate_vorticity
 
     !write(*,*) "voriticity"
 
-    u = wrk(:,:,:,1)
-    v = wrk(:,:,:,2)
-    w = wrk(:,:,:,3)
+    !u = wrk(:,:,:,1)
+    !v = wrk(:,:,:,2)
+    !w = wrk(:,:,:,3)
 
     ! calculate the gradients, store then in the d( )d( ) variables
-    CALL gradient3D(nx,ny,nz,u,dx,dy,dz,dUdX,dUdY,dUdZ)
-    CALL gradient3D(nx,ny,nz,v,dx,dy,dz,dVdX,dVdY,dVdZ)
-    CALL gradient3D(nx,ny,nz,w,dx,dy,dz,dWdX,dWdY,dWdZ)
+    CALL gradient3D(nx,ny,nz,wrk(:,:,:,1),dx,dy,dz,dUdX,dUdY,dUdZ)
+    CALL gradient3D(nx,ny,nz,wrk(:,:,:,2),dx,dy,dz,dVdX,dVdY,dVdZ)
+    CALL gradient3D(nx,ny,nz,wrk(:,:,:,3),dx,dy,dz,dWdX,dWdY,dWdZ)
 
     ! use the derivatives to calculate the vorticity
     OmgX = dUdY-dVdX
     OmgY = dUdZ-dWdX
     OmgZ = dVdZ-dWdY
 end subroutine calculate_vorticity
+
+! u . curl (rhs_saved) + \omega \dot rhs_saved
+! which is an alternative way to calculate helicity derivative
+subroutine alternate_dh_dt_calculation(dh_dt)
+
+    use m_work
+    use m_data
+    implicit none
+    
+    integer :: i,j,k
+    real*8 :: dh_dt, a, b, c, d,e,f
+    real*8 :: omg_x, omg_y, omg_z, u, v,w
+
+    dh_dt = 0.
+
+    ! calculate curl(RHS
+    CALL gradient3D(nx,ny,nz,rhs_saved(:,:,:,1),dx,dy,dz,dUdX,dUdY,dUdZ)
+    CALL gradient3D(nx,ny,nz,rhs_saved(:,:,:,2),dx,dy,dz,dVdX,dVdY,dVdZ)
+    CALL gradient3D(nx,ny,nz,rhs_saved(:,:,:,3),dx,dy,dz,dWdX,dWdY,dWdZ)
+
+    do i =1,nx
+        do j=1,ny
+            do k=1,nz
+                ! pull u/v/w/ omega terms out of the arrays
+                u = wrk(i,j,k,1)
+                v = wrk(i,j,k,2)
+                w = wrk(i,j,k,3)
+
+                omg_x = OmgX(i,j,k)
+                omg_y= OmgY(i,j,k)
+                omg_z= OmgZ(i,j,k)
+
+                ! this is u. curl(RHS)
+                a = dRHS1dX(i,j,k) * u 
+                b = dRHS2dY(i,j,k) * v 
+                c = dRHS3dZ(i,j,k) * w 
+
+                ! this is \omega \dot rhs_saved
+                d = omg_x * rhs_saved(i,j,k,1)
+                e = omg_y * rhs_saved(i,j,k,2)
+                f = omg_z * rhs_saved(i,j,k,3)
+
+                ! add all the terms together
+                dh_dt = dh_dt + a + b + c + d + e + f
+                
+            end do
+        end do
+    end do
+
+    dh_dt = dh_dt * dx * dy * dz
+
+end subroutine alternate_dh_dt_calculation
 
 ! Subroutine for gradient of a property in 3D domain - modified from MGM's postprocessessing work
 subroutine gradient3D(m,n,o,f,hx,hy,hz,dfdx,dfdy,dfdz)
