@@ -62,7 +62,8 @@ program x_code
   if(load_initial_condition == 2 .or. load_initial_condition == 1) then
      call begin_new
   elseif (load_initial_condition == 0) then 
-     call load_initial_data()
+     call begin_new
+     !call load_initial_data()
   else 
       write(*,*) "invalid value for load_initial_condition"
       stop 1
@@ -80,7 +81,6 @@ program x_code
   ! for velocities and scalars
   fov = .true.
   fos = .true.
-
 
   ! need to dealias the fields at the beginning
   if (task.eq.'hydro') call dealias_all
@@ -229,10 +229,13 @@ program x_code
      end if hydro
 
      ! if we are at the specified timestep and our job is to write a restart file ...
-     if (mod(itime,30001) == 0 .and. load_initial_condition == 1) then 
+     if (mod(itime,3001) == 0 .and. load_initial_condition == 1) then 
          call write_initial_data()
-         stop 0
+         call my_exit(0)
+         call m_openmpi_exit
+         stop
      end if
+
 !--------------------------------------------------------------------------------
 !                             STATISTICS PART
 !--------------------------------------------------------------------------------

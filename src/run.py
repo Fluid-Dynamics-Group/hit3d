@@ -4,10 +4,9 @@ import os
 import traceback
 
 BASE_SAVE = "/home/brooks/sync/hit3d"
-MPI_PROC = 1
 
 class RunCase():
-    def __init__(self,skip_diffusion, size, dt, steps, restarts, reynolds_number,path, load_initial_data=0):
+    def __init__(self,skip_diffusion, size, dt, steps, restarts, reynolds_number,path, load_initial_data=0, nprocs=16):
         # if there are restarts, find the number of steps spent in that those restarts
         # and add them to the current number of steps
         simulation_time_restart = restarts * 1.0
@@ -22,6 +21,7 @@ class RunCase():
         self.reynolds_number = reynolds_number
         self.path =            path
         self.load_initial_data = load_initial_data
+        self.nprocs            = nprocs
 
     def run(self, iteration):
         if self.dt == 0.001:
@@ -40,13 +40,15 @@ class RunCase():
             self.dt, 
             self.restarts, 
             self.reynolds_number, 
+            self.load_initial_data,
+            self.nprocs,
             self.path,
             iteration,
-            io_steps
+            io_steps,
         )
 
     def __repr__(self):
-        return f"RunCase N={self.size} | {skip_diffusion_to_str(self.skip_diffusion)} | dt={self.dt} | restarts = {self.restarts} | steps = {self.steps} | Re = {self.reynolds_number}"
+        return f"RunCase N={self.size} | {skip_diffusion_to_str(self.skip_diffusion)} | dt={self.dt} | restarts = {self.restarts} | steps = {self.steps} | Re = {self.reynolds_number} | load-initial-data = {self.load_initial_data}"
 
 def main():
     if os.path.exists(BASE_SAVE):
@@ -100,7 +102,7 @@ def main():
 # restarts - the number of restarts the solver has, each restart lasts 1 second
 # reynolds_number - the reynolds number of the simulation (float)
 # save_folder - a hard coded save folder. if none is provided then one will be generated based on the parameters
-def run_case(skip_diffusion_param, size_param, steps,dt, restarts, reynolds_number, save_folder=None, iteration=1, steps_between_io=None):
+def run_case(skip_diffusion_param, size_param, steps,dt, restarts, reynolds_number, load_initial_data, nprocs, save_folder=None, iteration=1, steps_between_io=None):
     if save_folder is None:
         save_folder = BASE_SAVE + f"/{size_param}N-dt{dt}-{skip_diffusion_to_str(skip_diffusion_param)}-{restarts}-restarts-re{reynolds_number}-steps{steps}"
 
@@ -113,7 +115,7 @@ def run_case(skip_diffusion_param, size_param, steps,dt, restarts, reynolds_numb
     os.makedirs(save_folder)
 
     print(f"creating a config for N={size_param} | {skip_diffusion_to_str(skip_diffusion_param)} | dt={dt} | restarts = {restarts} | steps = {steps}")
-    run_shell_command(f"hit3d-config --n {size_param} --steps {steps} --steps-between-io {steps_between_io} --flow-type 0 --skip-diffusion {skip_diffusion_param} --dt -{dt} --restarts {restarts} --reynolds {reynolds_number} input_file.in ")
+    run_shell_command(f"hit3d-config --n {size_param} --steps {steps} --steps-between-io {steps_between_io} --flow-type 0 --skip-diffusion {skip_diffusion_param} --dt -{dt} --restarts {restarts} --reynolds {reynolds_number} --initial-condition {load_initial_data} input_file.in ")
 
     restart_time_slice = restarts * 1.
 
@@ -121,21 +123,21 @@ def run_case(skip_diffusion_param, size_param, steps,dt, restarts, reynolds_numb
         print(steps*dt, restart_time_slice)
         raise ValueError("restarts last longer than the simulation - this will cause a crash down the line")
 
-    run_hit3d()
+    run_hit3d(nprocs)
 
-    # save simple run info to a json file
+    if load_initial_data != 1:
+        postprocessing("output/", save_folder, restart_time_slice, steps, dt, iteration)
+    else:
+        print("run.py is skipping postprocesing since this run was used to generate a input field file")
 
-    # start perforing postprocessessing stuff on another thread
-    postprocessing("output/", save_folder, restart_time_slice, steps, dt, iteration)
-    #p = Process(target=postprocessing, args= (solver_folder, save_folder, restart_time_slice, steps, dt, iteration,))
-    #p.start()
-
-def run_hit3d():
+def run_hit3d(nprocs):
     clean_output_dir()
 
-    run_shell_command(f'mpirun -np {MPI_PROC} --mca opal_warn_on_missing_libcuda 0 ./hit3d.x "input_file" "nosplit"')
+    run_shell_command(f'mpirun -np {nprocs} --mca opal_warn_on_missing_libcuda 0 ./hit3d.x "input_file" "nosplit"')
 
-def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, iteration):
+    print("finished hit3d, back in python")
+
+def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, iteration ):
     shutil.move("input_file.in", output_folder + "/input_file.in")
 
     os.mkdir(output_folder + '/flowfield')
@@ -154,38 +156,38 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
 
         groupings[timestep].append(filename)
 
-    # move all of the files in each group to a tmp directory and process all of the
-    # files in that directory with hit3d-utils
-    for filegroup in groupings.values():
+    # # move all of the files in each group to a tmp directory and process all of the
+    # # files in that directory with hit3d-utils
+    # for filegroup in groupings.values():
 
-        #
-        # Combine all partial flowfield csv files written by each mpi process into a
-        # singular csv file - add q criterion information to the csv file and then
-        # re-export that csv to a vtk file for viewing in paraview
-        #
+    #     #
+    #     # Combine all partial flowfield csv files written by each mpi process into a
+    #     # singular csv file - add q criterion information to the csv file and then
+    #     # re-export that csv to a vtk file for viewing in paraview
+    #     #
 
-        # clear the tmp file
-        clean_and_create_folder(f"{solver_folder}/tmp_velo")
+    #     # clear the tmp file
+    #     clean_and_create_folder(f"{solver_folder}/tmp_velo")
 
-        # move all of the current files into the tmp folder to compress them
-        for current_file in filegroup:
-            shutil.move(f"{solver_folder}/velocity_field/" + current_file, f"{solver_folder}/tmp_velo/" + current_file)
+    #     # move all of the current files into the tmp folder to compress them
+    #     for current_file in filegroup:
+    #         shutil.move(f"{solver_folder}/velocity_field/" + current_file, f"{solver_folder}/tmp_velo/" + current_file)
 
-        _, timestep = parse_filename(filegroup[0])
+    #     _, timestep = parse_filename(filegroup[0])
 
-        concat_csv = f"{solver_folder}/velocity_field/{timestep}.csv"
-        combined_csv = f"{solver_folder}/combined_csv.csv"
-        # file is in a directory accessable by the paraview headless renderer
-        vtk_save = output_folder + f"/flowfield/timestep_{timestep}.vtk" 
+    #     concat_csv = f"{solver_folder}/velocity_field/{timestep}.csv"
+    #     combined_csv = f"{solver_folder}/combined_csv.csv"
+    #     # file is in a directory accessable by the paraview headless renderer
+    #     vtk_save = output_folder + f"/flowfield/timestep_{timestep}.vtk" 
 
-        # concat all of the data together
-        run_shell_command(f'hit3d-utils concat {solver_folder}/tmp_velo {solver_folder}/size.csv "{concat_csv}" {combined_csv}')
+    #     # concat all of the data together
+    #     run_shell_command(f'hit3d-utils concat {solver_folder}/tmp_velo {solver_folder}/size.csv "{concat_csv}" {combined_csv}')
 
-        # add qcriterion data to the csv
-        run_shell_command(f'python3 /home/brooks/github/hit3d-utils/src/q_criterion.py {concat_csv} {combined_csv}')
+    #     # add qcriterion data to the csv
+    #     run_shell_command(f'python3 /home/brooks/github/hit3d-utils/src/q_criterion.py {concat_csv} {combined_csv}')
 
-        # re-export the csv file to a vtk for viewing
-        run_shell_command(f'hit3d-utils vtk {concat_csv} {combined_csv} {vtk_save}')
+    #     # re-export the csv file to a vtk for viewing
+    #     run_shell_command(f'hit3d-utils vtk {concat_csv} {combined_csv} {vtk_save}')
 
     #
     # run the paraview headless renderer with our new vtk files 
@@ -288,10 +290,17 @@ def one_case():
     run_shell_command("make")
     #case =  RunCase(skip_diffusion=0,size=128, dt=0.001, steps=100, restarts=0, reynolds_number=40, path= BASE_SAVE + '/testcase_1proc')
     #case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/12proc_10000')
-    case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=100, restarts=3, reynolds_number=40, path= BASE_SAVE + '/initial_field', load_initial_data=1)
+    #case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=100, restarts=3, reynolds_number=40, path= BASE_SAVE + '/initial_field', load_initial_data=1)
+
+    case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=3100, restarts=3, reynolds_number=40, path= BASE_SAVE + '/initial_field', load_initial_data=1, nprocs=1)
     case.run(0)
 
-
+    for i in range(1,17):
+        if 64 %i ==0:
+            print(i)
+    
+            case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=0, reynolds_number=40, path= BASE_SAVE + f'/{i}proc_10000', nprocs=i)
+            case.run(0)
 
 if __name__ == "__main__":
     #main()

@@ -70,9 +70,6 @@ subroutine init_velocity
   rseed = real(seed1,8)
   fac = random(-rseed)
 
-
-
-
   ! bringing the processors to their own places in the random sequence
   ! ("6" is there because we're generating six fields
   ! using seed1 because it's int*8
@@ -118,6 +115,11 @@ subroutine init_velocity
   do n = 1,3
      call xFFT3d(1,n)
   end do
+
+  ! load wrk(:,:,:,1:3) from a previous run - wrk is loaded in fourier space
+  if (load_initial_condition == 0) then
+      call load_initial_data()
+  end if
 
   ! assemble the arrays in wrk4..6, only the wavenumbers below kmax
   do k = 1,nz
