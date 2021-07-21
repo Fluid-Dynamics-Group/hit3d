@@ -7,7 +7,7 @@ BASE_SAVE = "/home/brooks/sync/hit3d"
 MPI_PROC = 1
 
 class RunCase():
-    def __init__(self,skip_diffusion, size, dt, steps, restarts, reynolds_number,path):
+    def __init__(self,skip_diffusion, size, dt, steps, restarts, reynolds_number,path, load_initial_data=0):
         # if there are restarts, find the number of steps spent in that those restarts
         # and add them to the current number of steps
         simulation_time_restart = restarts * 1.0
@@ -21,6 +21,7 @@ class RunCase():
         self.restarts =        restarts
         self.reynolds_number = reynolds_number
         self.path =            path
+        self.load_initial_data = load_initial_data
 
     def run(self, iteration):
         if self.dt == 0.001:
@@ -285,9 +286,12 @@ def skip_diffusion_to_str(skip_diffusion):
 # helpful function for runnning one-off cases
 def one_case():
     run_shell_command("make")
-    case =  RunCase(skip_diffusion=0,size=128, dt=0.001, steps=100, restarts=0, reynolds_number=40, path= BASE_SAVE + '/testcase_1proc')
+    #case =  RunCase(skip_diffusion=0,size=128, dt=0.001, steps=100, restarts=0, reynolds_number=40, path= BASE_SAVE + '/testcase_1proc')
     #case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/12proc_10000')
+    case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=100, restarts=3, reynolds_number=40, path= BASE_SAVE + '/initial_field', load_initial_data=1)
     case.run(0)
+
+
 
 if __name__ == "__main__":
     #main()

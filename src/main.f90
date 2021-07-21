@@ -59,10 +59,13 @@ program x_code
 !-----------------------------------------------------------------------
 !     Starting from the beginning or from the saved flowfield
 !-----------------------------------------------------------------------
-  if(ITMIN.eq.0) then
+  if(load_initial_condition == 2 .or. load_initial_condition == 1) then
      call begin_new
-  else
-     call begin_restart
+  elseif (load_initial_condition == 0) then 
+     call load_initial_data()
+  else 
+      write(*,*) "invalid value for load_initial_condition"
+      stop 1
   endif
 
 
@@ -224,6 +227,12 @@ program x_code
 
         end if
      end if hydro
+
+     ! if we are at the specified timestep and our job is to write a restart file ...
+     if (mod(itime,30001) == 0 .and. load_initial_condition == 1) then 
+         call write_initial_data()
+         stop 0
+     end if
 !--------------------------------------------------------------------------------
 !                             STATISTICS PART
 !--------------------------------------------------------------------------------
@@ -239,7 +248,8 @@ program x_code
            ! these are executed regardless of the processor configuration
            if (task_split) call fields_to_stats
            if (mod(itime,iprint1).eq.0) call stat_main
-           if (mod(itime,iwrite4).eq.0) then
+           ! we are at a write timestep and we are also not writing initial condition data to a file
+           if (mod(itime,iwrite4).eq.0 .and. load_initial_condition /= 1) then
                call io_write_4
                ! write energy and helicity to a csv
                call write_energy(time)

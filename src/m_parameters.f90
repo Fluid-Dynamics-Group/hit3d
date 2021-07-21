@@ -72,7 +72,7 @@ module m_parameters
   real*8  :: particles_filter_size
 
   ! whether or not to skip calculating the diffusion term of euler
-  integer :: skip_diffusion;
+  integer :: skip_diffusion, load_initial_condition
 
   ! number of particles assigned to the processor
   ! and the total number of particles
@@ -431,7 +431,14 @@ contains
     read(in, *, err=9000) skip_diffusion
     write(out, *) "skip_diffusion: ", skip_diffusion
 
-    read(in,*)
+    ! -------------------------------------------------------------
+
+    ! Check if we are reading a field for input data or 
+
+    read(in, *, err=9000) load_initial_condition
+    write(out, *) "load_initial_condition : ", load_initial_condition
+    read(in,*) ! skips the --- line
+
     ! -------------------------------------------------------------
 
     read(in,*,ERR=9000,END=9000) les_model

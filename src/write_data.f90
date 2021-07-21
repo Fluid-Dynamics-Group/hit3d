@@ -1,5 +1,4 @@
 module m_data
-    integer :: nz_global
     real*8, dimension(:,:,:), allocatable :: dUdX, dUdY, dUdZ, dVdX, dVdY, dVdZ, dWdX, dWdY, dWdZ
     real*8, dimension(:,:,:), allocatable :: dPxdX, dPxdY, dPxdZ, dPydX, dPydY, dPydZ, dPzdX, dPzdY, dPzdZ
     real*8, dimension(:,:,:), allocatable :: OmgX, OmgY, OmgZ
@@ -253,7 +252,7 @@ subroutine calculate_helicity(helicity, solver_helicity, enstrophy)
     ! store the results in OmgX, OmgY, OmgZ
     call calculate_vorticity
 
-    write(*,*) "got back from calculate vorticity, printing all values"
+    !write(*,*) "got back from calculate vorticity, printing all values"
     do k =1,nz
         do j=1,ny
             do i=1,nx
@@ -269,9 +268,9 @@ subroutine calculate_helicity(helicity, solver_helicity, enstrophy)
                 omg_y = OmgY(i,j,k)
                 omg_z = OmgZ(i,j,k)
 
-                if (k ==  1 .and. j==1) then 
-                    write(*,*) u,v,w,omg_x, omg_y, omg_z
-                end if
+                !if (k ==  1 .and. j==1) then 
+                !    write(*,*) u,v,w,omg_x, omg_y, omg_z
+                !end if
 
                 ! if (omg_x/=omg_x) write(*,*) "omgx nan"
                 ! if (omg_y/=omg_y) write(*,*) "omgy nan"
@@ -634,25 +633,3 @@ subroutine gradient3D(m,n,o,f,hx,hy,hz,dfdx,dfdy,dfdz)
     end do
 
 end subroutine gradient3D
-
-subroutine collect_mpi_arrays
-    ! if you are not the master process
-    if (myid.ne.master) then
-        id_to = master
-        tag = myid
-        call MPI_SEND(tmp4,count,MPI_REAL4,master,tag,MPI_COMM_TASK,mpi_err)
-    ! if you ARE the master process then you collect everything together
-    else
-        open(my_out,file=fname,form='unformatted', access='stream')
-        write(my_out) sizes(1:3)
-        write(my_out) (((tmp4(i,j,k),i=1,nx),j=1,ny),k=1,nz)
-
-        do id_from=1,numprocs-1
-        tag = id_from
-        call MPI_RECV(tmp4,count,MPI_REAL4,id_from,tag,MPI_COMM_TASK,mpi_status,mpi_err)
-        write(my_out) (((tmp4(i,j,k),i=1,nx),j=1,ny),k=1,nz)
-
-        end do
-        close(my_out)
-    end if
-endsubroutine collect_mpi_arrays
