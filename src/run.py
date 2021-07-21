@@ -211,7 +211,8 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     # Handle time step energy files
     #
 
-    run_shell_command(f"hit3d-utils add {solver_folder}/energy/ {solver_folder}/energy.csv")
+    # currently use mpi so this is not useful
+    # run_shell_command(f"hit3d-utils add {solver_folder}/energy/ {solver_folder}/energy.csv")
 
     #
     # parse and re-export spectral information
@@ -239,6 +240,7 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     # move some of the important files to the save folder so they do not get purged
     shutil.move(f"{solver_folder}/energy.csv", output_folder + '/energy.csv')
     shutil.move(f"{solver_folder}/es.gp", output_folder + '/es.gp')
+    shutil.move(f"{solver_folder}/velocity_field", output_folder + '/velocity_field')
 
 # parse csv files for flowfield output by fortran
 def parse_filename(filename):
@@ -285,9 +287,22 @@ def skip_diffusion_to_str(skip_diffusion):
 # helpful function for runnning one-off cases
 def one_case():
     run_shell_command("make")
-    case =  RunCase(skip_diffusion=0,size=128, dt=0.001, steps=100, restarts=0, reynolds_number=40, path= BASE_SAVE + '/testcase_1proc')
-    #case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/12proc_10000')
-    case.run(0)
+
+    #case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=3100, restarts=3, reynolds_number=40, path= BASE_SAVE + '/initial_field', load_initial_data=1, nprocs=1)
+    #case.run(0)
+
+    for i in range(1,17):
+        if i > 2:
+            break
+
+        if 64 %i ==0:
+            print(i)
+    
+            case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=0, reynolds_number=40, path= BASE_SAVE + f'/{i}proc_10000', nprocs=i)
+            case.run(0)
+
+    #case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/testcase', load_initial_data=2, nprocs=16)
+    #case.run(0)
 
 if __name__ == "__main__":
     #main()
