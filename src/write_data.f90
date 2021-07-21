@@ -7,6 +7,9 @@ module m_data
     ! curl ( RHS) terms 
     real*8, dimension(:,:,:), allocatable :: dRHS1dX, dRHS1dY, dRHS1dZ, dRHS2dX, dRHS2dY, dRHS2dZ, dRHS3dX, dRHS3dY, dRHS3dZ
 
+    ! an array of ALL the data globally [i,j,k, (u/v/w)]
+    real*8, dimension(:,:,:,:), allocatable :: velocity_all, pressure_all
+
 end module m_data
 
 subroutine write_velocity_field(current_timestep)
@@ -72,26 +75,31 @@ subroutine init_write_energy
     open(filenumber, file="output/velocity.csv")
     write(filenumber, "('u,v,w')")
 
-    allocate(dUdX(nx,ny,nz));allocate(dUdY(nx,ny,nz));allocate(dUdZ(nx,ny,nz));
-    allocate(dVdX(nx,ny,nz));allocate(dVdY(nx,ny,nz));allocate(dVdZ(nx,ny,nz));
-    allocate(dWdX(nx,ny,nz));allocate(dWdY(nx,ny,nz));allocate(dWdZ(nx,ny,nz));
-    allocate(OmgX(nx,ny,nz));allocate(OmgY(nx,ny,nz));allocate(OmgZ(nx,ny,nz));
+    nz_global = numprocs * nz
+
+    allocate(dUdX(nx,ny,nz_global));allocate(dUdY(nx,ny,nz_global));allocate(dUdZ(nx,ny,nz_global));
+    allocate(dVdX(nx,ny,nz_global));allocate(dVdY(nx,ny,nz_global));allocate(dVdZ(nx,ny,nz_global));
+    allocate(dWdX(nx,ny,nz_global));allocate(dWdY(nx,ny,nz_global));allocate(dWdZ(nx,ny,nz_global));
+    allocate(OmgX(nx,ny,nz_global));allocate(OmgY(nx,ny,nz_global));allocate(OmgZ(nx,ny,nz_global));
 
     ! second order vars for Del^2(u)
-    allocate(dUdX2(nx,ny,nz));allocate(dUdY2(nx,ny,nz));allocate(dUdZ2(nx,ny,nz));
-    allocate(dVdX2(nx,ny,nz));allocate(dVdY2(nx,ny,nz));allocate(dVdZ2(nx,ny,nz));
-    allocate(dWdX2(nx,ny,nz));allocate(dWdY2(nx,ny,nz));allocate(dWdZ2(nx,ny,nz));
+    allocate(dUdX2(nx,ny,nz_global));allocate(dUdY2(nx,ny,nz_global));allocate(dUdZ2(nx,ny,nz_global));
+    allocate(dVdX2(nx,ny,nz_global));allocate(dVdY2(nx,ny,nz_global));allocate(dVdZ2(nx,ny,nz_global));
+    allocate(dWdX2(nx,ny,nz_global));allocate(dWdY2(nx,ny,nz_global));allocate(dWdZ2(nx,ny,nz_global));
 
     ! pressure terms
-    allocate(dPxdX(nx,ny,nz));allocate(dPxdY(nx,ny,nz));allocate(dPxdZ(nx,ny,nz));
-    allocate(dPydX(nx,ny,nz));allocate(dPydY(nx,ny,nz));allocate(dPydZ(nx,ny,nz));
-    allocate(dPzdX(nx,ny,nz));allocate(dPzdY(nx,ny,nz));allocate(dPzdZ(nx,ny,nz));
+    allocate(dPxdX(nx,ny,nz_global));allocate(dPxdY(nx,ny,nz_global));allocate(dPxdZ(nx,ny,nz_global));
+    allocate(dPydX(nx,ny,nz_global));allocate(dPydY(nx,ny,nz_global));allocate(dPydZ(nx,ny,nz_global));
+    allocate(dPzdX(nx,ny,nz_global));allocate(dPzdY(nx,ny,nz_global));allocate(dPzdZ(nx,ny,nz_global));
     
     ! RHS curl terms
-    allocate(dRHS1dX(nx,ny,nz));allocate(dRHS1dY(nx,ny,nz));allocate(dRHS1dZ(nx,ny,nz));
-    allocate(dRHS2dX(nx,ny,nz));allocate(dRHS2dY(nx,ny,nz));allocate(dRHS2dZ(nx,ny,nz));
-    allocate(dRHS3dX(nx,ny,nz));allocate(dRHS3dY(nx,ny,nz));allocate(dRHS3dZ(nx,ny,nz));
+    allocate(dRHS1dX(nx,ny,nz_global));allocate(dRHS1dY(nx,ny,nz_global));allocate(dRHS1dZ(nx,ny,nz_global));
+    allocate(dRHS2dX(nx,ny,nz_global));allocate(dRHS2dY(nx,ny,nz_global));allocate(dRHS2dZ(nx,ny,nz_global));
+    allocate(dRHS3dX(nx,ny,nz_global));allocate(dRHS3dY(nx,ny,nz_global));allocate(dRHS3dZ(nx,ny,nz_global));
 
+    ! global pressure / velocity arrays
+    allocate(velocity_all(nx,ny,nz_global,3))
+    allocate(pressure_all(nx,ny,nz_global,3))
 
 end subroutine init_write_energy
 
@@ -115,41 +123,45 @@ subroutine write_energy(current_time)
     real*8 :: energy, helicity, advection_u, pressure_u, diffusion_u, divu, current_time, solver_energy, solver_helicity,enstrophy
     real*8 :: advection_omega, pressure_omega, diffusion_omega, alt_dh_dt
 
-    ! initialize the name of the csv that this mpi process will write to
-    call create_energy_filename(filename)
+    call collect_mpi_arrays()
 
-    ! ifft the RHS variables so we are in x-space
-    call ifft_rhs
+    if myid == 0 then
+        ! initialize the name of the csv that this mpi process will write to
+        call create_energy_filename(filename)
 
-    filenumber = 621
+        ! ifft the RHS variables so we are in x-space
+        call ifft_rhs
 
-    ! calculate the variables
-    call calculate_energy(energy, solver_energy)
-    call calculate_helicity(helicity,solver_helicity, enstrophy)
-    ! all the terms in dE/dt
-    call advection_dot(advection_u, advection_omega)
-    call pressure_dot(pressure_u, pressure_omega)
-    call diffusion_dot(diffusion_u, diffusion_omega)
+        filenumber = 621
 
-    call calculate_divu(divu)
+        ! calculate the variables
+        call calculate_energy(energy, solver_energy)
+        call calculate_helicity(helicity,solver_helicity, enstrophy)
+        ! all the terms in dE/dt
+        call advection_dot(advection_u, advection_omega)
+        call pressure_dot(pressure_u, pressure_omega)
+        call diffusion_dot(diffusion_u, diffusion_omega)
 
-    call alternate_dh_dt_calculation(alt_dh_dt)
+        call calculate_divu(divu)
 
-    ! The file will have already been opened by the init process
-    ! now we write the calculated data to the file
-    open(filenumber)
-    write(filenumber, "(E16.10, ',', E16.10, ',', E16.10, ',', E16.10, &
-        ',',E16.10, ',',E16.10, ',', E16.10, ',', E16.10, ',', E16.10, &
-        ',',E16.10, ',',E16.10, ',', E16.10, ',', E16.10, ',', E16.10)") &
-        energy, helicity, advection_u, pressure_u, diffusion_u, divu, current_time, solver_energy, solver_helicity, enstrophy,&
-        advection_omega, pressure_omega, diffusion_omega,alt_dh_dt
+        call alternate_dh_dt_calculation(alt_dh_dt)
 
-    flush(filenumber)
+        ! The file will have already been opened by the init process
+        ! now we write the calculated data to the file
+        open(filenumber)
+        write(filenumber, "(E16.10, ',', E16.10, ',', E16.10, ',', E16.10, &
+            ',',E16.10, ',',E16.10, ',', E16.10, ',', E16.10, ',', E16.10, &
+            ',',E16.10, ',',E16.10, ',', E16.10, ',', E16.10, ',', E16.10)") &
+            energy, helicity, advection_u, pressure_u, diffusion_u, divu, current_time, solver_energy, solver_helicity, enstrophy,&
+            advection_omega, pressure_omega, diffusion_omega,alt_dh_dt
 
-    filenumber = 622
-    open(filenumber)
-    write(filenumber, "(E16.10, ',', E16.10, ',', E16.10)") wrk(32,32,32,1), wrk(32,32,32,2), wrk(32,32,32,3)
-    flush(filenumber)
+        flush(filenumber)
+
+        filenumber = 622
+        open(filenumber)
+        write(filenumber, "(E16.10, ',', E16.10, ',', E16.10)") wrk(32,32,32,1), wrk(32,32,32,2), wrk(32,32,32,3)
+        flush(filenumber)
+    end if
 end subroutine
 
 subroutine ifft_rhs
@@ -633,3 +645,59 @@ subroutine gradient3D(m,n,o,f,hx,hy,hz,dfdx,dfdy,dfdz)
     end do
 
 end subroutine gradient3D
+
+subroutine collect_mpi_arrays
+    use m_data
+    use m_work
+    implicit none
+
+    integer :: point_count
+
+    point_count = nx * ny * nz
+    !
+    ! start by sending / collecting wrk arrays to create a velocity array
+    ! 
+
+
+    ! if you are not the master process
+    if (myid.ne.master) then
+        id_to = master
+        tag = myid
+        call MPI_SEND(wrk(1:nx,1:ny,1:nz,1:3),point_count,MPI_REAL8,master,tag,MPI_COMM_TASK,mpi_err)
+
+    ! if you ARE the master process then you collect everything together
+    else
+        ! we are master proc, so first store all of our information in the global array
+        ! before its overwritten
+        velocity_all(1:nx, 1:ny, 1:nz, 1:3) = wrk(1:nx, 1:ny, 1:nz, 1:3)
+
+        do id_from=1,numprocs-1
+            tag = id_from
+            call MPI_RECV(wrk(1:nx,1:ny,1:nz,1:3),point_count,MPI_REAL8,id_from,tag,MPI_COMM_TASK,mpi_status,mpi_err)
+            velocity_all(1:nx, 1:ny, (id_from*nz):(id_from+1)*nz, 1:3) = wrk(1:nx, 1:ny, 1:nz, 1:3)
+        end do
+    end if
+
+    !
+    ! do the same for the pressure arrays
+    ! 
+
+    if (myid.ne.master) then
+        id_to = master
+        tag = myid
+        call MPI_SEND(wrk(1:nx,1:ny,1:nz,1:3),point_count,MPI_REAL8,master,tag,MPI_COMM_TASK,mpi_err)
+
+    ! if you ARE the master process then you collect everything together
+    else
+        ! we are master proc, so first store all of our information in the global array
+        ! before its overwritten
+        velocity_all(1:nx, 1:ny, 1:nz, 1:3) = wrk(1:nx, 1:ny, 1:nz, 1:3)
+
+        do id_from=1,numprocs-1
+            tag = id_from
+            call MPI_RECV(wrk(1:nx,1:ny,1:nz,1:3),point_count,MPI_REAL8,id_from,tag,MPI_COMM_TASK,mpi_status,mpi_err)
+            velocity_all(1:nx, 1:ny, (id_from*nz):(id_from+1)*nz, 1:3) = wrk(1:nx, 1:ny, 1:nz, 1:3)
+        end do
+    end if
+
+endsubroutine collect_mpi_arrays
