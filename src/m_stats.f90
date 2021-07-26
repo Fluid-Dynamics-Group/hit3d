@@ -467,7 +467,7 @@ contains
           fcomp(:,:,:,3) = fcomp(:,:,:,3) + &
                             ( wrk(:,:,:,3+i) * epsilon1 * ( fcomp(:,:,:,0)*wrk(:,:,:,i  ) - fcomp(:,:,:,1)*wrk(:,:,:,3+i) ) )
           !                 velocity_i * epsilon _1 * ( fcomp_0 * omega_i - fcomp_1 * velocity_i)
-          !                 velocity_i * epsilon _1 * ( [u \cdot omg] * omega_i - [||omg||^2] * velocity_i)
+          !                 velocity_i * epsilon _1 * ( [u \cdot omg] * omega_i - [||omg||^2] * velocity_i )
           fcomp(:,:,:,4) = fcomp(:,:,:,4) + &
                             ( wrk(:,:,:,3+i) * epsilon2 * ( fcomp(:,:,:,0)*wrk(:,:,:,3+i) - fcomp(:,:,:,2)*wrk(:,:,:,i  ) ) )
           !                 velocity_i * epsilon_2 * ( fcomp_0 * velocity_i - fcomp_2 * omega_i)

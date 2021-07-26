@@ -230,11 +230,16 @@ program x_code
 
      ! if we are at the specified timestep and our job is to write a restart file ...
      if (mod(itime,3001) == 0 .and. load_initial_condition == 1) then 
+         call write_energy(time)
          call write_initial_data()
          call my_exit(0)
          call m_openmpi_exit
          stop
-     end if
+     elseif (mod(itime, 100) == 0) then 
+
+        ! write energy and helicity to a csv
+        call write_energy(time)
+      end if
 
 !--------------------------------------------------------------------------------
 !                             STATISTICS PART
@@ -249,15 +254,11 @@ program x_code
            end if stats_task_split
 
            ! these are executed regardless of the processor configuration
-           if (task_split) call fields_to_stats
-           if (mod(itime,iprint1).eq.0) call stat_main
+           !if (task_split) call fields_to_stats
+           !if (mod(itime,iprint1).eq.0) call stat_main
            ! we are at a write timestep and we are also not writing initial condition data to a file
            if (mod(itime,iwrite4).eq.0 .and. load_initial_condition /= 1) then
-               call io_write_4
-               ! write energy and helicity to a csv
-               call write_energy(time)
-               ! we can write the velocity data from after calling io_write_4 since
-               ! io_write_4 modifies the wrk variable to be isotropic
+               !call io_write_4
 
                ! we only write vtk files once every 400 time steps because the post processessing
                ! is very slow

@@ -8,7 +8,10 @@ module m_data
     real*8, dimension(:,:,:), allocatable :: dRHS1dX, dRHS1dY, dRHS1dZ, dRHS2dX, dRHS2dY, dRHS2dZ, dRHS3dX, dRHS3dY, dRHS3dZ
 
     ! io variables
-    real*8 :: energy, helicity, solver_energy, solver_helicity
+    real*8 :: energy, helicity, solver_energy, solver_helicity,  udotw, umag, wmag
+    real*8 :: fcomp_u_left, fcomp_u_right, fdot_u
+    real*8 :: fcomp_omega_left, fcomp_omega_right, fdot_omega
+
 end module m_data
 
 subroutine write_velocity_field(current_timestep)
@@ -67,9 +70,9 @@ subroutine init_write_energy
     call create_energy_filename(filename)
 
     open(filenumber, file=filename)
-    write(filenumber, "(E16.10, ',', E16.10, ',', E16.10, ',', &
-        E16.10, ',', E16.10)") &
-        "current_time", "energy", "solver_energy", "helicity", "solver_helicity"
+    write(filenumber, "('current_time,', 'energy,', 'solver_energy,', 'helicity,', 'solver_helicity,', &
+        'fdot_u,', 'fdot_omega' &
+    )")
 
     filenumber = 622
     open(filenumber, file="output/velocity.csv")
@@ -122,14 +125,30 @@ subroutine write_energy(current_time)
     ! loop variables
     integer :: i,j,k
 
+    real*8 :: epsilon_1, epsilon_2
+    
+    ! if we are storing an initial condition then we 
+    ! hard code the epsilons to have a forcing amplitude of 1.0
+    ! otherwise we use the values from the configuration
+    if (load_initial_condition == 1) then 
+        epsilon_1 = 1.0
+        epsilon_2 = 1.0
+    else 
+        epsilon_1 = PERTamp1
+        epsilon_2 = PERTamp2
+    end if
 
     ! ifft the RHS variables so we are in x-space
     call ifft_rhs
 
     ! load variables from fields into wrk
-    wrk(1:nx,1:ny,1:nz,1) = fields(1:nx,1:ny,1:nz,1)
-    wrk(1:nx,1:ny,1:nz,2) = fields(1:nx,1:ny,1:nz,2)
-    wrk(1:nx,1:ny,1:nz,3) = fields(1:nx,1:ny,1:nz,3)
+    ! wrk(1:nx,1:ny,1:nz,1) = fields(1:nx,1:ny,1:nz,1)
+    ! wrk(1:nx,1:ny,1:nz,2) = fields(1:nx,1:ny,1:nz,2)
+    ! wrk(1:nx,1:ny,1:nz,3) = fields(1:nx,1:ny,1:nz,3)
+
+    wrk(:,:,:,1) = fields(:,:,:,1)
+    wrk(:,:,:,2) = fields(:,:,:,2)
+    wrk(:,:,:,3) = fields(:,:,:,3)
 
     tmp_wrk(:,:,:,1:3) = wrk(:,:,:,1:3)
 
@@ -158,6 +177,8 @@ subroutine write_energy(current_time)
         call truncate_and_inverse_wrk_idx(i)
     end do
 
+    !write(*,*) wrk(:,:,:,1)
+
     !
     ! Main calculation loop - perform required integrals
     !
@@ -166,6 +187,10 @@ subroutine write_energy(current_time)
     helicity = 0.
     solver_energy = 0.
     solver_helicity = 0.
+    fcomp_omega_left = 0.
+    fcomp_omega_right = 0.
+    fcomp_u_left = 0.
+    fcomp_u_right = 0.
 
     do k =1,nz
         do j=1,ny
@@ -182,31 +207,62 @@ subroutine write_energy(current_time)
                 v_rhs = rhs_saved(i,j,k,2)
                 w_rhs = rhs_saved(i,j,k,3)
 
-                helicity = helicity + ( (u*omg_x) + (v*omg_y) + (w*omg_z) )
+                ! define some common variables through the calculations
+                udotw =  (u*omg_x) + (v*omg_y) + (w*omg_z) 
+                umag = u**2 + v**2 + w**2
+                wmag = omg_x**2 + omg_y**2 + omg_z**2
+
+                ! start calculating variables that are ouput to IO
+
+                helicity = helicity + udotw
                 solver_helicity = solver_helicity + ( (u_rhs*omg_x) + (v_rhs*omg_y) + (w_rhs*omg_z) )
 
-                energy = energy + (u**2 + v**2 + w**2)
+                energy = energy + umag
                 solver_energy = solver_energy + (u_rhs*u + v_rhs*v + w_rhs*w)
+
+                ! calculate forcing stuff
+                fcomp_u_left = fcomp_u_left + &
+                    u * epsilon_1 * (udotw * omg_x - wmag * u) + &
+                    v * epsilon_1 * (udotw * omg_y - wmag * v) + &
+                    w * epsilon_1 * (udotw * omg_z - wmag * w)
+
+                fcomp_u_right = fcomp_u_right + &
+                    u * epsilon_2 * (udotw * u - wmag * omg_x) + &
+                    v * epsilon_2 * (udotw * v - wmag * omg_y) + &
+                    w * epsilon_2 * (udotw * w - wmag * omg_z)
+
+                fcomp_omega_left = fcomp_omega_left + &
+                    omg_x * epsilon_1 * (udotw * omg_x - wmag * u) + &
+                    omg_y * epsilon_1 * (udotw * omg_y - wmag * v) + &
+                    omg_z * epsilon_1 * (udotw * omg_z - wmag * w)
+
+                fcomp_omega_right = fcomp_omega_right + &
+                    omg_x * epsilon_2 * (udotw * u - wmag * omg_x) + &
+                    omg_y * epsilon_2 * (udotw * v - wmag * omg_y) + &
+                    omg_z * epsilon_2 * (udotw * w - wmag * omg_z)
+
             end do 
         end do 
+        !write(*,*) "energy", energy
     end do 
 
     helicity = helicity * dx * dy * dz
     solver_helicity = solver_helicity * dx * dy * dz
     energy = energy * dx * dy * dz
     solver_energy = solver_energy * dx * dy * dz
+    fdot_u = (fcomp_u_left + fcomp_u_right) * dx * dy * dz
+    fdot_omega = (fcomp_omega_left + fcomp_omega_right) * dx * dy * dz
 
     !
     ! write the summary data to file
     !
 
     filenumber = 621
-
     ! initialize the name of the csv that this mpi process will write to
     open(filenumber)
     write(filenumber, "(E16.10, ',', E16.10, ',', E16.10, ',', &
-        E16.10, ',', E16.10)") &
-        current_time, energy, solver_energy, helicity, solver_helicity
+        E16.10, ',', E16.10, ',', E16.10, ',', E16.10)") &
+        current_time, energy, solver_energy, helicity, solver_helicity, fdot_u, fdot_omega
 
     flush(filenumber)
 
@@ -222,9 +278,6 @@ subroutine ifft_rhs
 
     ! copy the RHS variables into wrk
     wrk(:,:,:,1:3) = rhs_saved(:,:,:,1:3)
-
-    ! do the magic truncation stuff here
-    rkmax2 = real(kmax,8)**2
 
     ! truncate all the variables + perform ifft
     do i=1,3
@@ -250,6 +303,7 @@ subroutine truncate_and_inverse_wrk_idx(idx)
     integer :: idx, i,j,k
     real*8  :: wmag2, rkmax2
 
+    rkmax2 = real(kmax,8)**2
     do k = 1,nz
         do j = 1,ny
             do i = 1,nx+2

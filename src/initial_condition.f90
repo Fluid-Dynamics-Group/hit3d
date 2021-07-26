@@ -18,35 +18,10 @@ subroutine write_initial_data
     nztotal = nz * numprocs
     count = nx * ny * nz * 3
 
-
-    ! !
-    ! ! first all procs do the truncation independently
-    ! !
-    ! do k = 1,nz
-    !     do j = 1,ny
-    !         do i = 1,nx+2
-    !             ! magnitude of the wave number
-    !             wmag2 = akx(i)**2 + aky(k)**2 + akz(j)**2
-
-    !             if (wmag2 .gt. rkmax2) then
-    !                 wrk(i,j,k,1:3) = zip
-    !             else
-    !                 ! TODO: this should be an error - WHY IS IT NOT?
-    !                 wrk(i,j,k,1:3) = fields(i,j,k,1:3)
-    !             end if
-
-    !         end do
-    !     end do
-    ! end do
-
-    ! ! IFFT wrk(:,:,:,1:6)
-    ! do i=1,3
-    !     call xFFT3d(-1,i)
-    ! end do 
-
-    !
-    ! collect all the mpi arrays for the master process
-    !
+    ! ! write the summary statistics for the first time in this run
+    ! ! this will include information on E(t_0), h(t_0), fe(t_0), fh(t_0)
+    ! ! that we later use to calculate epsilons
+    ! call write_energy(time)
 
     if (myid.ne.master) then
         id_to = master

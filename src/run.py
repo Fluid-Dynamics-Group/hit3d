@@ -2,6 +2,8 @@ import subprocess
 import shutil
 import os
 import traceback
+import csv
+import json
 
 BASE_SAVE = "/home/brooks/sync/hit3d"
 
@@ -126,9 +128,9 @@ def run_case(skip_diffusion_param, size_param, steps,dt, restarts, reynolds_numb
     run_hit3d(nprocs)
 
     if load_initial_data != 1:
-        postprocessing("output/", save_folder, restart_time_slice, steps, dt, iteration)
+        postprocessing("output/", save_folder, restart_time_slice, steps, dt, False)
     else:
-        print("run.py is skipping postprocesing since this run was used to generate a input field file")
+        organize_initial_condition("output/")
 
 def run_hit3d(nprocs):
     clean_output_dir()
@@ -137,7 +139,65 @@ def run_hit3d(nprocs):
 
     print("finished hit3d, back in python")
 
-def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, iteration ):
+# we have just run a process to generate an initial condition for the other datasets
+# this function organizes the outputs so that they may be used by other processes
+def organize_initial_condition(solver_folder):
+    run_shell_command(f"hit3d-utils add {solver_folder}/energy/ {solver_folder}/energy.csv")
+
+    with open(solver_folder + "/energy.csv", "r") as file:
+        reader = csv.reader(file)
+
+        first = True
+
+        for row in reader:
+            if first:
+                first=False
+                continue
+
+            energy = float(row[1])
+            helicity = float(row[3])
+            fdot_u = float(row[5])
+            fdot_h = float(row[6])
+
+            control = EpsilonControl(energy, helicity, fdot_u, fdot_h)
+            control.to_json()
+            break
+
+
+class EpsilonControl():
+    def __init__(self, energy, helicity, fdot_u, fdot_h):
+        self.energy   =energy 
+        self.helicity =helicity 
+        self.fdot_u   =fdot_u 
+        self.fdot_h   =fdot_h
+
+    def to_json(self):
+        data = {
+            "energy": self.energy,
+            "helicity": self.helicity,
+            "fdot_u": self.fdot_u,
+            "fdot_h": self.fdot_h,
+        }
+
+        with open("initial_condition_vars.json", "w") as file:
+            json.dump(data, file)
+
+    def load_json(self):
+        with open("initial_condition_vars.json", "r") as file:
+            data = json.load(file)
+
+        self.energy = data["energy"]
+        self.helicity = data["helicity"]
+        self.fdot_u = data["fdot_u"]
+        self.fdot_h = data["fdot_h"]
+
+    def epsilon_1(self,delta):
+        return delta * self.energy / self.fdot_u
+
+    def epsilon_2(self,delta):
+        return delta * self.helicity/ self.fdot_h
+
+def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, save_vtk):
     shutil.move("input_file.in", output_folder + "/input_file.in")
 
     os.mkdir(output_folder + '/flowfield')
@@ -145,70 +205,50 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     flowfield_files = [i for i in os.listdir(f"{solver_folder}/velocity_field") if i !=".gitignore"]
     print(flowfield_files)
 
-    # group each of the flowfield files by the timestep that they belong to
-    # so that we can combine all of the files that are from the same t
-    groupings = {}
-    for filename in flowfield_files:
-        _mpi_id, timestep = parse_filename(filename)
+    if save_vtk:
+        # group each of the flowfield files by the timestep that they belong to
+        # so that we can combine all of the files that are from the same t
+        groupings = {}
+        for filename in flowfield_files:
+            _mpi_id, timestep = parse_filename(filename)
 
-        if groupings.get(timestep) is None:
-            groupings[timestep] = []
+            if groupings.get(timestep) is None:
+                groupings[timestep] = []
 
-        groupings[timestep].append(filename)
+            groupings[timestep].append(filename)
+            # move all of the files in each group to a tmp directory and process all of the
+            # files in that directory with hit3d-utils
 
-    # # move all of the files in each group to a tmp directory and process all of the
-    # # files in that directory with hit3d-utils
-    # for filegroup in groupings.values():
+        for filegroup in groupings.values():
 
-    #     #
-    #     # Combine all partial flowfield csv files written by each mpi process into a
-    #     # singular csv file - add q criterion information to the csv file and then
-    #     # re-export that csv to a vtk file for viewing in paraview
-    #     #
+            #
+            # Combine all partial flowfield csv files written by each mpi process into a
+            # singular csv file - add q criterion information to the csv file and then
+            # re-export that csv to a vtk file for viewing in paraview
+            #
 
-    #     # clear the tmp file
-    #     clean_and_create_folder(f"{solver_folder}/tmp_velo")
+            # clear the tmp file
+            clean_and_create_folder(f"{solver_folder}/tmp_velo")
 
-    #     # move all of the current files into the tmp folder to compress them
-    #     for current_file in filegroup:
-    #         shutil.move(f"{solver_folder}/velocity_field/" + current_file, f"{solver_folder}/tmp_velo/" + current_file)
+            # move all of the current files into the tmp folder to compress them
+            for current_file in filegroup:
+                shutil.move(f"{solver_folder}/velocity_field/" + current_file, f"{solver_folder}/tmp_velo/" + current_file)
 
-    #     _, timestep = parse_filename(filegroup[0])
+            _, timestep = parse_filename(filegroup[0])
 
-    #     concat_csv = f"{solver_folder}/velocity_field/{timestep}.csv"
-    #     combined_csv = f"{solver_folder}/combined_csv.csv"
-    #     # file is in a directory accessable by the paraview headless renderer
-    #     vtk_save = output_folder + f"/flowfield/timestep_{timestep}.vtk" 
+            concat_csv = f"{solver_folder}/velocity_field/{timestep}.csv"
+            combined_csv = f"{solver_folder}/combined_csv.csv"
+            # file is in a directory accessable by the paraview headless renderer
+            vtk_save = output_folder + f"/flowfield/timestep_{timestep}.vtk" 
 
-    #     # concat all of the data together
-    #     run_shell_command(f'hit3d-utils concat {solver_folder}/tmp_velo {solver_folder}/size.csv "{concat_csv}" {combined_csv}')
+            # concat all of the data together
+            run_shell_command(f'hit3d-utils concat {solver_folder}/tmp_velo {solver_folder}/size.csv "{concat_csv}" {combined_csv}')
 
-    #     # add qcriterion data to the csv
-    #     run_shell_command(f'python3 /home/brooks/github/hit3d-utils/src/q_criterion.py {concat_csv} {combined_csv}')
+            # add qcriterion data to the csv
+            run_shell_command(f'python3 /home/brooks/github/hit3d-utils/src/q_criterion.py {concat_csv} {combined_csv}')
 
-    #     # re-export the csv file to a vtk for viewing
-    #     run_shell_command(f'hit3d-utils vtk {concat_csv} {combined_csv} {vtk_save}')
-
-    #
-    # run the paraview headless renderer with our new vtk files 
-    # and render write the videos to the results folder
-    #
-
-    # # TODO: better dynamic framerate here
-    # framerate = 20
-    # if steps == 20000:
-    #     framerate = 20
-    # else:
-    #     framerate = 10
-
-    # # run paraview over the files
-    # run_shell_command("sh /home/brooks/github/hit3d-utils/paraview/run.sh")
-    # # animate the frames into a video
-    # run_shell_command(f"sh /home/brooks/github/hit3d-utils/paraview/video.sh {render_folder} {vtk_render_results_folder} {framerate}")
-
-    # # cleanup files used by paraview rendering
-    # shutil.rmtree(vtk_data_folder)
-    # shutil.rmtree(vtk_render_results_folder)
+            # re-export the csv file to a vtk for viewing
+            run_shell_command(f'hit3d-utils vtk {concat_csv} {combined_csv} {vtk_save}')
 
     #
     # Handle time step energy files
@@ -229,7 +269,7 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
 
     stepby = max(int(datapoints / NUM_DATAPOINTS) - 5,1)
 
-    run_shell_command(f"hit3d-utils spectral {solver_folder}/es.gp {solver_folder}/spectra.json --step-by {stepby} --skip-before-time {restart_time_slice}")
+    # run_shell_command(f"hit3d-utils spectral {solver_folder}/es.gp {solver_folder}/spectra.json --step-by {stepby} --skip-before-time {restart_time_slice}")
 
     #
     # run plotting for energy / helicity information from energy.csv
@@ -237,11 +277,11 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     #
 
     run_shell_command(f'python3 /home/brooks/github/hit3d-utils/plots/energy_helicity.py {solver_folder}/energy.csv {output_folder} "{restart_time_slice}"')
-    run_shell_command(f'python3 /home/brooks/github/hit3d-utils/plots/spectra.py {solver_folder}/spectra.json {output_folder}')
+    #run_shell_command(f'python3 /home/brooks/github/hit3d-utils/plots/spectra.py {solver_folder}/spectra.json {output_folder}')
 
     # move some of the important files to the save folder so they do not get purged
-    shutil.move(f"{solver_folder}/energy.csv", output_folder + '/energy.csv')
-    shutil.move(f"{solver_folder}/es.gp", output_folder + '/es.gp')
+    # shutil.move(f"{solver_folder}/energy.csv", output_folder + '/energy.csv')
+    # shutil.move(f"{solver_folder}/es.gp", output_folder + '/es.gp')
 
 # parse csv files for flowfield output by fortran
 def parse_filename(filename):
@@ -292,15 +332,15 @@ def one_case():
     #case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/12proc_10000')
     #case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=100, restarts=3, reynolds_number=40, path= BASE_SAVE + '/initial_field', load_initial_data=1)
 
-    case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=3100, restarts=3, reynolds_number=40, path= BASE_SAVE + '/initial_field', load_initial_data=1, nprocs=1)
+    case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/initial_field', load_initial_data=2, nprocs=1)
     case.run(0)
 
-    for i in range(1,17):
-        if 64 %i ==0:
-            print(i)
-    
-            case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=0, reynolds_number=40, path= BASE_SAVE + f'/{i}proc_10000', nprocs=i)
-            case.run(0)
+    #for i in range(1,17):
+    #    if 64 %i ==0:
+    #        print(i)
+    #
+    #        case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=0, reynolds_number=40, path= BASE_SAVE + f'/{i}proc_10000', nprocs=i)
+    #        case.run(0)
 
 if __name__ == "__main__":
     #main()
