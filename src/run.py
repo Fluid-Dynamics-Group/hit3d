@@ -142,7 +142,7 @@ def run_hit3d(nprocs):
 # we have just run a process to generate an initial condition for the other datasets
 # this function organizes the outputs so that they may be used by other processes
 def organize_initial_condition(solver_folder):
-    run_shell_command(f"hit3d-utils add {solver_folder}/energy/ {solver_folder}/energy.csv")
+    #run_shell_command(f"hit3d-utils add {solver_folder}/energy/ {solver_folder}/energy.csv")
 
     with open(solver_folder + "/energy.csv", "r") as file:
         reader = csv.reader(file)
@@ -254,7 +254,7 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     # Handle time step energy files
     #
 
-    run_shell_command(f"hit3d-utils add {solver_folder}/energy/ {solver_folder}/energy.csv")
+    #run_shell_command(f"hit3d-utils add {solver_folder}/energy/ {solver_folder}/energy.csv")
 
     #
     # parse and re-export spectral information

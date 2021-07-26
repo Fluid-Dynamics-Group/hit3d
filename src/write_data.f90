@@ -69,15 +69,16 @@ subroutine init_write_energy
     filenumber = 621
     call create_energy_filename(filename)
 
-    open(filenumber, file=filename)
-    write(filenumber, "('current_time,', 'energy,', 'solver_energy,', 'helicity,', 'solver_helicity,', &
-        'fdot_u,', 'fdot_omega' &
-    )")
+    if (master == myid) then
+        open(filenumber, file="output/energy.csv")
+        write(filenumber, "('current_time,', 'energy,', 'solver_energy,', 'helicity,', 'solver_helicity,', &
+            'fdot_u,', 'fdot_omega' &
+        )")
+    end if
 
     filenumber = 622
     open(filenumber, file="output/velocity.csv")
     write(filenumber, "('u,v,w')")
-
 
     allocate(dUdX(nx,ny,nz));allocate(dUdY(nx,ny,nz));allocate(dUdZ(nx,ny,nz));
     allocate(dVdX(nx,ny,nz));allocate(dVdY(nx,ny,nz));allocate(dVdZ(nx,ny,nz));
@@ -126,6 +127,7 @@ subroutine write_energy(current_time)
     integer :: i,j,k
 
     real*8 :: epsilon_1, epsilon_2
+    real*8 :: tmp_val, frac
     
     ! if we are storing an initial condition then we 
     ! hard code the epsilons to have a forcing amplitude of 1.0
@@ -246,25 +248,56 @@ subroutine write_energy(current_time)
         !write(*,*) "energy", energy
     end do 
 
-    helicity = helicity * dx * dy * dz
-    solver_helicity = solver_helicity * dx * dy * dz
-    energy = energy * dx * dy * dz
-    solver_energy = solver_energy * dx * dy * dz
-    fdot_u = (fcomp_u_left + fcomp_u_right) * dx * dy * dz
-    fdot_omega = (fcomp_omega_left + fcomp_omega_right) * dx * dy * dz
+    frac = (2*3.1415)**3 / (nx * ny * nz_all)
+
+    solver_helicity = solver_helicity * frac
+    energy = energy * frac
+    solver_energy = solver_energy * frac
+    fdot_u = (fcomp_u_left + fcomp_u_right) * frac
+    fdot_omega = (fcomp_omega_left + fcomp_omega_right) * frac
 
     !
-    ! write the summary data to file
+    ! sum the values through mpi
     !
 
-    filenumber = 621
-    ! initialize the name of the csv that this mpi process will write to
-    open(filenumber)
-    write(filenumber, "(E16.10, ',', E16.10, ',', E16.10, ',', &
-        E16.10, ',', E16.10, ',', E16.10, ',', E16.10)") &
-        current_time, energy, solver_energy, helicity, solver_helicity, fdot_u, fdot_omega
+    tmp_val = helicity
+    count = 1
+    call MPI_REDUCE(tmp_val,helicity,count,MPI_REAL8,MPI_SUM,0,MPI_COMM_TASK,mpi_err)
 
-    flush(filenumber)
+    tmp_val =solver_helicity 
+    count = 1
+    call MPI_REDUCE(tmp_val,solver_helicity,count,MPI_REAL8,MPI_SUM,0,MPI_COMM_TASK,mpi_err)
+
+    tmp_val = energy
+    count = 1
+    call MPI_REDUCE(tmp_val,energy,count,MPI_REAL8,MPI_SUM,0,MPI_COMM_TASK,mpi_err)
+
+    tmp_val = energy
+    count = 1
+    call MPI_REDUCE(tmp_val,solver_helicity,count,MPI_REAL8,MPI_SUM,0,MPI_COMM_TASK,mpi_err)
+
+    tmp_val = fdot_u 
+    count = 1
+    call MPI_REDUCE(tmp_val,fdot_u,count,MPI_REAL8,MPI_SUM,0,MPI_COMM_TASK,mpi_err)
+
+    tmp_val = fdot_omega
+    count = 1
+    call MPI_REDUCE(tmp_val,fdot_omega,count,MPI_REAL8,MPI_SUM,0,MPI_COMM_TASK,mpi_err)
+
+    !
+    ! write the summary data to file if we are the master process
+    !
+
+    if (myid == master) then 
+        filenumber = 621
+        ! initialize the name of the csv that this mpi process will write to
+        open(filenumber, file="output/energy.csv")
+        write(filenumber, "(E16.10, ',', E16.10, ',', E16.10, ',', &
+            E16.10, ',', E16.10, ',', E16.10, ',', E16.10)") &
+            current_time, energy, solver_energy, helicity, solver_helicity, fdot_u, fdot_omega
+
+        flush(filenumber)
+    end if
 
 end subroutine
 
