@@ -6,7 +6,6 @@ subroutine begin_new
   use m_stats
   implicit none
 
-
   ! defining time
   TIME = zip
 
@@ -16,8 +15,6 @@ subroutine begin_new
   ! defining the iteration number
   ITIME = 0
   file_ext = '000000'
-
-
 
   if (task.eq.'hydro') then
     call init_velocity

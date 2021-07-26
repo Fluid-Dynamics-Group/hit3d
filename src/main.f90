@@ -21,7 +21,6 @@ program x_code
   logical :: finished_restarts
   finished_restarts = .false.
 
-
   call m_timing_init   ! Setting the time zero
   call m_openmpi_init
   call m_io_init
@@ -229,7 +228,7 @@ program x_code
      end if hydro
 
      ! if we are at the specified timestep and our job is to write a restart file ...
-     if (mod(itime,3001) == 0 .and. load_initial_condition == 1) then 
+     if (mod(itime,13000) == 0 .and. load_initial_condition == 1) then 
          call write_energy(time)
          call write_initial_data()
          call my_exit(0)

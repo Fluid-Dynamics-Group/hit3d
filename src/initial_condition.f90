@@ -3,7 +3,6 @@ module m_ic
     real*8, allocatable, dimension(:,:,:,:) :: wrk_global
 end module m_ic
 
-
 subroutine write_initial_data
     use m_work
     use m_ic
@@ -26,7 +25,7 @@ subroutine write_initial_data
     if (myid.ne.master) then
         id_to = master
         tag = myid
-        call MPI_SEND( wrk(1:nx, 1:ny, 1:nz, 1:3), count, MPI_REAL8,master,tag, MPI_COMM_TASK,mpi_err )
+        call MPI_SEND( fields(1:nx, 1:ny, 1:nz, 1:3), count, MPI_REAL8,master,tag, MPI_COMM_TASK,mpi_err )
     else
         write(*,*) "writing an initial data file"
 
@@ -35,17 +34,17 @@ subroutine write_initial_data
         allocate(wrk_global(nx,ny,nztotal,3))
 
         ! copy the master proc's wrk array in
-        wrk_global(1:nx, 1:ny, 1:nz, 1:3) = wrk(1:nx, 1:ny, 1:nz, 1:3)
+        wrk_global(1:nx, 1:ny, 1:nz, 1:3) = fields(1:nx, 1:ny, 1:nz, 1:3)
 
         do id_from=1,numprocs-1
             tag = id_from
-            call MPI_RECV(wrk(1:nx, 1:ny, 1:nz, 1:3),count,MPI_REAL8,id_from,tag,MPI_COMM_TASK,mpi_status,mpi_err)
-            wrk_global(1:nx, 1:ny, id_from*nz+1:(id_from+1)*nz, 1:3) = wrk(1:nx, 1:ny, 1:nz, 1:3)
+            call MPI_RECV(fields(1:nx, 1:ny, 1:nz, 1:3),count,MPI_REAL8,id_from,tag,MPI_COMM_TASK,mpi_status,mpi_err)
+            wrk_global(1:nx, 1:ny, id_from*nz+1:(id_from+1)*nz, 1:3) = fields(1:nx, 1:ny, 1:nz, 1:3)
         end do
 
         ! we now have a giant array of all the data points from each mpi process, we write them to a file now
         open(994, file="initial_condition_wrk.pkg", form='unformatted', access="stream")
-        write(994) ((((wrk_global(i,j,k,v),i=1,nx),j=1,ny),k=1,nztotal),v=1,3)
+        write(994) ((((wrk_global(i,j,k,v),i=1,nx),j=1,ny),k=1,nz_all),v=1,3)
         call flush(994)
 
     end if
@@ -69,10 +68,11 @@ subroutine load_initial_data
     ! a different N sized field
     allocate(wrk_global(nx,ny,nztotal,3))
     open(994, file="initial_condition_wrk.pkg", form='unformatted', access="stream")
-    read(994) ((((wrk_global(i,j,k,v),i=1,nx),j=1,ny),k=1,nz),v=1,3)
+    read(994) ((((wrk_global(i,j,k,v),i=1,nx),j=1,ny),k=1,nz_all),v=1,3)
+    close(994)
 
     ! fetch the wrk data that is relevant to us
-    wrk(1:nx, 1:ny, 1:nz, 1:3) = wrk_global(1:nx, 1:ny, myid*nz+1:(myid+1)*nz, 1:3)
+    fields(1:nx, 1:ny, 1:nz, 1:3) = wrk_global(1:nx, 1:ny, myid*nz+1:(myid+1)*nz, 1:3)
 
     deallocate(wrk_global)
 

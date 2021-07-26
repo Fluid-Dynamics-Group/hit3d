@@ -26,7 +26,6 @@ subroutine init_velocity
 
   real*8 :: wmag, wmag2, ratio, fac, fac2
 
-
 !--------------------------------------------------------------------------------
 !  First, if it's a Taylor-Green vortex, then initialize and quit
 !--------------------------------------------------------------------------------
@@ -39,8 +38,6 @@ subroutine init_velocity
 !================================================================================
   allocate( e_spec(kmax), e_spec1(kmax), rr(nx+2), hits(kmax), hits1(kmax), stat=ierr)
   if (ierr.ne.0) stop "cannot allocate the init_velocity arrays"
-
-
 
   write(out,*) 'generating random velocities'
   call flush(out)
@@ -116,11 +113,6 @@ subroutine init_velocity
      call xFFT3d(1,n)
   end do
 
-  ! load wrk(:,:,:,1:3) from a previous run - wrk is loaded in fourier space
-  if (load_initial_condition == 0) then
-      call load_initial_data()
-  end if
-
   ! assemble the arrays in wrk4..6, only the wavenumbers below kmax
   do k = 1,nz
      do j = 1,ny
@@ -149,6 +141,12 @@ subroutine init_velocity
   end do
 
   fields(:,:,:,1:3) = wrk(:,:,:,4:6)
+
+  ! load fields(:,:,:,1:3) from a previous run (overwrite current data) 
+  ! fields is loaded in fourier space
+  if (load_initial_condition == 0) then
+      call load_initial_data()
+  end if
 
 !-------------------------------------------------------------------------------
 !     Making the spectrum to be what it should 
@@ -241,6 +239,11 @@ subroutine init_velocity
   write(out,*) "Generated the velocities."
   call flush(out)
 
+  ! load fields(:,:,:,1:3) from a previous run (overwrite current data) 
+  ! fields is loaded in fourier space
+  if (load_initial_condition == 0) then
+      call load_initial_data()
+  end if
 
   ! deallocate work arrays
   deallocate(e_spec, e_spec1, rr, hits, hits1, stat=ierr)

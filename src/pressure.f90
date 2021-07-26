@@ -57,11 +57,8 @@ subroutine pressure
     end do
   end do
 
-
   return
 end subroutine pressure
-
-
 
 subroutine divergence
 
@@ -102,6 +99,3 @@ subroutine divergence
 
   return
 end subroutine divergence
-
-
-

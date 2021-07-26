@@ -280,8 +280,8 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     #run_shell_command(f'python3 /home/brooks/github/hit3d-utils/plots/spectra.py {solver_folder}/spectra.json {output_folder}')
 
     # move some of the important files to the save folder so they do not get purged
-    # shutil.move(f"{solver_folder}/energy.csv", output_folder + '/energy.csv')
-    # shutil.move(f"{solver_folder}/es.gp", output_folder + '/es.gp')
+    shutil.move(f"{solver_folder}/energy.csv", output_folder + '/energy.csv')
+    #shutil.move(f"{solver_folder}/es.gp", output_folder + '/es.gp')
 
 # parse csv files for flowfield output by fortran
 def parse_filename(filename):
@@ -332,15 +332,20 @@ def one_case():
     #case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/12proc_10000')
     #case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=100, restarts=3, reynolds_number=40, path= BASE_SAVE + '/initial_field', load_initial_data=1)
 
-    case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/initial_field', load_initial_data=2, nprocs=1)
+    case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/initial_field', load_initial_data=1, nprocs=1)
     case.run(0)
 
-    #for i in range(1,17):
-    #    if 64 %i ==0:
-    #        print(i)
-    #
-    #        case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=0, reynolds_number=40, path= BASE_SAVE + f'/{i}proc_10000', nprocs=i)
-    #        case.run(0)
+    print("\n\n\n\n")
+
+    for i in range(1,17):
+        if 64 %i ==0:
+            print(i)
+    
+            case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=0, reynolds_number=40, path= BASE_SAVE + f'/{i}proc_10000', nprocs=i)
+            case.run(0)
+
+            print("\n\n\n\n")
+
 
 if __name__ == "__main__":
     #main()

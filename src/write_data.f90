@@ -227,9 +227,9 @@ subroutine write_energy(current_time)
                     w * epsilon_1 * (udotw * omg_z - wmag * w)
 
                 fcomp_u_right = fcomp_u_right + &
-                    u * epsilon_2 * (udotw * u - wmag * omg_x) + &
-                    v * epsilon_2 * (udotw * v - wmag * omg_y) + &
-                    w * epsilon_2 * (udotw * w - wmag * omg_z)
+                    u * epsilon_2 * (udotw * u - umag * omg_x) + &
+                    v * epsilon_2 * (udotw * v - umag * omg_y) + &
+                    w * epsilon_2 * (udotw * w - umag * omg_z)
 
                 fcomp_omega_left = fcomp_omega_left + &
                     omg_x * epsilon_1 * (udotw * omg_x - wmag * u) + &
@@ -237,9 +237,9 @@ subroutine write_energy(current_time)
                     omg_z * epsilon_1 * (udotw * omg_z - wmag * w)
 
                 fcomp_omega_right = fcomp_omega_right + &
-                    omg_x * epsilon_2 * (udotw * u - wmag * omg_x) + &
-                    omg_y * epsilon_2 * (udotw * v - wmag * omg_y) + &
-                    omg_z * epsilon_2 * (udotw * w - wmag * omg_z)
+                    omg_x * epsilon_2 * (udotw * u - umag * omg_x) + &
+                    omg_y * epsilon_2 * (udotw * v - umag * omg_y) + &
+                    omg_z * epsilon_2 * (udotw * w - umag * omg_z)
 
             end do 
         end do 
