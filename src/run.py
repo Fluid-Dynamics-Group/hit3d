@@ -55,17 +55,21 @@ class RunCase():
         return f"RunCase N={self.size} | {skip_diffusion_to_str(self.skip_diffusion)} | dt={self.dt} | restarts = {self.restarts} | steps = {self.steps} | Re = {self.reynolds_number} | load-initial-data = {self.load_initial_data}"
 
 def main():
-    if os.path.exists(BASE_SAVE):
-        shutil.rmtree(BASE_SAVE)
-    os.mkdir(BASE_SAVE)
+    #if os.path.exists(BASE_SAVE):
+    #    shutil.rmtree(BASE_SAVE)
+    #os.mkdir(BASE_SAVE)
     create_file(BASE_SAVE + "/errors.txt")
+    create_file(BASE_SAVE + "/re_history.txt")
+
+    with open(BASE_SAVE + "/re_history.txt", "a") as f:
+        f.write(f"last_success_re,last_failure_re,current_re\n")
 
     run_shell_command("make")
     i = 0
     
-    # generate a base case for N=128
-    case = RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=5, restarts=3, reynolds_number=40,  path= BASE_SAVE + '/base128', export_vtk=True, load_initial_data=1)
-    case.run(0)
+    # # generate a base case for N=128
+    # case = RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=5, restarts=3, reynolds_number=40,  path= BASE_SAVE + '/base128', export_vtk=True, load_initial_data=1)
+    # case.run(0)
 
         # # reynolds
         # RunCase(skip_diffusion=0,size=64, dt=0.0005, steps=20000, restarts=0, reynolds_number=40, path= BASE_SAVE + '/compare_reynolds/re40', export_vtk=True),
@@ -82,18 +86,39 @@ def main():
         # RunCase(skip_diffusion=0,size=128, dt=0.0005 , steps=20000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/dt/0005'),
         # RunCase(skip_diffusion=0,size=128, dt=0.00025, steps=40000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/dt/00025'),
 
-    cases = [
-        # exploding reynolds
-        RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=0, reynolds_number=40,  path= BASE_SAVE + '/explode_reynolds/re40', export_vtk=True),
-        RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=0, reynolds_number=120, path= BASE_SAVE + '/explode_reynolds/re120', export_vtk=True),
-        RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=0, reynolds_number=200, path= BASE_SAVE + '/explode_reynolds/re200', export_vtk=True),
-        RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=0, reynolds_number=280, path= BASE_SAVE + '/explode_reynolds/re280', export_vtk=True),
-        RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=0, reynolds_number=320, path= BASE_SAVE + '/explode_reynolds/re360', export_vtk=True),
-    ]
-    
-    for case in cases:
+    #cases = [
+    #    # exploding reynolds
+    #    RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=0, reynolds_number=40,  path= BASE_SAVE + '/explode_reynolds/re40', export_vtk=True),
+    #    RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=0, reynolds_number=120, path= BASE_SAVE + '/explode_reynolds/re120', export_vtk=True),
+    #    RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=0, reynolds_number=200, path= BASE_SAVE + '/explode_reynolds/re200', export_vtk=True),
+    #    RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=0, reynolds_number=280, path= BASE_SAVE + '/explode_reynolds/re280', export_vtk=True),
+    #    RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=0, reynolds_number=320, path= BASE_SAVE + '/explode_reynolds/re360', export_vtk=True),
+    #]
+
+    def create_case(re):
+        return RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=0, reynolds_number=re, path= BASE_SAVE + f'/explode_reynolds/{re}360', export_vtk=True)
+
+    last_success_re = 0
+    current_re = 440
+    last_failure_re = 20_000
+
+    while True:
+        with open(BASE_SAVE + "/re_history.txt", "a") as f:
+            f.write(f"{last_success_re},{last_failure_re},{current_re}\n")
+
+        case = create_case(current_re)
         try:
             case.run(i)
+
+            # if we are here we have completed this case without error
+
+            # check if we have found a close reynolds number to the target
+            if abs(current_re - last_success_re) < 50:
+                break
+        
+            # we have successfully completed a case -> lets push towards the last failure Re
+            last_success_re = current_re
+            current_re = (last_failure_re + current_re) / 2.
         except Exception as e:
 
             traceback_str = ''.join(traceback.format_tb(e.__traceback__))
@@ -101,8 +126,24 @@ def main():
                 print(f"failed for case {case}")
                 f.write(f"failed for case {case} {case.path}\ntraceback:\n{traceback_str}")
 
-        i += 1
-        print(f"{i/len(cases)*100}% done with cases")
+            # we have failed a case, we need to decrease the reynolds number to something better
+
+            last_failure_re = current_re
+            current_re = (last_success_re + current_re) / 2.
+
+    
+    #for case in cases:
+    #    try:
+    #        case.run(i)
+    #    except Exception as e:
+
+    #        traceback_str = ''.join(traceback.format_tb(e.__traceback__))
+    #        with open(BASE_SAVE + "/errors.txt", 'a') as f:
+    #            print(f"failed for case {case}")
+    #            f.write(f"failed for case {case} {case.path}\ntraceback:\n{traceback_str}")
+
+    #    i += 1
+    #    print(f"{i/len(cases)*100}% done with cases")
 
 # skip diffusion - 0 / 1 - whether or not to skip the diffusion calculations in rhs_velocity
 # size param - the number of divisions in each dimension (size_param=64 means 64x64x64 slices)
@@ -335,14 +376,16 @@ def skip_diffusion_to_str(skip_diffusion):
 def mpi_routine_study():
     run_shell_command("make")
 
-    #case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=1, restarts=3, reynolds_number=40, path= BASE_SAVE + '/initial_field', load_initial_data=1, nprocs=1)
-    #case.run(0)
+    skip_diffusion = 1
+
+    case =  RunCase(skip_diffusion=skip_diffusion,size=64, dt=0.001, steps=1, restarts=3, reynolds_number=40, path= BASE_SAVE + '/initial_field', load_initial_data=1, nprocs=1)
+    case.run(0)
 
     for i in range(1,17):
         if 64 %i ==0:
             print(i)
     
-            case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=0, reynolds_number=40, path= BASE_SAVE + f'/{i}proc_10000', nprocs=i)
+            case =  RunCase(skip_diffusion=skip_diffusion,size=64, dt=0.001, steps=10000, restarts=0, reynolds_number=40, path= BASE_SAVE + f'/{i}proc_10000', nprocs=i)
             case.run(0)
 
 # helpful function for runnning one-off cases
@@ -354,7 +397,7 @@ def one_case():
         steps=10000, 
         restarts=0, 
         reynolds_number=40, 
-        path= BASE_SAVE + f'/{i}proc_10000', 
+        path= BASE_SAVE + f'/single_case', 
         load_initial_data=2
     )
 
@@ -362,5 +405,5 @@ def one_case():
 
 if __name__ == "__main__":
     main()
+    mpi_routine_study()
     #one_case()
-    #mpi_routine_study()

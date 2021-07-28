@@ -254,6 +254,17 @@ subroutine write_energy(current_time)
     fdot_omega = (fcomp_omega_left + fcomp_omega_right)*frac
 
     !
+    ! check that all of the variables are not NAN
+    !
+
+    call error_on_nan(helicity, "helicity")
+    call error_on_nan(solver_helicity, "solver helicity")
+    call error_on_nan(energy, "energy")
+    call error_on_nan(solver_energy, "solver energy")
+    call error_on_nan(fdot_u, "fdot_u")
+    call error_on_nan(fdot_omega, "fdot_omega")
+
+    !
     ! sum the values through mpi
     !
 
@@ -346,3 +357,15 @@ subroutine add_through_mpi(variable_to_add)
     count = 1
     call MPI_REDUCE(tmp_val, variable_to_add, count, MPI_REAL8, MPI_SUM, 0, MPI_COMM_TASK, mpi_err)
 end subroutine add_through_mpi
+
+subroutine error_on_nan(variable_to_check, variable_name)
+    implicit none
+    real*8 :: variable_to_check
+    character(len=*) :: variable_name
+
+    if (variable_to_check /= variable_to_check) then
+        write(*, *) variable_name, "was NAN - killing the simulation"
+    end if
+end subroutine error_on_nan
+
+
