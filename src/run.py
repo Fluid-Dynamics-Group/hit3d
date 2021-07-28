@@ -8,7 +8,7 @@ import json
 BASE_SAVE = "/home/brooks/sync/hit3d"
 
 class RunCase():
-    def __init__(self,skip_diffusion, size, dt, steps, restarts, reynolds_number,path, load_initial_data=0, nprocs=16):
+    def __init__(self,skip_diffusion, size, dt, steps, restarts, reynolds_number,path, load_initial_data=0, nprocs=16, export_vtk=False):
         # if there are restarts, find the number of steps spent in that those restarts
         # and add them to the current number of steps
         simulation_time_restart = restarts * 1.0
@@ -24,6 +24,7 @@ class RunCase():
         self.path =            path
         self.load_initial_data = load_initial_data
         self.nprocs            = nprocs
+        self.export_vtk        = export_vtk
 
     def run(self, iteration):
         if self.dt == 0.001:
@@ -47,6 +48,7 @@ class RunCase():
             self.path,
             iteration,
             io_steps,
+            self.export_vtk
         )
 
     def __repr__(self):
@@ -60,28 +62,33 @@ def main():
 
     run_shell_command("make")
     i = 0
+    
+    # generate a base case for N=128
+    case = RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=5, restarts=3, reynolds_number=40,  path= BASE_SAVE + '/base128', export_vtk=True, load_initial_data=1)
+    case.run(0)
+
+        # # reynolds
+        # RunCase(skip_diffusion=0,size=64, dt=0.0005, steps=20000, restarts=0, reynolds_number=40, path= BASE_SAVE + '/compare_reynolds/re40', export_vtk=True),
+        # RunCase(skip_diffusion=0,size=64, dt=0.0005, steps=20000, restarts=0, reynolds_number=80, path= BASE_SAVE + '/compare_reynolds/re80', export_vtk=True),
+        # # restarts
+        # RunCase(skip_diffusion=0,size=128, dt=0.001, steps=10000, restarts=0, reynolds_number=40, path= BASE_SAVE + '/restarts/0restarts', export_vtk=True),
+        # RunCase(skip_diffusion=0,size=128, dt=0.001, steps=10000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/restarts/3restarts', export_vtk=True),
+        # RunCase(skip_diffusion=0,size=128, dt=0.001, steps=10000, restarts=6, reynolds_number=40, path= BASE_SAVE + '/restarts/6restarts', export_vtk=True),
+        # size
+        # RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=3, reynolds_number=40,  path= BASE_SAVE + '/size/N64'),
+        # RunCase(skip_diffusion=0,size=128, dt=0.001, steps=10000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/size/N128'),
+        # # different dt
+        # RunCase(skip_diffusion=0,size=128, dt=0.001  , steps=10000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/dt/001'),
+        # RunCase(skip_diffusion=0,size=128, dt=0.0005 , steps=20000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/dt/0005'),
+        # RunCase(skip_diffusion=0,size=128, dt=0.00025, steps=40000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/dt/00025'),
 
     cases = [
-        # reynolds
-        RunCase(skip_diffusion=0,size=64, dt=0.0005, steps=20000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/compare_reynolds/re40'),
-        RunCase(skip_diffusion=0,size=64, dt=0.0005, steps=20000, restarts=3, reynolds_number=80, path= BASE_SAVE + '/compare_reynolds/re80'),
-        # restarts
-        RunCase(skip_diffusion=0,size=128, dt=0.001, steps=10000, restarts=0, reynolds_number=40, path= BASE_SAVE + '/restarts/0restarts'),
-        RunCase(skip_diffusion=0,size=128, dt=0.001, steps=10000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/restarts/3restarts'),
-        RunCase(skip_diffusion=0,size=128, dt=0.001, steps=10000, restarts=6, reynolds_number=40, path= BASE_SAVE + '/restarts/6restarts'),
-        # size
-        RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=3, reynolds_number=40,  path= BASE_SAVE + '/size/N64'),
-        RunCase(skip_diffusion=0,size=128, dt=0.001, steps=10000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/size/N128'),
         # exploding reynolds
-        RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=3, reynolds_number=40,  path= BASE_SAVE + '/explode_reynolds/re40'),
-        RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=3, reynolds_number=120, path= BASE_SAVE + '/explode_reynolds/re120'),
-        RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=3, reynolds_number=200, path= BASE_SAVE + '/explode_reynolds/re200'),
-        RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=3, reynolds_number=280, path= BASE_SAVE + '/explode_reynolds/re280'),
-        RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=3, reynolds_number=320, path= BASE_SAVE + '/explode_reynolds/re360'),
-        # different dt
-        RunCase(skip_diffusion=0,size=128, dt=0.001  , steps=10000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/dt/001'),
-        RunCase(skip_diffusion=0,size=128, dt=0.0005 , steps=20000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/dt/0005'),
-        RunCase(skip_diffusion=0,size=128, dt=0.00025, steps=40000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/dt/00025'),
+        RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=0, reynolds_number=40,  path= BASE_SAVE + '/explode_reynolds/re40', export_vtk=True),
+        RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=0, reynolds_number=120, path= BASE_SAVE + '/explode_reynolds/re120', export_vtk=True),
+        RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=0, reynolds_number=200, path= BASE_SAVE + '/explode_reynolds/re200', export_vtk=True),
+        RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=0, reynolds_number=280, path= BASE_SAVE + '/explode_reynolds/re280', export_vtk=True),
+        RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=0, reynolds_number=320, path= BASE_SAVE + '/explode_reynolds/re360', export_vtk=True),
     ]
     
     for case in cases:
@@ -104,7 +111,7 @@ def main():
 # restarts - the number of restarts the solver has, each restart lasts 1 second
 # reynolds_number - the reynolds number of the simulation (float)
 # save_folder - a hard coded save folder. if none is provided then one will be generated based on the parameters
-def run_case(skip_diffusion_param, size_param, steps,dt, restarts, reynolds_number, load_initial_data, nprocs, save_folder=None, iteration=1, steps_between_io=None):
+def run_case(skip_diffusion_param, size_param, steps,dt, restarts, reynolds_number, load_initial_data, nprocs, save_folder=None, iteration=1, steps_between_io=None, export_vtk=False):
     if save_folder is None:
         save_folder = BASE_SAVE + f"/{size_param}N-dt{dt}-{skip_diffusion_to_str(skip_diffusion_param)}-{restarts}-restarts-re{reynolds_number}-steps{steps}"
 
@@ -127,10 +134,10 @@ def run_case(skip_diffusion_param, size_param, steps,dt, restarts, reynolds_numb
 
     run_hit3d(nprocs)
 
-    if load_initial_data != 1:
-        postprocessing("output/", save_folder, restart_time_slice, steps, dt, False)
-    else:
-        organize_initial_condition("output/")
+    postprocessing("output/", save_folder, restart_time_slice, steps, dt, export_vtk)
+
+    if load_initial_data == 1:
+        organize_initial_condition(save_folder)
 
 def run_hit3d(nprocs):
     clean_output_dir()
@@ -141,10 +148,10 @@ def run_hit3d(nprocs):
 
 # we have just run a process to generate an initial condition for the other datasets
 # this function organizes the outputs so that they may be used by other processes
-def organize_initial_condition(solver_folder):
+def organize_initial_condition(save_folder):
     #run_shell_command(f"hit3d-utils add {solver_folder}/energy/ {solver_folder}/energy.csv")
 
-    with open(solver_folder + "/energy.csv", "r") as file:
+    with open(save_folder + "/energy.csv", "r") as file:
         reader = csv.reader(file)
 
         first = True
@@ -159,9 +166,8 @@ def organize_initial_condition(solver_folder):
             fdot_u = float(row[5])
             fdot_h = float(row[6])
 
-            control = EpsilonControl(energy, helicity, fdot_u, fdot_h)
-            control.to_json()
-            break
+    control = EpsilonControl(energy, helicity, fdot_u, fdot_h)
+    control.to_json()
 
 
 class EpsilonControl():
@@ -269,7 +275,7 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
 
     stepby = max(int(datapoints / NUM_DATAPOINTS) - 5,1)
 
-    # run_shell_command(f"hit3d-utils spectral {solver_folder}/es.gp {solver_folder}/spectra.json --step-by {stepby} --skip-before-time {restart_time_slice}")
+    run_shell_command(f"hit3d-utils spectral {solver_folder}/es.gp {solver_folder}/spectra.json --step-by {stepby} --skip-before-time {restart_time_slice}")
 
     #
     # run plotting for energy / helicity information from energy.csv
@@ -277,11 +283,11 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     #
 
     run_shell_command(f'python3 /home/brooks/github/hit3d-utils/plots/energy_helicity.py {solver_folder}/energy.csv {output_folder} "{restart_time_slice}"')
-    #run_shell_command(f'python3 /home/brooks/github/hit3d-utils/plots/spectra.py {solver_folder}/spectra.json {output_folder}')
+    run_shell_command(f'python3 /home/brooks/github/hit3d-utils/plots/spectra.py {solver_folder}/spectra.json {output_folder}')
 
     # move some of the important files to the save folder so they do not get purged
     shutil.move(f"{solver_folder}/energy.csv", output_folder + '/energy.csv')
-    #shutil.move(f"{solver_folder}/es.gp", output_folder + '/es.gp')
+    shutil.move(f"{solver_folder}/es.gp", output_folder + '/es.gp')
 
 # parse csv files for flowfield output by fortran
 def parse_filename(filename):
@@ -325,17 +331,11 @@ def skip_diffusion_to_str(skip_diffusion):
     else:
         raise ValueError("skip diffusion must be either 0 or 1")
 
-# helpful function for runnning one-off cases
-def one_case():
+def mpi_routine_study():
     run_shell_command("make")
-    #case =  RunCase(skip_diffusion=0,size=128, dt=0.001, steps=100, restarts=0, reynolds_number=40, path= BASE_SAVE + '/testcase_1proc')
-    #case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/12proc_10000')
-    #case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=100, restarts=3, reynolds_number=40, path= BASE_SAVE + '/initial_field', load_initial_data=1)
 
-    case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=3, reynolds_number=40, path= BASE_SAVE + '/initial_field', load_initial_data=1, nprocs=1)
-    case.run(0)
-
-    print("\n\n\n\n")
+    #case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=1, restarts=3, reynolds_number=40, path= BASE_SAVE + '/initial_field', load_initial_data=1, nprocs=1)
+    #case.run(0)
 
     for i in range(1,17):
         if 64 %i ==0:
@@ -344,9 +344,22 @@ def one_case():
             case =  RunCase(skip_diffusion=0,size=64, dt=0.001, steps=10000, restarts=0, reynolds_number=40, path= BASE_SAVE + f'/{i}proc_10000', nprocs=i)
             case.run(0)
 
-            print("\n\n\n\n")
+# helpful function for runnning one-off cases
+def one_case():
+    case =  RunCase(
+        skip_diffusion=0,
+        size=64, 
+        dt=0.001, 
+        steps=10000, 
+        restarts=0, 
+        reynolds_number=40, 
+        path= BASE_SAVE + f'/{i}proc_10000', 
+        load_initial_data=2
+    )
 
+    case.run(0)
 
 if __name__ == "__main__":
-    #main()
-    one_case()
+    main()
+    #one_case()
+    #mpi_routine_study()

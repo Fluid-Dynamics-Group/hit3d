@@ -127,8 +127,9 @@ program x_code
               fov = .true.; fos = .true.
               if (.not. task_split .and. mod(itime,iprint1).eq.0) call stat_main
 
-              if (floor(time/TRESCALE)+1 == NRESCALE) then
+              if (floor(time/TRESCALE) == NRESCALE) then
                 finished_restarts = .true.
+                write(*,*) "finishing restarts at time step = ", itime
               end if
            end if
         end if
@@ -228,8 +229,12 @@ program x_code
      end if hydro
 
      ! if we are at the specified timestep and our job is to write a restart file ...
-     if (mod(itime,13000) == 0 .and. load_initial_condition == 1) then 
+     if (ITIME == ITMAX .and. load_initial_condition == 1) then 
+         ! write a full flowfield file
+         call write_velocity_field(int(itime))
+         ! write the energy info at the final timestep
          call write_energy(time)
+         ! create a file to restart from
          call write_initial_data()
          call my_exit(0)
          call m_openmpi_exit
@@ -238,6 +243,13 @@ program x_code
 
         ! write energy and helicity to a csv
         call write_energy(time)
+
+        ! we only write vtk files once every 400 time steps because the post processessing
+        ! is very slow
+        ! also only write them after the restarts are done
+        if (finished_restarts .AND. mod(itime, iwrite4*4) .eq.0 ) then 
+            call write_velocity_field(int(itime))
+        endif
       end if
 
 !--------------------------------------------------------------------------------
@@ -253,19 +265,11 @@ program x_code
            end if stats_task_split
 
            ! these are executed regardless of the processor configuration
-           !if (task_split) call fields_to_stats
-           !if (mod(itime,iprint1).eq.0) call stat_main
+           if (task_split) call fields_to_stats
+           if (mod(itime,iprint1).eq.0) call stat_main
            ! we are at a write timestep and we are also not writing initial condition data to a file
            if (mod(itime,iwrite4).eq.0 .and. load_initial_condition /= 1) then
                !call io_write_4
-
-               ! we only write vtk files once every 400 time steps because the post processessing
-               ! is very slow
-               ! also only write them after the restarts are done
-               if (finished_restarts .AND. mod(itime, iwrite4*4) .eq.0 ) then 
-                   call write_velocity_field(int(itime))
-               endif
-
            end if
 
         end if

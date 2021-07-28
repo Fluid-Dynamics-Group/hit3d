@@ -250,8 +250,9 @@ subroutine write_energy(current_time)
 
     frac = (2*3.1415)**3 / (nx * ny * nz_all)
 
+    helicity = helicity * frac /2
     solver_helicity = solver_helicity * frac
-    energy = energy * frac
+    energy = energy * frac / 2.
     solver_energy = solver_energy * frac
     fdot_u = (fcomp_u_left + fcomp_u_right) * frac
     fdot_omega = (fcomp_omega_left + fcomp_omega_right) * frac
@@ -260,29 +261,12 @@ subroutine write_energy(current_time)
     ! sum the values through mpi
     !
 
-    tmp_val = helicity
-    count = 1
-    call MPI_REDUCE(tmp_val,helicity,count,MPI_REAL8,MPI_SUM,0,MPI_COMM_TASK,mpi_err)
-
-    tmp_val =solver_helicity 
-    count = 1
-    call MPI_REDUCE(tmp_val,solver_helicity,count,MPI_REAL8,MPI_SUM,0,MPI_COMM_TASK,mpi_err)
-
-    tmp_val = energy
-    count = 1
-    call MPI_REDUCE(tmp_val,energy,count,MPI_REAL8,MPI_SUM,0,MPI_COMM_TASK,mpi_err)
-
-    tmp_val = energy
-    count = 1
-    call MPI_REDUCE(tmp_val,solver_helicity,count,MPI_REAL8,MPI_SUM,0,MPI_COMM_TASK,mpi_err)
-
-    tmp_val = fdot_u 
-    count = 1
-    call MPI_REDUCE(tmp_val,fdot_u,count,MPI_REAL8,MPI_SUM,0,MPI_COMM_TASK,mpi_err)
-
-    tmp_val = fdot_omega
-    count = 1
-    call MPI_REDUCE(tmp_val,fdot_omega,count,MPI_REAL8,MPI_SUM,0,MPI_COMM_TASK,mpi_err)
+    call add_through_mpi(helicity)
+    call add_through_mpi(solver_helicity)
+    call add_through_mpi(energy)
+    call add_through_mpi(solver_energy)
+    call add_through_mpi(fdot_u)
+    call add_through_mpi(fdot_omega)
 
     !
     ! write the summary data to file if we are the master process
@@ -355,3 +339,16 @@ subroutine truncate_and_inverse_wrk_idx(idx)
 
     call xFFT3d(-1,idx)
 end subroutine truncate_and_inverse_wrk_idx
+
+
+! sum `variable_to_add` across every mpi process
+! and return the result
+subroutine add_through_mpi(variable_to_add)
+    use m_parameters
+    implicit none
+    real*8 :: variable_to_add, tmp_val
+
+    tmp_val = variable_to_add 
+    count = 1
+    call MPI_REDUCE(tmp_val,variable_to_add,count,MPI_REAL8,MPI_SUM,0,MPI_COMM_TASK,mpi_err)
+end subroutine add_through_mpi
