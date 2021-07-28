@@ -288,6 +288,7 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     # move some of the important files to the save folder so they do not get purged
     shutil.move(f"{solver_folder}/energy.csv", output_folder + '/energy.csv')
     shutil.move(f"{solver_folder}/es.gp", output_folder + '/es.gp')
+    shutil.move(f"{solver_folder}/spectra.json", output_folder + '/spectra.json')
 
 # parse csv files for flowfield output by fortran
 def parse_filename(filename):
