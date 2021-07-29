@@ -389,8 +389,19 @@ def mpi_routine_study():
             case =  RunCase(skip_diffusion=skip_diffusion,size=64, dt=0.001, steps=10000, restarts=0, reynolds_number=40, path= BASE_SAVE + f'/{i}proc_10000', nprocs=i)
             case.run(0)
 
+def load_spectra_initial_condition():
+    run_shell_command("make")
+
+    skip_diffusion = 0
+    case =  RunCase(skip_diffusion=skip_diffusion, size=64, dt=0.001, steps=1, restarts=3, reynolds_number=40, path= BASE_SAVE + '/spectra_ic/initial_field', load_initial_data=1)
+    case.run(0)
+
+    case =  RunCase(skip_diffusion=skip_diffusion, size=64, dt=0.001, steps=10_000, restarts=0, reynolds_number=40, path= BASE_SAVE + '/spectra_ic/derived_field', load_initial_data=0)
+    case.run(1)
+
 # helpful function for runnning one-off cases
 def one_case():
+    run_shell_command("make")
     case =  RunCase(
         skip_diffusion=0,
         size=64, 
@@ -405,6 +416,7 @@ def one_case():
     case.run(0)
 
 if __name__ == "__main__":
-    main()
-    mpi_routine_study()
+    #main()
+    #mpi_routine_study()
     #one_case()
+    load_spectra_initial_condition()

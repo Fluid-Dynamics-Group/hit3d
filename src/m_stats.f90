@@ -17,6 +17,7 @@ contains
 !================================================================================
 
     subroutine m_stats_init
+        use m_parameters
 
         implicit none
 
@@ -32,6 +33,12 @@ contains
         sc_diss = zip
         sc_min = zip
         sc_max = zip
+
+        ! load e_spec and e_spec1 arrays from storage if we are loading initial conditions
+        if (load_initial_condition == 0) then
+            call load_initial_spectral_data()
+        end if
+
 
         return
     end subroutine m_stats_init

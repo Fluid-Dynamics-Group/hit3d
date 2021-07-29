@@ -141,7 +141,7 @@ subroutine init_velocity
     ! load fields(:,:,:,1:3) from a previous run (overwrite current data)
     ! fields is loaded in fourier space
     if (load_initial_condition == 0) then
-        call load_initial_data()
+        call load_initial_velocity_data()
     end if
 
 !-------------------------------------------------------------------------------
@@ -237,7 +237,7 @@ subroutine init_velocity
     ! load fields(:,:,:,1:3) from a previous run (overwrite current data)
     ! fields is loaded in fourier space
     if (load_initial_condition == 0) then
-        call load_initial_data()
+        call load_initial_velocity_data()
     end if
 
     ! deallocate work arrays
