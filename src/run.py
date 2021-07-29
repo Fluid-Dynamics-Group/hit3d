@@ -96,10 +96,10 @@ def main():
     #]
 
     def create_case(re):
-        return RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=0, reynolds_number=re, path= BASE_SAVE + f'/explode_reynolds/{re}360', export_vtk=True)
+        return RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=0, reynolds_number=re, path= BASE_SAVE + f'/explode_reynolds/re{re}', export_vtk=True)
 
-    last_success_re = 0
-    current_re = 440
+    last_success_re = 10220
+    current_re = 15110
     last_failure_re = 20_000
 
     while True:
@@ -107,6 +107,7 @@ def main():
             f.write(f"{last_success_re},{last_failure_re},{current_re}\n")
 
         case = create_case(current_re)
+
         try:
             case.run(i)
 
@@ -118,7 +119,7 @@ def main():
         
             # we have successfully completed a case -> lets push towards the last failure Re
             last_success_re = current_re
-            current_re = (last_failure_re + current_re) / 2.
+            current_re = int((last_failure_re + current_re) / 2.)
         except Exception as e:
 
             traceback_str = ''.join(traceback.format_tb(e.__traceback__))
@@ -129,7 +130,7 @@ def main():
             # we have failed a case, we need to decrease the reynolds number to something better
 
             last_failure_re = current_re
-            current_re = (last_success_re + current_re) / 2.
+            current_re = int((last_success_re + current_re) / 2.)
 
     
     #for case in cases:
