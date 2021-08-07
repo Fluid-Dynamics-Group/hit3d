@@ -69,6 +69,10 @@ subroutine load_initial_velocity_data
 
     integer :: i, j, k, v
 
+    if (myid == master) then 
+        write(*,*) "reading velicity initial condition"
+    end if
+
     ! read in the data from the file
     ! there will be an EOF error here probably if the input field was generated for
     ! a different N sized field
@@ -91,6 +95,10 @@ subroutine load_initial_spectral_data
     implicit none
 
     integer :: i
+
+    if (myid == master) then 
+        write(*,*) "reading spectral initial condition"
+    end if
 
     open (994, file="initial_condition_espec.pkg", form='unformatted', access="stream")
     read (994) (e_spec(i), i=1,kmax)

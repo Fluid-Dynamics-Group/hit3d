@@ -61,7 +61,7 @@ program x_code
         call begin_new
     elseif (load_initial_condition == 0) then
         call begin_new
-        !call load_initial_data()
+        call load_initial_spectral_data()
     else
         write (*, *) "invalid value for load_initial_condition"
         stop 1
@@ -90,6 +90,13 @@ program x_code
 !================================================================================
 
     do 100 ITIME = ITMIN + 1, ITMAX
+
+        ! output some runtime statistics on how far into the simulation we are
+        if (mod(ITIME, 1000) == 0) then
+            if (myid == master) then
+                write(*,*) 100* ITIME / ITMAX, " percent done"
+            endif
+        endif
 
         ! getting the file extension for current iteration
         call get_file_ext
@@ -158,7 +165,7 @@ program x_code
             ! RHS for velocities
             call rhs_velocity
 
-            ! adding forcing, if computing asdf forced flow
+            ! adding forcing, if computing forced flow
             if (flow_type .eq. 1) call force_velocity
 
             ! advance velocity - either Euler or Adams-Bashforth

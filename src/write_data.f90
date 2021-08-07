@@ -11,7 +11,6 @@ module m_data
     real*8 :: energy, helicity, solver_energy, solver_helicity, udotw, umag, wmag
     real*8 :: fcomp_u_left, fcomp_u_right, fdot_u
     real*8 :: fcomp_omega_left, fcomp_omega_right, fdot_omega
-
 end module m_data
 
 subroutine write_velocity_field(current_timestep)
@@ -148,10 +147,12 @@ subroutine write_energy(current_time)
     wrk(:, :, :, 2) = fields(:, :, :, 2)
     wrk(:, :, :, 3) = fields(:, :, :, 3)
 
+    ! copy the velocity data into wrk (1,2,3)
     tmp_wrk(:, :, :, 1:3) = wrk(:, :, :, 1:3)
 
     !
     ! calculate derivatives of wrk varaibles to get omegas
+    ! into (4,5,6)
     !
 
     call x_derivative(3, 'y', 6) ! dw/dy
@@ -167,7 +168,7 @@ subroutine write_energy(current_time)
     wrk(:, :, :, 5) = wrk(:, :, :, 2) - wrk(:, :, :, 5)  ! omega_2 = u_z - w_x
     wrk(:, :, :, 6) = wrk(:, :, :, 3) - wrk(:, :, :, 1)  ! omega_3 = v_x - u_y
 
-    ! copy velocities back into wrk
+    ! copy velocities back into wrk (1,2,3)
     wrk(:, :, :, 1:3) = tmp_wrk(:, :, :, 1:3)
 
     ! truncate and convert data to x-space
@@ -359,13 +360,14 @@ subroutine add_through_mpi(variable_to_add)
 end subroutine add_through_mpi
 
 subroutine error_on_nan(variable_to_check, variable_name)
+    use m_openmpi
     implicit none
     real*8 :: variable_to_check
     character(len=*) :: variable_name
 
     if (variable_to_check /= variable_to_check) then
         write(*, *) variable_name, "was NAN - killing the simulation"
+        call my_exit(1)
+        call m_openmpi_exit
     end if
 end subroutine error_on_nan
-
-
