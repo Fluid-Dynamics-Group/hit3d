@@ -1,0 +1,10 @@
+**/*.mod
+**/*.o
+**/*.x
+results/
+src/output/*
+**/*.gp
+src/mgm_post
+src/post/*
+**/*.pkg
+**/*.json
