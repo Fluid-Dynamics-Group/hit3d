@@ -1,0 +1,8 @@
+**/*.csv
+**/*.o
+**/*.mod
+**/*.x
+**/mgm_post
+**/output/
+**/*.pkg
+**/*.json

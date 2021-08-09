@@ -7,62 +7,66 @@
 !================================================================================
 subroutine my_exit(reason)
 
-    use m_openmpi
-    use m_io
-    use m_fields
-    use m_work
+  use m_openmpi
+  use m_io
+  use m_fields
+  use m_work
 !  use x_fftw
-    use m_particles
+  use m_particles
 
-    implicit none
-    integer :: reason
+  implicit none
+  integer :: reason
 
-    write (out, "('my_exit with reason ',i4)") reason
 
-    select case (reason)
+  write(out,"('my_exit with reason ',i4)") reason
 
-    case (0)
+  select case (reason)
 
-        write (out, *) '---------------------------------------------'
-        write (out, *) '          NORMAL TERMIATION'
-        write (out, *) '---------------------------------------------'
+  case(0)
 
-    case (1)
+     write(out,*) '---------------------------------------------'
+     write(out,*) '          NORMAL TERMIATION'
+     write(out,*) '---------------------------------------------'
 
-        write (out, *) '---------------------------------------------'
-        write (out, *) '           TIME TERMINATION'
-        write (out, *) '---------------------------------------------'
-        call flush (out)
+  case(1)
 
-    case (2)
+     write(out,*) '---------------------------------------------'
+     write(out,*) '           TIME TERMINATION'
+     write(out,*) '---------------------------------------------'
+     call flush(out)
 
-        write (out, *) '---------------------------------------------'
-        write (out, *) '          RUN-TIME TERMINATION'
-        write (out, *) '---------------------------------------------'
+  case(2)
 
-    case (3)
+     write(out,*) '---------------------------------------------'
+     write(out,*) '          RUN-TIME TERMINATION'
+     write(out,*) '---------------------------------------------'
 
-        write (out, *) '---------------------------------------------'
-        write (out, *) '          USER TERMINATION'
-        write (out, *) '---------------------------------------------'
+  case(3)
 
-    case default
+     write(out,*) '---------------------------------------------'
+     write(out,*) '          USER TERMINATION'
+     write(out,*) '---------------------------------------------'
 
-        write (out, *) '---------------------------------------------'
-        write (out, *) '      TERMINATION FOR NO APPARENT REASON'
-        write (out, *) '---------------------------------------------'
+  case default 
 
-    end select
+     write(out,*) '---------------------------------------------'
+     write(out,*) '      TERMINATION FOR NO APPARENT REASON'
+     write(out,*) '---------------------------------------------'
 
-    if (reason .ge. 0) then
-        if (task .eq. 'hydro') call restart_write_parallel
-        if (task .eq. 'parts') call particles_restart_write_binary
-    end if
+  end select
 
-    write (out, *) "Done."
-    call flush (out)
-    close (out)
-    stop
+
+  if (reason.ge.0) then
+     if (task.eq.'hydro') call restart_write_parallel
+     if (task.eq.'parts') call particles_restart_write_binary
+  end if
+
+
+  write(out,*) "Done."
+  call flush(out)
+  close(out)
+  stop
+
 
 !  call m_fields_exit
 !  call m_work_exit
@@ -70,7 +74,8 @@ subroutine my_exit(reason)
 !  call m_io_exit
 !  call m_openmpi_exit
 
-    return
+
+  return
 end subroutine my_exit
 
 !!$!================================================================================
