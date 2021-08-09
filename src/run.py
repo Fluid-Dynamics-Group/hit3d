@@ -8,10 +8,10 @@ import json
 BASE_SAVE = "/home/brooks/sync/hit3d"
 
 class RunCase():
-    def __init__(self,skip_diffusion, size, dt, steps, restarts, reynolds_number,path, load_initial_data=0, nprocs=16, export_vtk=False, epsilon1=0.0, epsilon2=0.0):
+    def __init__(self,skip_diffusion, size, dt, steps, restarts, reynolds_number,path, load_initial_data=0, nprocs=16, export_vtk=False, epsilon1=0.0, epsilon2=0.0, restart_time=1.0):
         # if there are restarts, find the number of steps spent in that those restarts
         # and add them to the current number of steps
-        simulation_time_restart = restarts * 1.0
+        simulation_time_restart = restarts * restart_time
         steps_restarts = int(simulation_time_restart / dt)
         steps += steps_restarts
 
@@ -27,6 +27,7 @@ class RunCase():
         self.export_vtk        = export_vtk
         self.epsilon1          = epsilon1
         self.epsilon2          = epsilon2 
+        self.restart_time      = restart_time
 
     def run(self, iteration):
         if self.dt == 0.001:
@@ -53,6 +54,7 @@ class RunCase():
             self.export_vtk,
             self.epsilon1,
             self.epsilon2,
+            self.restart_time
         )
 
     def __repr__(self):
@@ -136,7 +138,7 @@ def main():
 # restarts - the number of restarts the solver has, each restart lasts 1 second
 # reynolds_number - the reynolds number of the simulation (float)
 # save_folder - a hard coded save folder. if none is provided then one will be generated based on the parameters
-def run_case(skip_diffusion_param, size_param, steps,dt, restarts, reynolds_number, load_initial_data, nprocs, save_folder=None, iteration=1, steps_between_io=None, export_vtk=False, epsilon1=0., epsilon2=0.):
+def run_case(skip_diffusion_param, size_param, steps,dt, restarts, reynolds_number, load_initial_data, nprocs, save_folder, iteration, steps_between_io, export_vtk, epsilon1, epsilon2, restart_time):
     if save_folder is None:
         save_folder = BASE_SAVE + f"/{size_param}N-dt{dt}-{skip_diffusion_to_str(skip_diffusion_param)}-{restarts}-restarts-re{reynolds_number}-steps{steps}"
 
@@ -149,7 +151,7 @@ def run_case(skip_diffusion_param, size_param, steps,dt, restarts, reynolds_numb
     os.makedirs(save_folder)
 
     print(f"creating a config for N={size_param} | {skip_diffusion_to_str(skip_diffusion_param)} | dt={dt} | restarts = {restarts} | steps = {steps}")
-    run_shell_command(f"hit3d-config --n {size_param} --steps {steps} --steps-between-io {steps_between_io} --flow-type 0 --skip-diffusion {skip_diffusion_param} --dt -{dt} --restarts {restarts} --reynolds {reynolds_number} --initial-condition {load_initial_data} --epsilon1 {epsilon1} --epsilon2 {epsilon2} input_file.in ")
+    run_shell_command(f"hit3d-config --n {size_param} --steps {steps} --steps-between-io {steps_between_io} --flow-type 0 --skip-diffusion {skip_diffusion_param} --dt -{dt} --restarts {restarts} --reynolds {reynolds_number} --initial-condition {load_initial_data} --epsilon1 {epsilon1} --epsilon2 {epsilon2} --restart-time {restart_time} input_file.in ")
 
     restart_time_slice = restarts * 1.
 
@@ -386,20 +388,32 @@ def load_spectra_initial_condition():
     case =  RunCase(skip_diffusion=skip_diffusion, size=64, dt=0.001, steps=10_000, restarts=0, reynolds_number=40, path= BASE_SAVE + '/spectra_ic/no_restarts_no_ic', load_initial_data=2)
     case.run(1)
 
+def wrap_error_case(case, filepath):
+        try:
+            case.run(0)
+        except Exception as e:
+
+            traceback_str = ''.join(traceback.format_tb(e.__traceback__))
+            with open(filepath, 'a') as f:
+                print(f"failed for case {case}")
+                f.write(f"failed for case {case} {case.path}\ntraceback:\n{traceback_str}")
+
 def forcing_cases():
     run_shell_command("make")
+    ERROR_FILE =f"{BASE_SAVE}/forcing/errors.txt" 
+    create_file(ERROR_FILE)
 
-    clean_run = False
-    dt = 0.0005
-    size = 128
-    re = 1000
-    steps = 20_000
+    clean_run = True
+    dt = 0.001
+    size = 64
+    re = 300
+    steps = 10_000
 
     if clean_run:
         remove_restart_files()
 
         # create the initial case to work with
-        case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=5, restarts=3, reynolds_number=re, path= BASE_SAVE + '/forcing/initial_field', load_initial_data=1)
+        case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=5, restarts=3, reynolds_number=re, path= BASE_SAVE + '/forcing/initial_field', load_initial_data=1, restart_time=5.0)
         case.run(0)
     
 
@@ -416,21 +430,20 @@ def forcing_cases():
     ]
 
     cases = [
+        # epsilon 1 cases
         [0.0000, 0., "baseline"],
         [0.0001, 0., "epsilon1_very-small"],
-        [0.0010, 0., "epsilon1_small"],
+        #[0.0010, 0., "epsilon1_small"],
         [-0.0001, 0., "neg_epsilon1_very-small"],
         #[-0.0010, 0., "neg_epsilon1_small"],
+
+        # epsilon 2  cases
+        [ 0., 0.0001, "epsilon2_very-small"],
+        #[ 0., 0.0010, "epsilon2_small"],
+        [ 0., -0.0001, "neg_epsilon2_very-small"],
+        #[ 0., -0.0010, "neg_epsilon2_small"],
     ]
 
-    cases = [
-        #[0., 0., "baseline"],
-        [ 0., 0.0001, "epsilon2_very-small"],
-        [ 0., 0.0010, "epsilon2_small"],
-        [ 0., -0.0001, "neg_epsilon2_very-small"],
-        [ 0., -0.0010, "neg_epsilon2_small"],
-    ]
-    
     i = 1
     for delta_1, delta_2, folder in cases:
         #epsilon1 = epsilon_generator.epsilon_1(delta_1)
@@ -455,9 +468,9 @@ def forcing_cases():
             epsilon1=epsilon1, 
             epsilon2=epsilon2
         )
-        case.run(i)
+        #case.run(i)
 
-        i+=1
+        wrap_error_case(case, ERROR_FILE)
 
 # helpful function for runnning one-off cases
 def one_case():
