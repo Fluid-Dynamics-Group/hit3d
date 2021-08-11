@@ -65,7 +65,7 @@ subroutine my_exit(reason)
   write(out,*) "Done."
   call flush(out)
   close(out)
-  stop
+  !stop
 
 
 !  call m_fields_exit

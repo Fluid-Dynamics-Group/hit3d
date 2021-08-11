@@ -93,7 +93,8 @@ OBJ     = main.o\
 	rhs_velocity.o\
 	rhs_scalars.o\
 	velocity_rescale.o\
-	write_tmp4.o
+	write_tmp4.o \
+	write_data.o
 
 
 # -------------------------------------------------------

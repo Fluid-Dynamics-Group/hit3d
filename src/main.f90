@@ -220,7 +220,10 @@ program x_code
            ! these are executed regardless of the processor configuration
            if (task_split) call fields_to_stats
            if (mod(itime,iprint1).eq.0) call stat_main
-           if (mod(itime,iwrite4).eq.0) call io_write_4
+           if (mod(itime,iwrite4).eq.0) then 
+               !io_write_4
+               call write_energy(time)
+           endif 
 
         end if
      end if stats

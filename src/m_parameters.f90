@@ -51,6 +51,7 @@ module m_parameters
 
   real*8 :: courant
 
+  integer :: load_initial_condition, skip_diffusion
 
   integer  :: dealias
 
@@ -175,164 +176,160 @@ contains
 !================================================================================
 
   subroutine read_input_file
+              implicit none
 
-    implicit none
+        logical :: there
+        integer :: n
+        integer*4  :: passed, passed_all
+        character*80 :: str_tmp
 
-    logical :: there
-    integer :: n
-    integer*4  :: passed, passed_all
-    character*80 :: str_tmp
+        ! making sure the input file is there
+        inquire (file=run_name//'.in', exist=there)
+        if (.not. there) then
+            write (out, *) '*** cannot find the input file'
+            call flush (out)
+            call my_exit(-1)
+        end if
 
-    ! making sure the input file is there
-    inquire(file=run_name//'.in', exist=there)
-    if(.not.there) then
-       write(out,*) '*** cannot find the input file'
-       call flush(out)
-       call my_exit(-1)
-    end if
+        ! now the variable "passed" will show if the parameters make sense
+        passed = 1
 
-    ! now the variable "passed" will show if the parameters make sense
-    passed = 1
+        ! -------------------------------------------------
+        ! reading parameters from the input file
+        ! and checking them for consistency
+        ! -------------------------------------------------
+        open (in, file=run_name//'.in', form='formatted')
+        read (in, *)
+        read (in, *)
+        read (in, *)
 
+        read (in, *, ERR=9000) nx, ny, nz_all
+        read (in, *)
 
-    ! -------------------------------------------------
-    ! reading parameters from the input file
-    ! and checking them for consistency
-    ! -------------------------------------------------
-    open(in,file=run_name//'.in',form='formatted')
-    read(in,*)
-    read(in,*)
-    read(in,*)
+        nz = nz_all/numprocs
+        if (nz*numprocs .ne. nz_all) then
+            write (out, *) '*** wrong nz_all:', nz_all, &
+                '*** should be divisible by numprocs:', numprocs
+            call flush (out)
+            passed = 0
+        end if
+        write (out, '(70(''=''))')
+        write (out, "('NX,NY,NZ_ALL', 3i4)") nx, ny, nz_all
+        write (out, "('NX,NY,NZ    ', 3i4)") nx, ny, nz
+        call flush (out)
 
-    read(in,*,ERR=9000) nx,ny,nz_all
-    read(in,*)
+        dx = 2.0d0*PI/dble(nx)
+        dy = 2.0d0*PI/dble(ny)
+        dz = 2.0d0*PI/dble(nz_all)
 
+        !--------------------------------------------------------------------------------
+        ! ===========================MGM-Forcing=====================
+        !--------------------------------------------------------------------------------
+        read (in, *, ERR=9000, END=9000) PERT
+        write (out, *) 'PERTURB =   ', PERT
 
-    nz = nz_all/numprocs
-    if (nz*numprocs.ne.nz_all) then
-       write(out,*) '*** wrong nz_all:', nz_all, &
-            '*** should be divisible by numprocs:',numprocs
-       call flush(out)
-       passed = 0
-    end if
-    write(out,'(70(''=''))')
-    write(out,"('NX,NY,NZ_ALL', 3i4)") nx,ny,nz_all
-    write(out,"('NX,NY,NZ    ', 3i4)") nx,ny,nz
-    call flush(out)
+        read (in, *, ERR=9000, END=9000) PERTamp1
+        write (out, *) 'PERTURB1 amplitude =   ', PERTamp1
 
-    dx = 2.0d0 * PI / dble(nx)
-    dy = 2.0d0 * PI / dble(ny)
-    dz = 2.0d0 * PI / dble(nz_all)
+        read (in, *, ERR=9000, END=9000) PERTamp2
+        write (out, *) 'PERTURB2 amplitude =   ', PERTamp2
+        read (in, *)
+        ! -------------------------------------------------------------
 
+        read (in, *, ERR=9000, END=9000) ITMIN
+        write (out, *) 'ITMIN =   ', ITMIN
+        last_dump = ITMIN
 
-    !--------------------------------------------------------------------------------
-    ! ===========================MGM-Forcing=====================
-    !--------------------------------------------------------------------------------
-    read(in,*,ERR=9000,END=9000) PERT
-    write(out,*) 'PERTURB =   ',PERT
+        read (in, *, ERR=9000, END=9000) ITMAX
+        write (out, *) 'ITMAX =   ', ITMAX
 
-    read(in,*,ERR=9000,END=9000) PERTamp1
-    write(out,*) 'PERTURB1 amplitude =   ',PERTamp1
+        read (in, *, ERR=9000, END=9000) IPRINT1
+        write (out, *) 'IPRINT1=   ', IPRINT1
 
-    read(in,*,ERR=9000,END=9000) PERTamp2
-    write(out,*) 'PERTURB2 amplitude =   ',PERTamp2
-    read(in,*)
-    ! -------------------------------------------------------------
+        read (in, *, ERR=9000, END=9000) IPRINT2
+        write (out, *) 'IPRINT2=   ', IPRINT2
 
-    read(in,*,ERR=9000,END=9000) ITMIN
-    write(out,*) 'ITMIN =   ',ITMIN
-    last_dump = ITMIN
+        read (in, *, ERR=9000, END=9000) IWRITE4
+        write (out, *) 'IWRITE4=  ', IWRITE4
+        read (in, *)
+        write (out, "(70('-'))")
+        call flush (out)
 
-    read(in,*,ERR=9000,END=9000) ITMAX
-    write(out,*) 'ITMAX =   ',ITMAX
+        ! ------------------------------------------------------------
 
-    read(in,*,ERR=9000,END=9000) IPRINT1
-    write(out,*) 'IPRINT1=   ',IPRINT1
+        read (in, *, ERR=9000, END=9000) TMAX
+        write (out, *) 'TMAX     =', TMAX
 
-    read(in,*,ERR=9000,END=9000) IPRINT2
-    write(out,*) 'IPRINT2=   ',IPRINT2
+        read (in, *, ERR=8000, END=9000) TRESCALE, NRESCALE
+100     write (out, *) 'TRESCALE, NRESCALE =', TRESCALE, NRESCALE
 
-    read(in,*,ERR=9000,END=9000) IWRITE4
-    write(out,*) 'IWRITE4=  ',IWRITE4
-    read(in,*)
-    write(out,"(70('-'))")
-    call flush(out)
-
-    ! ------------------------------------------------------------
-
-    read(in,*,ERR=9000,END=9000) TMAX
-    write(out,*) 'TMAX     =',TMAX
-
-    read(in,*,ERR=8000,END=9000) TRESCALE, NRESCALE
-100 write(out,*) 'TRESCALE, NRESCALE =',TRESCALE, NRESCALE
-
-    read(in,*,ERR=9000,END=9000) TSCALAR
-    write(out,*) 'TSCALAR  =',TSCALAR
-    read(in,*)
-    write(out,"(70('-'))")
-    call flush(out)
+        read (in, *, ERR=9000, END=9000) TSCALAR
+        write (out, *) 'TSCALAR  =', TSCALAR
+        read (in, *)
+        write (out, "(70('-'))")
+        call flush (out)
 
 !      if(TSCALAR.le.TRESCALE) then
 !        TSCALAR = TRESCALE
 !        write(out,*) '*** RESET: TSCALAR = ',TSCALAR
 !      end if
 
-    ! ------------------------------------------------------------
+        ! ------------------------------------------------------------
 
-    read(in,*,ERR=9000,END=9000) flow_type
-    write(out,*) 'flow_type    ', flow_type
-    read(in,*)
-    write(out,"(70('-'))")
-    call flush(out)
+        read (in, *, ERR=9000, END=9000) flow_type
+        write (out, *) 'flow_type    ', flow_type
+        read (in, *)
+        write (out, "(70('-'))")
+        call flush (out)
 
-    ! ------------------------------------------------------------
+        ! ------------------------------------------------------------
 
-    read(in,*,ERR=9000,END=9000) RE
-    write(out,*) 'RE    =   ',RE
+        read (in, *, ERR=9000, END=9000) RE
+        write (out, *) 'RE    =   ', RE
 
-    nu = 1.0d0/RE
+        nu = 1.0d0/RE
 
-    read(in,*,ERR=9000,END=9000) DT
-    write(out,*) 'DT    =   ',DT
-    if (dt.lt.0.0d0) then
-       variable_dt = .false.
-       dt = -dt
-    else
-       variable_dt = .true.
-    end if
+        read (in, *, ERR=9000, END=9000) DT
+        write (out, *) 'DT    =   ', DT
+        if (dt .lt. 0.0d0) then
+            variable_dt = .false.
+            dt = -dt
+        else
+            variable_dt = .true.
+        end if
 
-    read(in,*)
-    write(out,"(70('-'))")
-    call flush(out)
+        read (in, *)
+        write (out, "(70('-'))")
+        call flush (out)
 
-    ! ------------------------------------------------------------
+        ! ------------------------------------------------------------
 
-    read(in,*,ERR=9000,END=9000) isp_type
-    write(out,*) 'isp_type=   ', isp_type
+        read (in, *, ERR=9000, END=9000) isp_type
+        write (out, *) 'isp_type=   ', isp_type
 
-    read(in,*,ERR=9000,END=9000) ir_exp
-    write(out,*) 'ir_exp   =   ', ir_exp
+        read (in, *, ERR=9000, END=9000) ir_exp
+        write (out, *) 'ir_exp   =   ', ir_exp
 
-    read(in,*,ERR=9000,END=9000) peak_wavenum
-    write(out,*) 'peak_wavenum =   ',peak_wavenum
-    read(in,*)
-    write(out,"(70('-'))")
-    call flush(out)
+        read (in, *, ERR=9000, END=9000) peak_wavenum
+        write (out, *) 'peak_wavenum =   ', peak_wavenum
+        read (in, *)
+        write (out, "(70('-'))")
+        call flush (out)
 
-    ! ------------------------------------------------------------
+        ! ------------------------------------------------------------
 
-    read(in,*,ERR=9000,END=9000) force_type
-    write(out,*) 'force_type', force_type
+        read (in, *, ERR=9000, END=9000) force_type
+        write (out, *) 'force_type', force_type
 
-    read(in,*,ERR=9000,END=9000) kfmax
-    write(out,*) 'kfmax =   ',kfmax
+        read (in, *, ERR=9000, END=9000) kfmax
+        write (out, *) 'kfmax =   ', kfmax
 
-    read(in,*,ERR=9000,END=9000) FAMP
-    write(out,*) 'FAMP  =   ',FAMP
+        read (in, *, ERR=9000, END=9000) FAMP
+        write (out, *) 'FAMP  =   ', FAMP
 
-    read(in,*)
-    write(out,"(70('-'))")
-    call flush(out)
+        read (in, *)
+        write (out, "(70('-'))")
+        call flush (out)
 
 !!$    c------------------------------------------------------------
 !!$
@@ -345,188 +342,196 @@ contains
 !!$
 !!$    c------------------------------------------------------------
 
-    read(in,*,ERR=9000,END=9000) dealias
-    write(out,*) 'dealias = ',dealias
-    read(in,*)
-    write(out,"(70('-'))")
-    call flush(out)
+        read (in, *, ERR=9000, END=9000) dealias
+        write (out, *) 'dealias = ', dealias
+        read (in, *)
+        write (out, "(70('-'))")
+        call flush (out)
 
-    ! -------------------------------------------------------------
+        ! -------------------------------------------------------------
 
-    read(in,*,ERR=9000,END=9000) det_rand
-    write(out,*) 'det_rand =',det_rand
+        read (in, *, ERR=9000, END=9000) det_rand
+        write (out, *) 'det_rand =', det_rand
 
-    read(in,*,ERR=9000,END=9000) RN1
-    write(out,*) 'RN1      =',RN1
+        read (in, *, ERR=9000, END=9000) RN1
+        write (out, *) 'RN1      =', RN1
 
-    read(in,*,ERR=9000,END=9000) RN2
-    write(out,*) 'RN2      =',RN2
+        read (in, *, ERR=9000, END=9000) RN2
+        write (out, *) 'RN2      =', RN2
 
-    read(in,*,ERR=9000,END=9000) RN3
-    write(out,*) 'RN3      =',RN3
-    read(in,*)
-    write(out,"(70('-'))")
-    call flush(out)
+        read (in, *, ERR=9000, END=9000) RN3
+        write (out, *) 'RN3      =', RN3
+        read (in, *)
+        write (out, "(70('-'))")
+        call flush (out)
 
-    ! -------------------------------------------------------------
+        ! -------------------------------------------------------------
 
-    read(in,*,ERR=9000,END=9000) nptot
+        read (in, *, ERR=9000, END=9000) nptot
 ! DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG
-    if (.not.task_split .and. nptot > 0) then
-       write(out,*) "tasks are not split, making nptot=0"
-       nptot = 0
-    end if
+        if (.not. task_split .and. nptot > 0) then
+            write (out, *) "tasks are not split, making nptot=0"
+            nptot = 0
+        end if
 ! DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG
 
-    write(out,*) 'nptot    =',nptot
+        write (out, *) 'nptot    =', nptot
 
+        read (in, *, ERR=9000, END=9000) particles_tracking_scheme
+        write (out, *) 'particles_tracking_scheme', particles_tracking_scheme
 
-    read(in,*,ERR=9000,END=9000) particles_tracking_scheme
-    write(out,*) 'particles_tracking_scheme', particles_tracking_scheme
-
-    select case (particles_tracking_scheme)
-    case (0)
-       write(out,*) '--- Trilinear tracking'
-    case (1)
-       write(out,*) '--- CINT (cubic interpolation on integer nodes)'
-    case (2)
-       write(out,*) '--- Spectral tracking (CAUTION: SLOW!)'
-    case default
-       write(out,*) 'don''t recognize particle tracking:', &
-                  particles_tracking_scheme
-       write(out,*) 'reset to zero'
-       particles_tracking_scheme = 0
-    end select
-    call flush(out)
-
+        select case (particles_tracking_scheme)
+        case (0)
+            write (out, *) '--- Trilinear tracking'
+        case (1)
+            write (out, *) '--- CINT (cubic interpolation on integer nodes)'
+        case (2)
+            write (out, *) '--- Spectral tracking (CAUTION: SLOW!)'
+        case default
+            write (out, *) 'don''t recognize particle tracking:', &
+                particles_tracking_scheme
+            write (out, *) 'reset to zero'
+            particles_tracking_scheme = 0
+        end select
+        call flush (out)
 
 ! DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG
-    if (particles_tracking_scheme .gt. 1) stop 'Cannot do this particle tracking'
+        if (particles_tracking_scheme .gt. 1) stop 'Cannot do this particle tracking'
 ! DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG
 
+        read (in, *, ERR=9000, END=9000) starttime_particles
+        write (out, *) 'starttime_particles: ', starttime_particles
 
+        read (in, *, ERR=9000, END=9000) particles_filter_size
+        write (out, *) 'particles_filter_size:', particles_filter_size
 
-    read(in,*,ERR=9000,END=9000) starttime_particles
-    write(out,*) 'starttime_particles: ',starttime_particles
+        if (particles_filter_size .gt. zip .and. particles_filter_size .lt. three*dx) then
+            write (out, *) "particles_filter_size is too small (less than 3*dx)"
+            write (out, *) particles_filter_size, three*dx
+            call flush (out)
+            call my_exit(-1)
+        end if
 
-    read(in,*,ERR=9000,END=9000) particles_filter_size
-    write(out,*) 'particles_filter_size:',particles_filter_size
+        read (in, *)
 
-    if (particles_filter_size .gt. zip .and. particles_filter_size .lt. three*dx) then
-       write(out,*) "particles_filter_size is too small (less than 3*dx)"
-       write(out,*) particles_filter_size, three*dx
-       call flush(out)
-       call my_exit(-1)
-    end if
+        ! -------------------------------------------------------------
 
-    read(in,*)
+        ! check if w diffusion terms should be calculated
 
+        read (in, *, err=9000) skip_diffusion
+        write (out, *) "skip_diffusion: ", skip_diffusion
 
-    ! -------------------------------------------------------------
+        ! -------------------------------------------------------------
 
-    read(in,*,ERR=9000,END=9000) les_model
-    write(out,*) 'les_model    =',les_model
-    read(in,*)
-    write(out,"(70('-'))")
-    call flush(out)
+        ! Check if we are reading a field for input data or
 
-    ! making sure that if the LES mode is on, the dealiasing is 3/2-rule
-    if (les_model .gt. 0 .and. dealias .ne. 0) then
-       dealias = 0
-       write(out,*) "*** LES mode, changing dealias to 0."
-       call flush(out)
-    end if
+        read (in, *, err=9000) load_initial_condition
+        write (out, *) "load_initial_condition : ", load_initial_condition
+        read (in, *) ! skips the --- line
 
-    ! -------------------------------------------------------------
+        ! -------------------------------------------------------------
 
-    read(in,*,ERR=9000,END=9000) n_scalars
-    write(out,*) '# of scalars:', n_scalars
-    read(in,*)
-    write(out,"(70('-'))")
-    call flush(out)
+        read (in, *, ERR=9000, END=9000) les_model
+        write (out, *) 'les_model    =', les_model
+        read (in, *)
+        write (out, "(70('-'))")
+        call flush (out)
 
-    ! ------------------------------------------------------------
+        ! making sure that if the LES mode is on, the dealiasing is 3/2-rule
+        if (les_model .gt. 0 .and. dealias .ne. 0) then
+            dealias = 0
+            write (out, *) "*** LES mode, changing dealias to 0."
+            call flush (out)
+        end if
 
-    ! if there are scalars, then read them one by one
-    if (n_scalars>0) then
-       read(in,'(A)',ERR=9000,END=9000) str_tmp
-       write(out,*) str_tmp
-       call flush(out)
+        ! -------------------------------------------------------------
 
-       ! reading parameters of each scalar
-       allocate(scalar_type(n_scalars), pe(n_scalars), sc(n_scalars), &
-            ir_exp_sc(n_scalars), peak_wavenum_sc(n_scalars), &
-            reac_sc(n_scalars), stat=ierr)
-       if (ierr.ne.0) passed = 0
+        read (in, *, ERR=9000, END=9000) n_scalars
+        write (out, *) '# of scalars:', n_scalars
+        read (in, *)
+        write (out, "(70('-'))")
+        call flush (out)
 
-       do n = 1,n_scalars
-          read(in,*,ERR=9000,END=9000) scalar_type(n), sc(n), ir_exp_sc(n), &
-               peak_wavenum_sc(n), reac_sc(n)
-          write(out,'(9x,i4,1x,4(f8.3,1x))') scalar_type(n), sc(n), ir_exp_sc(n), &
-               peak_wavenum_sc(n), reac_sc(n)
-               call flush(out)
+        ! ------------------------------------------------------------
 
-          PE(n) = nu/SC(n)       ! INVERSE Peclet number
+        ! if there are scalars, then read them one by one
+        if (n_scalars > 0) then
+            read (in, '(A)', ERR=9000, END=9000) str_tmp
+            write (out, *) str_tmp
+            call flush (out)
 
-       end do
-    end if
+            ! reading parameters of each scalar
+            allocate (scalar_type(n_scalars), pe(n_scalars), sc(n_scalars), &
+                      ir_exp_sc(n_scalars), peak_wavenum_sc(n_scalars), &
+                      reac_sc(n_scalars), stat=ierr)
+            if (ierr .ne. 0) passed = 0
 
-    ! -------------------------------------------------------------
+            do n = 1, n_scalars
+                read (in, *, ERR=9000, END=9000) scalar_type(n), sc(n), ir_exp_sc(n), &
+                    peak_wavenum_sc(n), reac_sc(n)
+                write (out, '(9x,i4,1x,4(f8.3,1x))') scalar_type(n), sc(n), ir_exp_sc(n), &
+                    peak_wavenum_sc(n), reac_sc(n)
+                call flush (out)
 
-    ! closing the input file
-    close(in)
-    write(out,'(70(''=''))')
-    call flush(out)
+                PE(n) = nu/SC(n)       ! INVERSE Peclet number
 
-    ! defining the rest of the parameters
+            end do
+        end if
 
-    nxyz = nx * ny * nz
-    nxyz_all = nx * ny * nz_all
+        ! -------------------------------------------------------------
 
-    ! ------------------------------------------------------------
+        ! closing the input file
+        close (in)
+        write (out, '(70(''=''))')
+        call flush (out)
 
+        ! defining the rest of the parameters
+
+        nxyz = nx*ny*nz
+        nxyz_all = nx*ny*nz_all
+
+        ! ------------------------------------------------------------
 
 !--------------------------------------------------------------------------------
 !  Checking if the task splitting conflicts with particle advection.  Currently
 !  we canot have split=never and have particles.  This is to be resolved later,
 !  now my head is spinning already.
 !--------------------------------------------------------------------------------
-    if (.not.task_split .and. nptot.gt.0) then
-       write(out,*) "*** READ_INPUT_FILE: Cannot have .not.task_split and nptot > 0.  Stopping"
-       call flush(out)
-       passed = 0
-    end if
+        if (.not. task_split .and. nptot .gt. 0) then
+            write (out, *) "*** READ_INPUT_FILE: Cannot have .not.task_split and nptot > 0.  Stopping"
+            call flush (out)
+            passed = 0
+        end if
 !--------------------------------------------------------------------------------
 
+        count = 1
+        call MPI_REDUCE(passed, passed_all, count, MPI_INTEGER4, MPI_MIN, 0, MPI_COMM_WORLD, mpi_err)
+        count = 1
+        call MPI_BCAST(passed_all, count, MPI_INTEGER4, 0, MPI_COMM_WORLD, mpi_err)
 
-    count = 1
-    call MPI_REDUCE(passed,passed_all,count,MPI_INTEGER4,MPI_MIN,0,MPI_COMM_WORLD,mpi_err)
-    count = 1
-    call MPI_BCAST(passed_all,count,MPI_INTEGER4,0,MPI_COMM_WORLD,mpi_err)
+        if (passed .lt. one) then
+            write (out, *) "not passed the check, stopping"
+            call flush (out)
+            stop
+        end if
 
-    if (passed.lt.one) then
-       write(out,*) "not passed the check, stopping"
-       call flush(out)
-       stop
-    end if
-
-    return
+        return
 
 !--------------------------------------------------------------------------------
 !  ERROR PROCESSING
 !--------------------------------------------------------------------------------
 
-8000 continue
-    NRESCALE = 0
-    if (TRESCALE.gt.zip) NRESCALE = 1
-    write(out,*) "*** NRESCALE IS AUTOMATICALLY ASSIGNED to be ONE"
-    call flush(out)
-    goto 100
+8000    continue
+        NRESCALE = 0
+        if (TRESCALE .gt. zip) NRESCALE = 1
+        write (out, *) "*** NRESCALE IS AUTOMATICALLY ASSIGNED to be ONE"
+        call flush (out)
+        goto 100
 
-9000 continue
-    write(out,*)'An error was encountered while reading input file'
-    call flush(out)
-    stop
+9000    continue
+        write (out, *) 'An error was encountered while reading input file'
+        call flush (out)
+        stop
   end subroutine read_input_file
 
 !================================================================================
