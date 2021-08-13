@@ -4,3 +4,8 @@ src/post/*
 **/*.o
 **/input_file*
 **/*.csv
+**/*.mod
+**/*.txt
+**/*.pkg
+**/*.json
+src/mgm_post
