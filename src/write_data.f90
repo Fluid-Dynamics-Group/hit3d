@@ -173,7 +173,8 @@ subroutine write_energy(current_time)
 
     ! truncate and convert data to x-space
     do i = 1, 6
-        call truncate_and_inverse_wrk_idx(i)
+        !call truncate_and_inverse_wrk_idx(i)
+        call xFFT3d(-1,i)
     end do
 
     !write(*,*) wrk(:,:,:,1)
@@ -264,6 +265,8 @@ subroutine write_energy(current_time)
     call error_on_nan(solver_energy, "solver energy")
     call error_on_nan(fdot_u, "fdot_u")
     call error_on_nan(fdot_omega, "fdot_omega")
+
+    !call get_helicity
 
     !
     ! sum the values through mpi

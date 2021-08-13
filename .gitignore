@@ -1,0 +1,6 @@
+src/output/*
+src/post/*
+**/*.x
+**/*.o
+**/input_file*
+**/*.csv

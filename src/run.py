@@ -30,14 +30,10 @@ class RunCase():
         self.restart_time      = restart_time
 
     def run(self, iteration):
-        if self.dt == 0.001:
-            io_steps = 100
-        elif self.dt == 0.0005:
-            io_steps = 200
-        elif self.dt == 0.00025:
-            io_steps = 400
-        else:
-            io_steps = 100
+
+        # automatically calculate a reasonable number of steps between io 
+        # operations (~ 100 every 10_000 steps)
+        io_steps = int(self.steps * 100 / 10_000)
 
         run_case(
             self.skip_diffusion, 
@@ -400,24 +396,27 @@ def wrap_error_case(case, filepath):
 
 def forcing_cases():
     run_shell_command("make")
-    ERROR_FILE =f"{BASE_SAVE}/forcing/errors.txt" 
+    forcing_folder = "forcing_with_aditya"
+    clean_and_create_folder(f"{BASE_SAVE}/{forcing_folder}")
+    ERROR_FILE =f"{BASE_SAVE}/{forcing_folder}/errors.txt" 
     create_file(ERROR_FILE)
 
     clean_run = True
     dt = 0.001
     size = 64
-    re = 300
-    steps = 10_000
+    re = 40
+    steps = 10_000 
 
     if clean_run:
         remove_restart_files()
 
         # create the initial case to work with
-        case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=5, restarts=3, reynolds_number=re, path= BASE_SAVE + '/forcing/initial_field', load_initial_data=1, restart_time=5.0)
+        #case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=5, restarts=3, reynolds_number=re, path= BASE_SAVE + '/forcing/initial_field', load_initial_data=1, restart_time=5.0)
+        case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=1950, restarts=3, reynolds_number=re, path= BASE_SAVE + f'/{forcing_folder}/initial_field', load_initial_data=1, restart_time=1.)
         case.run(0)
     
 
-    epsilon_generator = EpsilonControl.load_json()
+    #epsilon_generator = EpsilonControl.load_json()
 
     cases = [
         #[0.0, 0.0, "no_forcing",],
@@ -444,7 +443,6 @@ def forcing_cases():
         #[ 0., -0.0010, "neg_epsilon2_small"],
     ]
 
-    i = 1
     for delta_1, delta_2, folder in cases:
         #epsilon1 = epsilon_generator.epsilon_1(delta_1)
         #epsilon2 = epsilon_generator.epsilon_2(delta_2)
@@ -457,13 +455,14 @@ def forcing_cases():
         if epsilon2 == -0.0:
             epsilon2 = 0.0
 
-        case =  RunCase(skip_diffusion=0, 
+        case =  RunCase(skip_diffusion=1, 
             size=size, 
             dt=dt, 
             steps=steps, 
             restarts=0, 
+            restart_time=1.,
             reynolds_number=re, 
-            path= BASE_SAVE + f'/forcing/{folder}', 
+            path= BASE_SAVE + f'/{forcing_folder}/{folder}', 
             load_initial_data=0, 
             epsilon1=epsilon1, 
             epsilon2=epsilon2
@@ -476,16 +475,16 @@ def forcing_cases():
 def one_case():
     run_shell_command("make")
     case =  RunCase(
-        skip_diffusion=0,
+        skip_diffusion=1,
         size=64, 
         dt=0.001, 
         steps=10000, 
         restarts=3, 
-        reynolds_number=40, 
-        path= BASE_SAVE + f'/single_case', 
+        reynolds_number=300, 
+        path= BASE_SAVE + f'/aditya_case_with_truncating_no_diffusion', 
         load_initial_data=2,
-        epsilon1=0.0001,
-        epsilon2=0.0001,
+        epsilon1=0.0000,
+        epsilon2=0.0000,
     )
 
     case.run(0)

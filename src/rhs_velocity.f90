@@ -196,23 +196,16 @@ subroutine rhs_velocity
                                 ! BROOKS: original hit3d code with MGM forcing is here (with diffusion, i think)
                                 ! ==========================================================
 
-                                ! ! taking the convective term, multiply it by "i"
-                                ! ! (see how it's done in x_fftw.f90)
-                                ! ! and adding the diffusion term
-                                ! rtmp =           - wrk(i+1,j,k,n) + wrk(i  ,j,k,4) * fields(i  ,j,k,n) &
-                                ! + fcomp(i  ,j,k,n)
-                                ! wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) + wrk(i+1,j,k,4) * fields(i+1,j,k,n) &
-                                ! + fcomp(i+1,j,k,n)
-                                ! wrk(i, j, k, n) = rtmp
-
-                                ! ! dot this wrk variable with u - can try doing truncation here based on rtmp
-
-
-                                ! for now - have just copy pasted the code from the skip diffusion section here since
-                                ! it was the code originally used in the MGM runs
-                                rtmp = -wrk(i + 1, j, k, n) + fcomp(i,j,k,n)
-                                wrk(i + 1, j, k, n) = wrk(i, j, k, n) + fcomp(i+1,j,k,n)
+                                ! taking the convective term, multiply it by "i"
+                                ! (see how it's done in x_fftw.f90)
+                                ! and adding the diffusion term
+                                rtmp =           - wrk(i+1,j,k,n) + wrk(i  ,j,k,4) * fields(i  ,j,k,n) &
+                                + fcomp(i  ,j,k,n)
+                                wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) + wrk(i+1,j,k,4) * fields(i+1,j,k,n) &
+                                + fcomp(i+1,j,k,n)
                                 wrk(i, j, k, n) = rtmp
+
+                                ! dot this wrk variable with u - can try doing truncation here based on rtmp
 
                             end if
 
