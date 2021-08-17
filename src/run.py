@@ -8,12 +8,12 @@ import json
 BASE_SAVE = "/home/brooks/sync/hit3d"
 
 class RunCase():
-    def __init__(self,skip_diffusion, size, dt, steps, restarts, reynolds_number,path, load_initial_data=0, nprocs=16, export_vtk=False, epsilon1=0.0, epsilon2=0.0, restart_time=1.0):
+    def __init__(self,skip_diffusion, size, dt, steps, restarts, reynolds_number,path, load_initial_data=0, nprocs=16, export_vtk=False, epsilon1=0.0, epsilon2=0.0, restart_time=1.0, skip_steps=0 ):
         # if there are restarts, find the number of steps spent in that those restarts
         # and add them to the current number of steps
         simulation_time_restart = restarts * restart_time
         steps_restarts = int(simulation_time_restart / dt)
-        steps += steps_restarts
+        steps += steps_restarts + skip_steps
 
         self.skip_diffusion =  skip_diffusion
         self.size =            size
@@ -28,16 +28,14 @@ class RunCase():
         self.epsilon1          = epsilon1
         self.epsilon2          = epsilon2 
         self.restart_time      = restart_time
+        self.skip_steps        = skip_steps
 
     def run(self, iteration):
-        if self.dt == 0.001:
-            io_steps = 100
-        elif self.dt == 0.0005:
-            io_steps = 200
-        elif self.dt == 0.00025:
-            io_steps = 400
-        else:
-            io_steps = 100
+
+        # automatically calculate a reasonable number of steps between io 
+        # operations (~ 100 every 10_000 steps)
+        # io_steps = int(self.steps * 100 / 10_000)
+        io_steps = 1
 
         run_case(
             self.skip_diffusion, 
@@ -59,6 +57,9 @@ class RunCase():
 
     def __repr__(self):
         return f"RunCase N={self.size} | {skip_diffusion_to_str(self.skip_diffusion)} | dt={self.dt} | restarts = {self.restarts} | steps = {self.steps} | Re = {self.reynolds_number} | load-initial-data = {self.load_initial_data}"
+
+    def effective_restart_time(self):
+        self.restart_time + (self.skip_steps / self.dt)
 
 def main():
     #if os.path.exists(BASE_SAVE):
@@ -138,7 +139,12 @@ def main():
 # restarts - the number of restarts the solver has, each restart lasts 1 second
 # reynolds_number - the reynolds number of the simulation (float)
 # save_folder - a hard coded save folder. if none is provided then one will be generated based on the parameters
-def run_case(skip_diffusion_param, size_param, steps,dt, restarts, reynolds_number, load_initial_data, nprocs, save_folder, iteration, steps_between_io, export_vtk, epsilon1, epsilon2, restart_time):
+def run_case(
+    skip_diffusion_param, size_param, steps,dt, 
+    restarts, reynolds_number, load_initial_data, 
+    nprocs, save_folder, iteration, 
+    steps_between_io, export_vtk, epsilon1, epsilon2, 
+    restart_time):
     if save_folder is None:
         save_folder = BASE_SAVE + f"/{size_param}N-dt{dt}-{skip_diffusion_to_str(skip_diffusion_param)}-{restarts}-restarts-re{reynolds_number}-steps{steps}"
 
@@ -400,24 +406,27 @@ def wrap_error_case(case, filepath):
 
 def forcing_cases():
     run_shell_command("make")
-    ERROR_FILE =f"{BASE_SAVE}/forcing/errors.txt" 
+    forcing_folder = "forcing_with_aditya"
+    clean_and_create_folder(f"{BASE_SAVE}/{forcing_folder}")
+    ERROR_FILE =f"{BASE_SAVE}/{forcing_folder}/errors.txt" 
     create_file(ERROR_FILE)
 
     clean_run = True
     dt = 0.001
     size = 64
-    re = 300
-    steps = 10_000
+    re = 40
+    steps = 10_000 
 
     if clean_run:
         remove_restart_files()
 
         # create the initial case to work with
-        case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=5, restarts=3, reynolds_number=re, path= BASE_SAVE + '/forcing/initial_field', load_initial_data=1, restart_time=5.0)
+        #case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=5, restarts=3, reynolds_number=re, path= BASE_SAVE + '/forcing/initial_field', load_initial_data=1, restart_time=5.0)
+        case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=1950, restarts=3, reynolds_number=re, path= BASE_SAVE + f'/{forcing_folder}/initial_field', load_initial_data=1, restart_time=1.)
         case.run(0)
     
 
-    epsilon_generator = EpsilonControl.load_json()
+    #epsilon_generator = EpsilonControl.load_json()
 
     cases = [
         #[0.0, 0.0, "no_forcing",],
@@ -444,7 +453,6 @@ def forcing_cases():
         #[ 0., -0.0010, "neg_epsilon2_small"],
     ]
 
-    i = 1
     for delta_1, delta_2, folder in cases:
         #epsilon1 = epsilon_generator.epsilon_1(delta_1)
         #epsilon2 = epsilon_generator.epsilon_2(delta_2)
@@ -457,13 +465,14 @@ def forcing_cases():
         if epsilon2 == -0.0:
             epsilon2 = 0.0
 
-        case =  RunCase(skip_diffusion=0, 
+        case =  RunCase(skip_diffusion=1, 
             size=size, 
             dt=dt, 
             steps=steps, 
             restarts=0, 
+            restart_time=1.,
             reynolds_number=re, 
-            path= BASE_SAVE + f'/forcing/{folder}', 
+            path= BASE_SAVE + f'/{forcing_folder}/{folder}', 
             load_initial_data=0, 
             epsilon1=epsilon1, 
             epsilon2=epsilon2
@@ -472,20 +481,98 @@ def forcing_cases():
 
         wrap_error_case(case, ERROR_FILE)
 
+def resolution_study():
+    run_shell_command("make")
+    N = 128
+
+    num_stencil = [ int(i*N) for i in [
+        1/2,
+        1,
+        2,
+    ]]
+
+    dt = 0.001
+    re = 80
+    steps = 10_000 
+    initial_steps = 25_000
+    resolution_folder = "resolution_study"
+
+    for n in num_stencil:
+        for skip_diffusion in [0,1]:
+            diff_str = skip_diffusion_to_str(skip_diffusion)
+            folder_name = f"{n}"
+
+            case = RunCase(
+                skip_diffusion=skip_diffusion,
+                size = n,
+                dt = dt,
+                steps = steps,
+                restarts = 0,
+                reynolds_number=re,
+                path = f"{BASE_SAVE}/{resolution_folder}/{diff_str}/{folder_name}",
+                load_initial_data=2,
+                export_vtk=True,
+                skip_steps=initial_steps
+            )
+
+            wrap_error_case(case, f"{BASE_SAVE}/{resolution_folder}/errors.txt")
+
+def temporal_study():
+    run_shell_command("make")
+
+    DT = 0.008
+    STEPS = 10_000 
+    INITIAL_STEPS = 25_000
+
+    timesteps = [ [i*DT, int(STEPS / i), int(INITIAL_STEPS / i)] for i in [
+        1/2,
+        1,
+        2,
+    ]]
+
+    N = 128
+    re = 80
+    temporal_folder = "temporal_study_2"
+
+    print("timesteps are", timesteps)
+
+    for dt, steps, initial_steps in timesteps:
+        for skip_diffusion in [0,1]:
+            diff_str = skip_diffusion_to_str(skip_diffusion)
+            folder_name = f"{dt}"
+
+            case = RunCase(
+                skip_diffusion=skip_diffusion,
+                size = N,
+                dt = dt,
+                steps = steps,
+                restarts = 0,
+                reynolds_number=re,
+                path = f"{BASE_SAVE}/{temporal_folder}/{diff_str}/{folder_name}",
+                load_initial_data=2,
+                export_vtk=True,
+                skip_steps=initial_steps
+            )
+
+            wrap_error_case(case, f"{BASE_SAVE}/{temporal_folder}/errors.txt")
+
 # helpful function for runnning one-off cases
 def one_case():
+
+    # 25_000 for 64
+    #
     run_shell_command("make")
     case =  RunCase(
-        skip_diffusion=0,
-        size=64, 
-        dt=0.001, 
-        steps=10000, 
-        restarts=3, 
-        reynolds_number=40, 
-        path= BASE_SAVE + f'/single_case', 
+        skip_diffusion=1,
+        size=128,
+        dt=0.001,
+        steps=35000,
+        restarts=0,
+        reynolds_number=80,
+        path= BASE_SAVE + f'/spectra_study_128',
         load_initial_data=2,
-        epsilon1=0.0001,
-        epsilon2=0.0001,
+        epsilon1=0.0000,
+        epsilon2=0.0000,
     )
 
     case.run(0)
@@ -501,4 +588,6 @@ if __name__ == "__main__":
     #one_case()
     #load_spectra_initial_condition()
     #remove_restart_files()
-    forcing_cases()
+    #forcing_cases()
+    #resolution_study()
+    temporal_study()
