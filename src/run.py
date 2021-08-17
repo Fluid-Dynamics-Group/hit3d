@@ -34,7 +34,8 @@ class RunCase():
 
         # automatically calculate a reasonable number of steps between io 
         # operations (~ 100 every 10_000 steps)
-        io_steps = int(self.steps * 100 / 10_000)
+        # io_steps = int(self.steps * 100 / 10_000)
+        io_steps = 1
 
         run_case(
             self.skip_diffusion, 
@@ -519,8 +520,11 @@ def resolution_study():
 def temporal_study():
     run_shell_command("make")
 
-    DT = 0.001
-    timesteps = [ int(i*DT) for i in [
+    DT = 0.008
+    STEPS = 10_000 
+    INITIAL_STEPS = 25_000
+
+    timesteps = [ [i*DT, int(STEPS / i), int(INITIAL_STEPS / i)] for i in [
         1/2,
         1,
         2,
@@ -528,11 +532,11 @@ def temporal_study():
 
     N = 128
     re = 80
-    steps = 10_000 
-    initial_steps = 25_000
-    temporal_folder = "temporal_study"
+    temporal_folder = "temporal_study_2"
 
-    for dt in timesteps:
+    print("timesteps are", timesteps)
+
+    for dt, steps, initial_steps in timesteps:
         for skip_diffusion in [0,1]:
             diff_str = skip_diffusion_to_str(skip_diffusion)
             folder_name = f"{dt}"
@@ -585,5 +589,5 @@ if __name__ == "__main__":
     #load_spectra_initial_condition()
     #remove_restart_files()
     #forcing_cases()
-    resolution_study()
+    #resolution_study()
     temporal_study()
