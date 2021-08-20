@@ -177,7 +177,8 @@ subroutine write_energy(current_time)
         call xFFT3d(-1,i)
     end do
 
-    !write(*,*) wrk(:,:,:,1)
+    ! wrk( 1-3) contains velocity information
+    ! wrk( 4-6) contains omega information
 
     !
     ! Main calculation loop - perform required integrals
@@ -309,7 +310,8 @@ subroutine ifft_rhs
 
     ! truncate all the variables + perform ifft
     do i = 1, 3
-        call truncate_and_inverse_wrk_idx(i)
+        !call truncate_and_inverse_wrk_idx(i)
+        call xFFT3d(-1, i)
     end do
 
     ! copy the data out of wrk and into the rhs
@@ -369,7 +371,7 @@ subroutine error_on_nan(variable_to_check, variable_name)
     character(len=*) :: variable_name
 
     if (variable_to_check /= variable_to_check) then
-        write(*, *) variable_name, "was NAN - killing the simulation"
+        write(*, *) variable_name, " was NAN - killing the simulation"
         call my_exit(1)
         call m_openmpi_exit
     end if
