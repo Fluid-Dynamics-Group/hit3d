@@ -31,11 +31,9 @@ class RunCase():
         self.skip_steps        = skip_steps
 
     def run(self, iteration):
-
         # automatically calculate a reasonable number of steps between io 
         # operations (~ 100 every 10_000 steps)
-        # io_steps = int(self.steps * 100 / 10_000)
-        io_steps = 1
+        io_steps = int(self.steps * 100 / 10_000)
 
         run_case(
             self.skip_diffusion, 
@@ -466,15 +464,15 @@ def forcing_cases():
             epsilon2 = 0.0
 
         case =  RunCase(skip_diffusion=1, 
-            size=size, 
-            dt=dt, 
-            steps=steps, 
-            restarts=0, 
+            size=size,
+            dt=dt,
+            steps=steps,
+            restarts=0,
             restart_time=1.,
-            reynolds_number=re, 
-            path= BASE_SAVE + f'/{forcing_folder}/{folder}', 
-            load_initial_data=0, 
-            epsilon1=epsilon1, 
+            reynolds_number=re,
+            path= BASE_SAVE + f'/{forcing_folder}/{folder}',
+            load_initial_data=0,
+            epsilon1=epsilon1,
             epsilon2=epsilon2
         )
         #case.run(i)
@@ -483,7 +481,7 @@ def forcing_cases():
 
 def resolution_study():
     run_shell_command("make")
-    N = 128
+    N = 256
 
     num_stencil = [ int(i*N) for i in [
         1/2,
@@ -491,11 +489,11 @@ def resolution_study():
         2,
     ]]
 
-    dt = 0.001
+    dt = 0.0005
     re = 80
     steps = 10_000 
     initial_steps = 25_000
-    resolution_folder = "resolution_study"
+    resolution_folder = "resolution_study_3"
 
     for n in num_stencil:
         for skip_diffusion in [0,1]:
@@ -520,7 +518,7 @@ def resolution_study():
 def temporal_study():
     run_shell_command("make")
 
-    DT = 0.008
+    DT = 0.0005
     STEPS = 10_000 
     INITIAL_STEPS = 25_000
 
@@ -530,9 +528,9 @@ def temporal_study():
         2,
     ]]
 
-    N = 128
+    N = 256
     re = 80
-    temporal_folder = "temporal_study_2"
+    temporal_folder = "temporal_study_3"
 
     print("timesteps are", timesteps)
 
@@ -589,5 +587,5 @@ if __name__ == "__main__":
     #load_spectra_initial_condition()
     #remove_restart_files()
     #forcing_cases()
-    #resolution_study()
+    resolution_study()
     temporal_study()
