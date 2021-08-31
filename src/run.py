@@ -6,7 +6,7 @@ import csv
 import json
 import time
 
-BASE_SAVE = "/home/brooks/sync"
+BASE_SAVE = "/home/brooks/sync/hit3d"
 
 class RunCase():
     def __init__(self,skip_diffusion, size, dt, steps, restarts, reynolds_number,path, load_initial_data=0, nprocs=16, export_vtk=False, epsilon1=0.0, epsilon2=0.0, restart_time=1.0, skip_steps=0 ):
@@ -84,6 +84,7 @@ class RunCase():
             "epsilon2":          self.epsilon2,
             "restart_time":      self.restart_time,
             "skip_steps":        self.skip_steps,
+            "job_name": job_name
         }
 
         with open(file_name, "w", encoding="utf-8") as file:
@@ -114,7 +115,7 @@ def run_case(
     os.makedirs(save_folder)
 
     print(f"creating a config for N={size_param} | {skip_diffusion_to_str(skip_diffusion_param)} | dt={dt} | restarts = {restarts} | steps = {steps}")
-    run_shell_command(f"hit3d-config --n {size_param} --steps {steps} --steps-between-io {steps_between_io} --flow-type 0 --skip-diffusion {skip_diffusion_param} --dt -{dt} --restarts {restarts} --reynolds {reynolds_number} --initial-condition {load_initial_data} --epsilon1 {epsilon1} --epsilon2 {epsilon2} --restart-time {restart_time} input_file.in ")
+    run_shell_command(f"hit3d-utils config-generator --n {size_param} --steps {steps} --steps-between-io {steps_between_io} --flow-type 0 --skip-diffusion {skip_diffusion_param} --dt -{dt} --restarts {restarts} --reynolds {reynolds_number} --initial-condition {load_initial_data} --epsilon1 {epsilon1} --epsilon2 {epsilon2} --restart-time {restart_time} input_file.in ")
 
     restart_time_slice = restarts * 1.
 
@@ -360,34 +361,46 @@ def wrap_error_case(case, filepath):
         try:
             case.run(0)
         except Exception as e:
-
             traceback_str = ''.join(traceback.format_tb(e.__traceback__))
             with open(filepath, 'a') as f:
                 print(f"failed for case {case}")
                 f.write(f"failed for case {case} {case.path}\ntraceback:\n{traceback_str}")
 
+def initial_condition():
+    dt = 0.0005
+    size = 128
+    re = 40
+    forcing_folder = "forcing_0005_dt_longer_steps_40_000"
+    save_folder = f"{BASE_SAVE}/{forcing_folder}"
+
+    if not os.path.exists(save_folder):
+        os.mkdir(save_folder)
+
+    case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=15_000*2, restarts=0, reynolds_number=re, path=BASE_SAVE + f'/{forcing_folder}/initial_field', load_initial_data=1, restart_time=1.)
+    case.write_to_json("initial_condition", save_folder)
+
+    run_shell_command(f"hit3d-utils distribute-gen --output-folder {save_folder} --library /home/brooks/github/hit3d/src/run.py --library-save-name hit3d_helpers.py {save_folder}/*.json")
+    shutil.copy("/home/brooks/github/hit3d-utils/build.py", f"{save_folder}/build.py")
+    shutil.copy("/home/brooks/github/distribute/run/distribute-nodes.yaml", f"{save_folder}/distribute-nodes.yaml")
+
+# in order to calculate forcing cases we need to have an initial condition file
 def forcing_cases():
     run_shell_command("make")
     forcing_folder = "forcing_0005_dt_longer_steps_40_000"
-    #clean_and_create_folder(f"{BASE_SAVE}/{forcing_folder}")
+    clean_and_create_folder(f"{BASE_SAVE}/{forcing_folder}")
     ERROR_FILE =f"{BASE_SAVE}/{forcing_folder}/errors.txt" 
     create_file(ERROR_FILE)
 
     clean_run = False
     dt = 0.0005
-    # TODO: x4 steps, x.5 dt
     size = 128
     re = 40
     steps = 20_000 * 4
     save_vtk = True
 
     if clean_run:
-        remove_restart_files()
-
-        # create the initial case to work with
-        #case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=5, restarts=3, reynolds_number=re, path= BASE_SAVE + '/forcing/initial_field', load_initial_data=1, restart_time=5.0)
         case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=15_000*2, restarts=0, reynolds_number=re, path=BASE_SAVE + f'/{forcing_folder}/initial_field', load_initial_data=1, restart_time=1.)
-        case.run(0)
+        case.write_to_json("initial_condition", f"{BASE_SAVE}/{forcing_folder}")
 
     epsilon_generator = EpsilonControl.load_json()
 
@@ -395,7 +408,7 @@ def forcing_cases():
     delta_2 = 0.02
 
     cases = [
-        # [0., 0., "baseline"],
+        [0., 0., "baseline"],
 
         #epsilon 1 cases
         [delta_1, 0., "ep1-pos"],
@@ -424,7 +437,6 @@ def forcing_cases():
 
             print(f"running case for {folder} - {diffusion_str}")
 
-            start = time.time()
             case =  RunCase(skip_diffusion=skip_diffusion, 
                 size=size,
                 dt=dt,
@@ -439,11 +451,7 @@ def forcing_cases():
                 export_vtk=save_vtk
             )
 
-            runtime = (time.time() - start) / 60
-            print(f"RUNTIME: {runtime} minutes")
-
             case.write_to_json(folder, f"{BASE_SAVE}/{forcing_folder}")
-            wrap_error_case(case, ERROR_FILE)
 
 def resolution_study():
     run_shell_command("make")
@@ -547,4 +555,5 @@ def remove_restart_files():
             os.remove(i) 
 
 if __name__ == "__main__":
-    forcing_cases()
+    initial_condition()
+    #forcing_cases()
