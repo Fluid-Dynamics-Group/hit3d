@@ -6,7 +6,7 @@ import csv
 import json
 import time
 
-BASE_SAVE = "/home/brooks/sync/hit3d"
+BASE_SAVE = "/home/brooks/sync"
 
 class RunCase():
     def __init__(self,skip_diffusion, size, dt, steps, restarts, reynolds_number,path, load_initial_data=0, nprocs=16, export_vtk=False, epsilon1=0.0, epsilon2=0.0, restart_time=1.0, skip_steps=0 ):
@@ -64,6 +64,30 @@ class RunCase():
 
     def effective_restart_time(self):
         self.restart_time + (self.skip_steps / self.dt)
+
+    def write_to_json(self, job_name, folder_path):
+        file_name = f"{folder_path}/{job_name}.json"
+
+        print(f"writing json file for job `{file_name}`")
+        json_data = {
+            "skip_diffusion":    self.skip_diffusion,
+            "size":              self.size,
+            "dt":                self.dt,
+            "steps":             self.steps,
+            "restarts":          self.restarts,
+            "reynolds_number":   self.reynolds_number,
+            "path":              self.path,
+            "load_initial_data": self.load_initial_data,
+            "nprocs":            self.nprocs,
+            "export_vtk":        self.export_vtk,
+            "epsilon1":          self.epsilon1,
+            "epsilon2":          self.epsilon2,
+            "restart_time":      self.restart_time,
+            "skip_steps":        self.skip_steps,
+        }
+
+        with open(file_name, "w", encoding="utf-8") as file:
+            json.dump(json_data, file)
 
 # skip diffusion - 0 / 1 - whether or not to skip the diffusion calculations in rhs_velocity
 # size param - the number of divisions in each dimension (size_param=64 means 64x64x64 slices)
@@ -418,6 +442,7 @@ def forcing_cases():
             runtime = (time.time() - start) / 60
             print(f"RUNTIME: {runtime} minutes")
 
+            case.write_to_json(folder, f"{BASE_SAVE}/{forcing_folder}")
             wrap_error_case(case, ERROR_FILE)
 
 def resolution_study():
@@ -522,11 +547,4 @@ def remove_restart_files():
             os.remove(i) 
 
 if __name__ == "__main__":
-    #main()
-    #mpi_routine_study()
-    #one_case()
-    #load_spectra_initial_condition()
-    #remove_restart_files()
     forcing_cases()
-    #resolution_study()
-    #temporal_study()
