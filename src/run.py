@@ -5,7 +5,7 @@ import traceback
 import csv
 import json
 
-BASE_SAVE = "/home/brooks/sync/hit3d"
+BASE_SAVE = "/home/brooks/lab/hit3d-cases"
 
 class RunCase():
     def __init__(self,skip_diffusion, size, dt, steps, restarts, reynolds_number,path, load_initial_data=0, nprocs=16, export_vtk=False, epsilon1=0.0, epsilon2=0.0, restart_time=1.0, skip_steps=0 ):
@@ -58,6 +58,30 @@ class RunCase():
 
     def effective_restart_time(self):
         self.restart_time + (self.skip_steps / self.dt)
+
+    def write_to_json(self, job_name, folder_path):
+        file_name = f"{folder_path}/{job_name}.json"
+
+        print(f"writing json file for job `{file_name}`")
+        json_data = {
+            "skip_diffusion":    self.skip_diffusion,
+            "size":              self.size,
+            "dt":                self.dt,
+            "steps":             self.steps,
+            "restarts":          self.restarts,
+            "reynolds_number":   self.reynolds_number,
+            "path":              self.path,
+            "load_initial_data": self.load_initial_data,
+            "nprocs":            self.nprocs,
+            "export_vtk":        self.export_vtk,
+            "epsilon1":          self.epsilon1,
+            "epsilon2":          self.epsilon2,
+            "restart_time":      self.restart_time,
+            "skip_steps":        self.skip_steps,
+        }
+
+        with open(file_name, "w", encoding="utf-8") as file:
+            json.dump(json_data, file)
 
 def main():
     #if os.path.exists(BASE_SAVE):
@@ -409,7 +433,7 @@ def forcing_cases():
     ERROR_FILE =f"{BASE_SAVE}/{forcing_folder}/errors.txt" 
     create_file(ERROR_FILE)
 
-    clean_run = True
+    clean_run = False
     dt = 0.001
     size = 64
     re = 40
@@ -422,7 +446,6 @@ def forcing_cases():
         #case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=5, restarts=3, reynolds_number=re, path= BASE_SAVE + '/forcing/initial_field', load_initial_data=1, restart_time=5.0)
         case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=1950, restarts=3, reynolds_number=re, path= BASE_SAVE + f'/{forcing_folder}/initial_field', load_initial_data=1, restart_time=1.)
         case.run(0)
-    
 
     #epsilon_generator = EpsilonControl.load_json()
 
@@ -475,9 +498,8 @@ def forcing_cases():
             epsilon1=epsilon1,
             epsilon2=epsilon2
         )
-        #case.run(i)
 
-        wrap_error_case(case, ERROR_FILE)
+        case.write_to_json(folder, f"{BASE_SAVE}/{forcing_folder}")
 
 def resolution_study():
     run_shell_command("make")
@@ -581,11 +603,4 @@ def remove_restart_files():
             os.remove(i) 
 
 if __name__ == "__main__":
-    #main()
-    #mpi_routine_study()
-    #one_case()
-    #load_spectra_initial_condition()
-    #remove_restart_files()
-    #forcing_cases()
-    resolution_study()
-    temporal_study()
+    forcing_cases()
