@@ -15,22 +15,32 @@ end module m_data
 
 subroutine write_velocity_field(current_timestep)
     use m_work ! wrk()
-    use m_parameters ! nx, ny, nz
+    use m_parameters ! nx, ny, nz, pertamp1, pertamp2
 
     implicit none
 
     integer :: filenumber, meta_file, i, j, k, current_timestep
     !real*8, allocatable :: fields(:,:,:,:)
-    real*8 :: u, v, w
+    real*8 :: u, v, w, omgx, omgy, omgz, omg_mag
+    real*8 :: fcomp_left, fcomp_right, fcomp_total, epsilon_1, epsilon_2
+    real*8 :: umag, udotw, wmag
 
     character(len=60) :: filename, sizefile
+
+    if (load_initial_condition == 1) then
+        epsilon_1 = 1.0
+        epsilon_2 = 1.0
+    else
+        epsilon_1 = pertamp1
+        epsilon_2 = pertamp2
+    end if
 
     filenumber = 619
 
     write (filename, "('output/velocity_field/', i2.2, '_', i5.5, '.csv')") myid_world, current_timestep
     open (filenumber, file=filename, status="new")
 
-    write (filenumber, "(A5)") "u,v,w"
+    write (filenumber, "('u,v,w,omega_mag,forcing')") 
 
     do k = 1, nz
         do j = 1, ny
@@ -38,7 +48,29 @@ subroutine write_velocity_field(current_timestep)
                 u = wrk(i, j, k, 1)
                 v = wrk(i, j, k, 2)
                 w = wrk(i, j, k, 3)
-                write (filenumber, "(E16.10, A1, E16.10, A1, E16.10)") u, ",", v, ",", w
+
+                omgx = wrk(i, j, k, 4)
+                omgy = wrk(i, j, k, 5)
+                omgz = wrk(i, j, k, 6)
+
+                omg_mag = omgx**2 + omgy**2 + omgz**2
+
+                udotw = (u*omgx) + (v*omgy) + (w*omgz)
+                umag = u**2 + v**2 + w**2
+                wmag = omgx**2 + omgy**2 + omgz**2
+
+                fcomp_left = epsilon_1*(udotw*omgx - wmag*u) + &
+                          epsilon_1*(udotw*omgy - wmag*v) + &
+                          epsilon_1*(udotw*omgz - wmag*w)
+
+                fcomp_right = epsilon_2*(udotw*u - umag*omgx) + &
+                          epsilon_2*(udotw*v - umag*omgy) + &
+                          epsilon_2*(udotw*w - umag*omgz)
+
+                fcomp_total = fcomp_left + fcomp_right
+
+                write (filenumber, "(E16.10, ',', E16.10, ',', E16.10 ',', E16.10, ',' E16.10)") &
+                    u, v, w, omg_mag, fcomp_total
             end do
         end do
     end do
@@ -131,8 +163,8 @@ subroutine write_energy(current_time)
         epsilon_1 = 1.0
         epsilon_2 = 1.0
     else
-        epsilon_1 = PERTamp1
-        epsilon_2 = PERTamp2
+        epsilon_1 = pertamp1
+        epsilon_2 = pertamp2
     end if
 
     ! ifft the RHS variables so we are in x-space
@@ -376,3 +408,70 @@ subroutine error_on_nan(variable_to_check, variable_name)
         call m_openmpi_exit
     end if
 end subroutine error_on_nan
+
+subroutine write_slice(current_timestep)
+    use m_work
+    use m_parameters
+    implicit none
+
+    integer :: current_timestep, i,j, filenumber,k, desired_proc
+    character(len=200) :: filename
+    real*8 :: u, v, w, omgx, omgy, omgz, omg_mag
+    real*8 :: fcomp_left, fcomp_right, fcomp_total, epsilon_1, epsilon_2
+    real*8 :: umag, udotw, wmag
+
+
+    filenumber = 995
+    k = nz
+
+    ! the mpi process number that will be responsible
+    ! for output in this subroutine
+    desired_proc = MAX(INT(CEILING(REAL(numprocs)/2.0)) - 1, 0)
+
+    if (myid == desired_proc) then
+        if (load_initial_condition == 1) then
+            epsilon_1 = 1.0
+            epsilon_2 = 1.0
+        else
+            epsilon_1 = pertamp1
+            epsilon_2 = pertamp2
+        end if
+
+        write(filename, "('output/slice/', i5.5, '.csv')") current_timestep
+        open(filenumber, file=filename, status="new")
+        write(filenumber, "('u,v,w,omega_mag,forcing')")
+
+        do j = 1,ny
+            do i = 1,ny
+                u = wrk(i, j, k, 1)
+                v = wrk(i, j, k, 2)
+                w = wrk(i, j, k, 3)
+
+                omgx = wrk(i, j, k, 4)
+                omgy = wrk(i, j, k, 5)
+                omgz = wrk(i, j, k, 6)
+
+                omg_mag = omgx**2 + omgy**2 + omgz**2
+
+                udotw = (u*omgx) + (v*omgy) + (w*omgz)
+                umag = u**2 + v**2 + w**2
+                wmag = omgx**2 + omgy**2 + omgz**2
+
+                fcomp_left = epsilon_1*(udotw*omgx - wmag*u) + &
+                          epsilon_1*(udotw*omgy - wmag*v) + &
+                          epsilon_1*(udotw*omgz - wmag*w)
+
+                fcomp_right = epsilon_2*(udotw*u - umag*omgx) + &
+                          epsilon_2*(udotw*v - umag*omgy) + &
+                          epsilon_2*(udotw*w - umag*omgz)
+
+                fcomp_total = fcomp_left + fcomp_right
+                write (filenumber, "(E16.10, ',', E16.10, ',', E16.10 ',', E16.10, ',' E16.10)") &
+                    u, v, w, omg_mag, fcomp_total
+
+                
+            end do
+        end do
+
+    end if
+end subroutine write_slice

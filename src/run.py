@@ -4,8 +4,9 @@ import os
 import traceback
 import csv
 import json
+import time
 
-BASE_SAVE = "/home/brooks/lab/hit3d-cases"
+BASE_SAVE = "/home/brooks/sync/hit3d"
 
 class RunCase():
     def __init__(self,skip_diffusion, size, dt, steps, restarts, reynolds_number,path, load_initial_data=0, nprocs=16, export_vtk=False, epsilon1=0.0, epsilon2=0.0, restart_time=1.0, skip_steps=0 ):
@@ -33,7 +34,12 @@ class RunCase():
     def run(self, iteration):
         # automatically calculate a reasonable number of steps between io 
         # operations (~ 100 every 10_000 steps)
-        io_steps = int(self.steps * 100 / 10_000)
+
+        if self.steps > 1000:
+            #io_steps = 100
+            io_steps = int(self.steps * 100 / 10_000)
+        else:
+            io_steps = int(self.steps * 100 / 10_000)
 
         run_case(
             self.skip_diffusion, 
@@ -78,81 +84,11 @@ class RunCase():
             "epsilon2":          self.epsilon2,
             "restart_time":      self.restart_time,
             "skip_steps":        self.skip_steps,
+            "job_name": job_name
         }
 
         with open(file_name, "w", encoding="utf-8") as file:
             json.dump(json_data, file)
-
-def main():
-    #if os.path.exists(BASE_SAVE):
-    #    shutil.rmtree(BASE_SAVE)
-    #os.mkdir(BASE_SAVE)
-    create_file(BASE_SAVE + "/errors.txt")
-    create_file(BASE_SAVE + "/re_history.txt")
-
-    with open(BASE_SAVE + "/re_history.txt", "a") as f:
-        f.write(f"last_success_re,last_failure_re,current_re\n")
-
-    run_shell_command("make")
-    i = 0
-    
-    # generate a base case for N=128
-    case = RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=5, restarts=3, reynolds_number=40,  path= BASE_SAVE + '/base128', export_vtk=True, load_initial_data=1)
-    case.run(0)
-
-
-    def create_case(re):
-        return RunCase(skip_diffusion=0,size=128, dt=0.0005, steps=20000, restarts=0, reynolds_number=re, path= BASE_SAVE + f'/explode_reynolds/re{re}', export_vtk=True)
-
-    cases = [create_case(re) for re in range(40, (100*20) + 40, 200)]
-
-    #last_success_re = 10220
-    #current_re = 15110
-    #last_failure_re = 20_000
-
-    #while True:
-    #    with open(BASE_SAVE + "/re_history.txt", "a") as f:
-    #        f.write(f"{last_success_re},{last_failure_re},{current_re}\n")
-
-    #    case = create_case(current_re)
-
-    #    try:
-    #        case.run(i)
-
-    #        # if we are here we have completed this case without error
-
-    #        # check if we have found a close reynolds number to the target
-    #        if abs(current_re - last_success_re) < 50:
-    #            break
-    #    
-    #        # we have successfully completed a case -> lets push towards the last failure Re
-    #        last_success_re = current_re
-    #        current_re = int((last_failure_re + current_re) / 2.)
-    #    except Exception as e:
-
-    #        traceback_str = ''.join(traceback.format_tb(e.__traceback__))
-    #        with open(BASE_SAVE + "/errors.txt", 'a') as f:
-    #            print(f"failed for case {case}")
-    #            f.write(f"failed for case {case} {case.path}\ntraceback:\n{traceback_str}")
-
-    #        # we have failed a case, we need to decrease the reynolds number to something better
-
-    #        last_failure_re = current_re
-    #        current_re = int((last_success_re + current_re) / 2.)
-
-    
-    for case in cases:
-        try:
-            case.run(i)
-        except Exception as e:
-
-            traceback_str = ''.join(traceback.format_tb(e.__traceback__))
-            with open(BASE_SAVE + "/errors.txt", 'a') as f:
-                print(f"failed for case {case}")
-                f.write(f"failed for case {case} {case.path}\ntraceback:\n{traceback_str}")
-
-        i += 1
-        print(f"{i/len(cases)*100}% done with cases")
 
 # skip diffusion - 0 / 1 - whether or not to skip the diffusion calculations in rhs_velocity
 # size param - the number of divisions in each dimension (size_param=64 means 64x64x64 slices)
@@ -179,7 +115,7 @@ def run_case(
     os.makedirs(save_folder)
 
     print(f"creating a config for N={size_param} | {skip_diffusion_to_str(skip_diffusion_param)} | dt={dt} | restarts = {restarts} | steps = {steps}")
-    run_shell_command(f"hit3d-config --n {size_param} --steps {steps} --steps-between-io {steps_between_io} --flow-type 0 --skip-diffusion {skip_diffusion_param} --dt -{dt} --restarts {restarts} --reynolds {reynolds_number} --initial-condition {load_initial_data} --epsilon1 {epsilon1} --epsilon2 {epsilon2} --restart-time {restart_time} input_file.in ")
+    run_shell_command(f"hit3d-utils config-generator --n {size_param} --steps {steps} --steps-between-io {steps_between_io} --flow-type 0 --skip-diffusion {skip_diffusion_param} --dt -{dt} --restarts {restarts} --reynolds {reynolds_number} --initial-condition {load_initial_data} --epsilon1 {epsilon1} --epsilon2 {epsilon2} --restart-time {restart_time} input_file.in ")
 
     restart_time_slice = restarts * 1.
 
@@ -261,6 +197,7 @@ class EpsilonControl():
 
 def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, save_vtk):
     shutil.move("input_file.in", output_folder + "/input_file.in")
+    shutil.move(f"{solver_folder}/slice", output_folder + "/fortran_slice_data")
 
     os.mkdir(output_folder + '/flowfield')
 
@@ -312,6 +249,8 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
             # re-export the csv file to a vtk for viewing
             run_shell_command(f'hit3d-utils vtk {concat_csv} {combined_csv} {vtk_save}')
 
+            run_shell_command(f'python3 /home/brooks/github/hit3d-utils/src/slice_vtk.py vorticity {output_folder}')
+            run_shell_command(f'python3 /home/brooks/github/hit3d-utils/src/slice_vtk.py forcing {output_folder}')
     #
     # Handle time step energy files
     #
@@ -364,11 +303,13 @@ def clean_output_dir():
     os.mkdir("output/velocity")
     os.mkdir("output/energy")
     os.mkdir("output/velocity_field")
+    os.mkdir("output/slice")
 
     create_file("output/.gitignore")
     create_file("output/velocity/.gitignore")
     create_file("output/velocity_field/.gitignore")
     create_file("output/energy/.gitignore")
+    create_file("output/slice/.gitignore")
 
 def create_file(path):
     with open(path,'w') as _:
@@ -420,86 +361,97 @@ def wrap_error_case(case, filepath):
         try:
             case.run(0)
         except Exception as e:
-
             traceback_str = ''.join(traceback.format_tb(e.__traceback__))
             with open(filepath, 'a') as f:
                 print(f"failed for case {case}")
                 f.write(f"failed for case {case} {case.path}\ntraceback:\n{traceback_str}")
 
+def initial_condition():
+    dt = 0.0005
+    size = 128
+    re = 40
+    forcing_folder = "forcing_0005_dt_longer_steps_40_000"
+    save_folder = f"{BASE_SAVE}/{forcing_folder}"
+
+    if not os.path.exists(save_folder):
+        os.mkdir(save_folder)
+
+    case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=15_000*2, restarts=0, reynolds_number=re, path=BASE_SAVE + f'/{forcing_folder}/initial_field', load_initial_data=1, restart_time=1.)
+    case.write_to_json("initial_condition", save_folder)
+
+    run_shell_command(f"hit3d-utils distribute-gen --output-folder {save_folder} --library /home/brooks/github/hit3d/src/run.py --library-save-name hit3d_helpers.py {save_folder}/*.json")
+    shutil.copy("/home/brooks/github/hit3d-utils/build.py", f"{save_folder}/build.py")
+    shutil.copy("/home/brooks/github/distribute/run/distribute-nodes.yaml", f"{save_folder}/distribute-nodes.yaml")
+
+# in order to calculate forcing cases we need to have an initial condition file
 def forcing_cases():
     run_shell_command("make")
-    forcing_folder = "forcing_with_aditya"
+    forcing_folder = "forcing_0005_dt_longer_steps_40_000"
     clean_and_create_folder(f"{BASE_SAVE}/{forcing_folder}")
     ERROR_FILE =f"{BASE_SAVE}/{forcing_folder}/errors.txt" 
     create_file(ERROR_FILE)
 
     clean_run = False
-    dt = 0.001
-    size = 64
+    dt = 0.0005
+    size = 128
     re = 40
-    steps = 10_000 
+    steps = 20_000 * 4
+    save_vtk = True
 
     if clean_run:
-        remove_restart_files()
+        case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=15_000*2, restarts=0, reynolds_number=re, path=BASE_SAVE + f'/{forcing_folder}/initial_field', load_initial_data=1, restart_time=1.)
+        case.write_to_json("initial_condition", f"{BASE_SAVE}/{forcing_folder}")
 
-        # create the initial case to work with
-        #case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=5, restarts=3, reynolds_number=re, path= BASE_SAVE + '/forcing/initial_field', load_initial_data=1, restart_time=5.0)
-        case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=1950, restarts=3, reynolds_number=re, path= BASE_SAVE + f'/{forcing_folder}/initial_field', load_initial_data=1, restart_time=1.)
-        case.run(0)
+    epsilon_generator = EpsilonControl.load_json()
 
-    #epsilon_generator = EpsilonControl.load_json()
-
-    cases = [
-        #[0.0, 0.0, "no_forcing",],
-        #[0.1, 0.0, "epsilon01",],
-        #[0.0, 0.1, "epsilon02",],
-        #[1., 0.0, "epsilon1",],
-        #[0.0, 1., "epsilon2",],
-        #[0.0, 0.1, "epsilon2",],
-        #[0.1, 0.1, "epsilon_1_and_2"],
-    ]
+    delta_1 = 0.01
+    delta_2 = 0.02
 
     cases = [
-        # epsilon 1 cases
-        [0.0000, 0., "baseline"],
-        [0.0001, 0., "epsilon1_very-small"],
-        #[0.0010, 0., "epsilon1_small"],
-        [-0.0001, 0., "neg_epsilon1_very-small"],
-        #[-0.0010, 0., "neg_epsilon1_small"],
+        [0., 0., "baseline"],
+
+        #epsilon 1 cases
+        [delta_1, 0., "ep1-pos"],
+        [-1*delta_1, 0., "ep1-neg"],
 
         # epsilon 2  cases
-        [ 0., 0.0001, "epsilon2_very-small"],
-        #[ 0., 0.0010, "epsilon2_small"],
-        [ 0., -0.0001, "neg_epsilon2_very-small"],
-        #[ 0., -0.0010, "neg_epsilon2_small"],
+        [ 0., delta_2, "ep2-pos"],
+        [ 0., -1*delta_2, "ep2-neg"],
+
+        # both ep1 and ep2 cases
+        [ delta_1, delta_2, "epboth-pos"],
+        [ -1*delta_1, -1 * delta_1, "epboth-neg"],
     ]
 
-    for delta_1, delta_2, folder in cases:
-        #epsilon1 = epsilon_generator.epsilon_1(delta_1)
-        #epsilon2 = epsilon_generator.epsilon_2(delta_2)
-        
-        epsilon1 = delta_1
-        epsilon2 = delta_2
+    for skip_diffusion in [0,1]:
+        for delta_1, delta_2, folder in cases:
+            diffusion_str = skip_diffusion_to_str(skip_diffusion)
+            epsilon1 = epsilon_generator.epsilon_1(delta_1)
+            epsilon2 = epsilon_generator.epsilon_2(delta_2)
+            
 
-        if epsilon1 == -0.0:
-            epsilon1 = 0.0
-        if epsilon2 == -0.0:
-            epsilon2 = 0.0
+            if epsilon1 == -0.0:
+                epsilon1 = 0.0
+            if epsilon2 == -0.0:
+                epsilon2 = 0.0
 
-        case =  RunCase(skip_diffusion=1, 
-            size=size,
-            dt=dt,
-            steps=steps,
-            restarts=0,
-            restart_time=1.,
-            reynolds_number=re,
-            path= BASE_SAVE + f'/{forcing_folder}/{folder}',
-            load_initial_data=0,
-            epsilon1=epsilon1,
-            epsilon2=epsilon2
-        )
+            print(f"running case for {folder} - {diffusion_str}")
 
-        case.write_to_json(folder, f"{BASE_SAVE}/{forcing_folder}")
+            case =  RunCase(skip_diffusion=skip_diffusion, 
+                size=size,
+                dt=dt,
+                steps=steps,
+                restarts=0,
+                restart_time=1.,
+                reynolds_number=re,
+                path= BASE_SAVE + f'/{forcing_folder}/{folder}/{diffusion_str}',
+                load_initial_data=0,
+                epsilon1=epsilon1,
+                epsilon2=epsilon2,
+                export_vtk=save_vtk
+            )
+
+            case.write_to_json(folder, f"{BASE_SAVE}/{forcing_folder}")
 
 def resolution_study():
     run_shell_command("make")
@@ -603,4 +555,5 @@ def remove_restart_files():
             os.remove(i) 
 
 if __name__ == "__main__":
-    forcing_cases()
+    initial_condition()
+    #forcing_cases()
