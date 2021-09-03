@@ -6,7 +6,22 @@ import csv
 import json
 import time
 
-BASE_SAVE = "/home/brooks/sync/hit3d"
+UNR = False
+IS_DISTRIBUTED = True
+
+if UNR:
+    BASE_SAVE = "/home/brooks/sync/hit3d"
+else:
+    BASE_SAVE = "/home/brooks/lab/hit3d-cases"
+
+if IS_DISTRIBUTED:
+    HIT3D_UTILS_BASE = "../../hit3d-utils"
+else:
+    if UNR:
+        HIT3D_UTILS_BASE = "/home/brooks/github/hit3d-utils"
+    else:
+        HIT3D_UTILS_BASE = "/home/brooks/github/fluids/hit3d-utils"
+
 
 class RunCase():
     def __init__(self,skip_diffusion, size, dt, steps, restarts, reynolds_number,path, load_initial_data=0, nprocs=16, export_vtk=False, epsilon1=0.0, epsilon2=0.0, restart_time=1.0, skip_steps=0 ):
@@ -244,13 +259,14 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
             run_shell_command(f'hit3d-utils concat {solver_folder}/tmp_velo {solver_folder}/size.csv "{concat_csv}" {combined_csv}')
 
             # add qcriterion data to the csv
-            run_shell_command(f'python3 /home/brooks/github/hit3d-utils/src/q_criterion.py {concat_csv} {combined_csv}')
+            run_shell_command(f'python3 {HIT3D_UTILS_BASE}/src/q_criterion.py {concat_csv} {combined_csv}')
 
             # re-export the csv file to a vtk for viewing
             run_shell_command(f'hit3d-utils vtk {concat_csv} {combined_csv} {vtk_save}')
 
-            run_shell_command(f'python3 /home/brooks/github/hit3d-utils/src/slice_vtk.py vorticity {output_folder}')
-            run_shell_command(f'python3 /home/brooks/github/hit3d-utils/src/slice_vtk.py forcing {output_folder}')
+            #run_shell_command(f'python3 {HIT3D_UTILS_BASE}/src/slice_vtk.py vorticity {output_folder}')
+            #run_shell_command(f'python3 {HIT3D_UTILS_BASE}/src/slice_vtk.py forcing {output_folder}')
+
     #
     # Handle time step energy files
     #
@@ -277,8 +293,7 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     # and for the spectra
     #
 
-    run_shell_command(f'python3 /home/brooks/github/hit3d-utils/plots/energy_helicity.py {solver_folder}/energy.csv {output_folder} "{restart_time_slice}"')
-    run_shell_command(f'python3 /home/brooks/github/hit3d-utils/plots/spectra.py {solver_folder}/spectra.json {output_folder}')
+    run_shell_command(f'python3 {HIT3D_UTILS_BASE}/plots/energy_helicity.py {solver_folder}/energy.csv {output_folder} "{restart_time_slice}"')
 
     # move some of the important files to the save folder so they do not get purged
     shutil.move(f"{solver_folder}/energy.csv", output_folder + '/energy.csv')
@@ -298,7 +313,8 @@ def clean_and_create_folder(folder):
 
 # clean out the output directory and  place gitignore files in it
 def clean_output_dir():
-    shutil.rmtree("output")
+    if os.path.exists("output"):
+        shutil.rmtree("output")
     os.mkdir("output")
     os.mkdir("output/velocity")
     os.mkdir("output/energy")
@@ -368,20 +384,32 @@ def wrap_error_case(case, filepath):
 
 def initial_condition():
     dt = 0.0005
-    size = 128
+    size = 64
     re = 40
     forcing_folder = "forcing_0005_dt_longer_steps_40_000"
-    save_folder = f"{BASE_SAVE}/{forcing_folder}"
+    save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
+    output_folder = "../../distribute_save/{forcing_folder}"
 
-    if not os.path.exists(save_folder):
+    if not os.path.exists(save_json_folder):
         os.mkdir(save_folder)
 
-    case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=15_000*2, restarts=0, reynolds_number=re, path=BASE_SAVE + f'/{forcing_folder}/initial_field', load_initial_data=1, restart_time=1.)
-    case.write_to_json("initial_condition", save_folder)
+    #case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=15_000*2, restarts=0, reynolds_number=re, path=BASE_SAVE + f'/{forcing_folder}/initial_field', load_initial_data=1, restart_time=1.)
+    case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=100, restarts=0, reynolds_number=re, path=f'../../distribute_save/{forcing_folder}/initial_field', load_initial_data=1, restart_time=1., nprocs=4, export_vtk=True)
+    case.write_to_json("initial_condition", save_json_folder)
 
-    run_shell_command(f"hit3d-utils distribute-gen --output-folder {save_folder} --library /home/brooks/github/hit3d/src/run.py --library-save-name hit3d_helpers.py {save_folder}/*.json")
-    shutil.copy("/home/brooks/github/hit3d-utils/build.py", f"{save_folder}/build.py")
-    shutil.copy("/home/brooks/github/distribute/run/distribute-nodes.yaml", f"{save_folder}/distribute-nodes.yaml")
+    if UNR:
+        build_location= "/home/brooks/github/hit3d-utils/build.py"
+        nodes_location = "/home/brooks/github/distribute/run/distribute-nodes.yaml"
+        run_py = "/home/brooks/github/hit3d/src/run.py"
+    else:
+        build_location = "/home/brooks/github/fluids/hit3d-utils/build.py"
+        nodes_location = "/home/brooks/github/fluids/distribute/run/server/distribute-nodes.yaml"
+        run_py = "/home/brooks/github/fluids/hit3d/src/run.py"
+
+    run_shell_command(f"hit3d-utils distribute-gen --output-folder {save_json_folder} --library {run_py} --library-save-name hit3d_helpers.py {save_json_folder}/*.json")
+
+    shutil.copy(build_location, f"{save_json_folder}/build.py")
+    shutil.copy(nodes_location, f"{save_json_folder}/distribute-nodes.yaml")
 
 # in order to calculate forcing cases we need to have an initial condition file
 def forcing_cases():
