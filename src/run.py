@@ -4,9 +4,8 @@ import os
 import traceback
 import csv
 import json
-import time
 
-UNR = False
+UNR = True 
 IS_DISTRIBUTED = True
 
 if UNR:
@@ -16,12 +15,16 @@ else:
 
 if IS_DISTRIBUTED:
     HIT3D_UTILS_BASE = "../../hit3d-utils"
+    BASE_SAVE = "/home/brooks/distribute-hit3d"
 else:
     if UNR:
         HIT3D_UTILS_BASE = "/home/brooks/github/hit3d-utils"
     else:
         HIT3D_UTILS_BASE = "/home/brooks/github/fluids/hit3d-utils"
 
+IC_SPEC_NAME = "initial_condition_espec.pkg"
+IC_WRK_NAME = "initial_condition_wrk.pkg"
+IC_JSON_NAME = "initial_condition_vars.json"
 
 class RunCase():
     def __init__(self,skip_diffusion, size, dt, steps, restarts, reynolds_number,path, load_initial_data=0, nprocs=16, export_vtk=False, epsilon1=0.0, epsilon2=0.0, restart_time=1.0, skip_steps=0 ):
@@ -127,6 +130,7 @@ def run_case(
     # delete the entire folder and remake it
     if os.path.exists(save_folder):
         shutil.rmtree(save_folder)
+
     os.makedirs(save_folder)
 
     print(f"creating a config for N={size_param} | {skip_diffusion_to_str(skip_diffusion_param)} | dt={dt} | restarts = {restarts} | steps = {steps}")
@@ -177,10 +181,18 @@ def organize_initial_condition(save_folder):
 
     EpsilonControl.to_json(energy, helicity, fdot_u, fdot_h)
 
+    if IS_DISTRIBUTED:
+        file = IC_JSON_NAME
+        shutil.move(file, save_folder + "/" + file)
+        file = IC_SPEC_NAME
+        shutil.move(file, save_folder + "/" + file)
+        file = IC_WRK_NAME
+        shutil.move(file, save_folder + "/" + file)
+
 
 class EpsilonControl():
     def __init__(self):
-        with open("initial_condition_vars.json", "r") as file:
+        with open(IC_JSON_NAME, "r") as file:
             data = json.load(file)
 
         self.energy = data["energy"]
@@ -197,7 +209,7 @@ class EpsilonControl():
             "fdot_h": fdot_h,
         }
 
-        with open("initial_condition_vars.json", "w") as file:
+        with open(IC_JSON_NAME, "w") as file:
             json.dump(data, file)
 
     @staticmethod
@@ -384,22 +396,21 @@ def wrap_error_case(case, filepath):
 
 def initial_condition():
     dt = 0.0005
-    size = 64
+    size = 128
     re = 40
     forcing_folder = "forcing_0005_dt_longer_steps_40_000"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
-    output_folder = "../../distribute_save/{forcing_folder}"
+    output_folder = f"../../distribute_save/{forcing_folder}"
 
     if not os.path.exists(save_json_folder):
-        os.mkdir(save_folder)
+        os.mkdir(save_json_folder)
 
-    #case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=15_000*2, restarts=0, reynolds_number=re, path=BASE_SAVE + f'/{forcing_folder}/initial_field', load_initial_data=1, restart_time=1.)
-    case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=100, restarts=0, reynolds_number=re, path=f'../../distribute_save/{forcing_folder}/initial_field', load_initial_data=1, restart_time=1., nprocs=4, export_vtk=True)
+    case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=15_000*2, restarts=0, reynolds_number=re, path=f'{output_folder}/initial_field' ,load_initial_data=1, restart_time=1.)
     case.write_to_json("initial_condition", save_json_folder)
 
     if UNR:
         build_location= "/home/brooks/github/hit3d-utils/build.py"
-        nodes_location = "/home/brooks/github/distribute/run/distribute-nodes.yaml"
+        nodes_location = "/home/brooks/distribute/distribute-nodes.yaml"
         run_py = "/home/brooks/github/hit3d/src/run.py"
     else:
         build_location = "/home/brooks/github/fluids/hit3d-utils/build.py"
