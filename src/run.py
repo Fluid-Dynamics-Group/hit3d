@@ -183,11 +183,11 @@ def organize_initial_condition(save_folder):
 
     if IS_DISTRIBUTED:
         file = IC_JSON_NAME
-        shutil.move(file, save_folder + "/" + file)
+        shutil.copy(file, save_folder + "/" + file)
         file = IC_SPEC_NAME
-        shutil.move(file, save_folder + "/" + file)
+        shutil.copy(file, save_folder + "/" + file)
         file = IC_WRK_NAME
-        shutil.move(file, save_folder + "/" + file)
+        shutil.copy(file, save_folder + "/" + file)
 
 
 class EpsilonControl():
@@ -208,6 +208,9 @@ class EpsilonControl():
             "fdot_u": fdot_u,
             "fdot_h": fdot_h,
         }
+
+        print("IC json data is")
+        print(data)
 
         with open(IC_JSON_NAME, "w") as file:
             json.dump(data, file)
@@ -400,7 +403,7 @@ def initial_condition():
     re = 40
     forcing_folder = "forcing_0005_dt_longer_steps_40_000"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
-    output_folder = f"../../distribute_save/{forcing_folder}"
+    output_folder = f"../../distribute_save"
 
     if not os.path.exists(save_json_folder):
         os.mkdir(save_json_folder)
@@ -417,7 +420,7 @@ def initial_condition():
         nodes_location = "/home/brooks/github/fluids/distribute/run/server/distribute-nodes.yaml"
         run_py = "/home/brooks/github/fluids/hit3d/src/run.py"
 
-    run_shell_command(f"hit3d-utils distribute-gen --output-folder {save_json_folder} --library {run_py} --library-save-name hit3d_helpers.py {save_json_folder}/*.json")
+    run_shell_command(f"hit3d-utils distribute-gen --output-folder {save_json_folder} --library {run_py} --library-save-name hit3d_helpers.py --batch-name hit3d_initial_condition {save_json_folder}/*.json")
 
     shutil.copy(build_location, f"{save_json_folder}/build.py")
     shutil.copy(nodes_location, f"{save_json_folder}/distribute-nodes.yaml")
@@ -425,21 +428,18 @@ def initial_condition():
 # in order to calculate forcing cases we need to have an initial condition file
 def forcing_cases():
     run_shell_command("make")
-    forcing_folder = "forcing_0005_dt_longer_steps_40_000"
-    clean_and_create_folder(f"{BASE_SAVE}/{forcing_folder}")
-    ERROR_FILE =f"{BASE_SAVE}/{forcing_folder}/errors.txt" 
-    create_file(ERROR_FILE)
+    forcing_folder = "forcing_cases"
+    save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
 
-    clean_run = False
+    if not os.path.exists(save_json_folder):
+        os.mkdir(save_json_folder)
+
     dt = 0.0005
     size = 128
     re = 40
     steps = 20_000 * 4
     save_vtk = True
-
-    if clean_run:
-        case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=15_000*2, restarts=0, reynolds_number=re, path=BASE_SAVE + f'/{forcing_folder}/initial_field', load_initial_data=1, restart_time=1.)
-        case.write_to_json("initial_condition", f"{BASE_SAVE}/{forcing_folder}")
+    batch_name = "hit3d_forcing"
 
     epsilon_generator = EpsilonControl.load_json()
 
@@ -467,14 +467,13 @@ def forcing_cases():
             diffusion_str = skip_diffusion_to_str(skip_diffusion)
             epsilon1 = epsilon_generator.epsilon_1(delta_1)
             epsilon2 = epsilon_generator.epsilon_2(delta_2)
-            
 
             if epsilon1 == -0.0:
                 epsilon1 = 0.0
             if epsilon2 == -0.0:
                 epsilon2 = 0.0
 
-            print(f"running case for {folder} - {diffusion_str}")
+            output_folder = f"../../distribute_save/{diffusion_str}/{folder}"
 
             case =  RunCase(skip_diffusion=skip_diffusion, 
                 size=size,
@@ -483,14 +482,31 @@ def forcing_cases():
                 restarts=0,
                 restart_time=1.,
                 reynolds_number=re,
-                path= BASE_SAVE + f'/{forcing_folder}/{folder}/{diffusion_str}',
+                path= output_folder,
                 load_initial_data=0,
                 epsilon1=epsilon1,
                 epsilon2=epsilon2,
                 export_vtk=save_vtk
             )
 
-            case.write_to_json(folder, f"{BASE_SAVE}/{forcing_folder}")
+            case.write_to_json(f"{folder}_{diffusion_str}", save_json_folder)
+
+    if UNR:
+        build_location= "/home/brooks/github/hit3d-utils/build.py"
+        nodes_location = "/home/brooks/distribute/distribute-nodes.yaml"
+        run_py = "/home/brooks/github/hit3d/src/run.py"
+    else:
+        build_location = "/home/brooks/github/fluids/hit3d-utils/build.py"
+        nodes_location = "/home/brooks/github/fluids/distribute/run/server/distribute-nodes.yaml"
+        run_py = "/home/brooks/github/fluids/hit3d/src/run.py"
+
+    run_shell_command(f"hit3d-utils distribute-gen --output-folder {save_json_folder} --library {run_py} --library-save-name hit3d_helpers.py --batch-name {batch_name} --required-files {IC_SPEC_NAME} --required-files {IC_WRK_NAME} {save_json_folder}/*.json")
+
+    shutil.copy(build_location, f"{save_json_folder}/build.py")
+    shutil.copy(nodes_location, f"{save_json_folder}/distribute-nodes.yaml")
+
+    shutil.copy(IC_SPEC_NAME, f"{save_json_folder}/{IC_SPEC_NAME}")
+    shutil.copy(IC_WRK_NAME, f"{save_json_folder}/{IC_WRK_NAME}")
 
 def resolution_study():
     run_shell_command("make")
@@ -595,4 +611,4 @@ def remove_restart_files():
 
 if __name__ == "__main__":
     initial_condition()
-    #forcing_cases()
+    forcing_cases()
