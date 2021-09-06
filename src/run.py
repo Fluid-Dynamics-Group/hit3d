@@ -53,9 +53,10 @@ class RunCase():
         # automatically calculate a reasonable number of steps between io 
         # operations (~ 100 every 10_000 steps)
 
+        # average a io write every 10 steps
         if self.steps > 1000:
             #io_steps = 100
-            io_steps = int(self.steps * 100 / 10_000)
+            io_steps = int(self.steps * 1000 / 10_000)
         else:
             io_steps = int(self.steps * 100 / 10_000)
 
@@ -144,7 +145,7 @@ def run_case(
 
     run_hit3d(nprocs)
 
-    postprocessing("output/", save_folder, restart_time_slice, steps, dt, export_vtk)
+    postprocessing("output/", save_folder, restart_time_slice, steps, dt, export_vtk,size_param)
 
     if load_initial_data == 1:
         organize_initial_condition(save_folder)
@@ -225,7 +226,7 @@ class EpsilonControl():
     def epsilon_2(self,delta):
         return delta * self.helicity/ self.fdot_h
 
-def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, save_vtk):
+def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, save_vtk, size):
     shutil.move("input_file.in", output_folder + "/input_file.in")
     shutil.move(f"{solver_folder}/slice", output_folder + "/fortran_slice_data")
 
@@ -279,9 +280,6 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
             # re-export the csv file to a vtk for viewing
             run_shell_command(f'hit3d-utils vtk {concat_csv} {combined_csv} {vtk_save}')
 
-            #run_shell_command(f'python3 {HIT3D_UTILS_BASE}/src/slice_vtk.py vorticity {output_folder}')
-            #run_shell_command(f'python3 {HIT3D_UTILS_BASE}/src/slice_vtk.py forcing {output_folder}')
-
     #
     # Handle time step energy files
     #
@@ -309,11 +307,15 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     #
 
     run_shell_command(f'python3 {HIT3D_UTILS_BASE}/plots/energy_helicity.py {solver_folder}/energy.csv {output_folder} "{restart_time_slice}"')
+    run_shell_command(f'python3 {HIT3D_UTILS_BASE}/plots/spectra.py {solver_folder}/spectra.json {output_folder}')
 
     # move some of the important files to the save folder so they do not get purged
     shutil.move(f"{solver_folder}/energy.csv", output_folder + '/energy.csv')
     shutil.move(f"{solver_folder}/es.gp", output_folder + '/es.gp')
     shutil.move(f"{solver_folder}/spectra.json", output_folder + '/spectra.json')
+
+    # generate plots for the fortran slices (already moved to output folder) and animate them into a movie
+    run_shell_command(f'python3 {HIT3D_UTILS_BASE}/src/plot_slices.py {size} {output_folder}/fortran_slice_data {output_folder}/slice_plots')
 
 # parse csv files for flowfield output by fortran
 def parse_filename(filename):
@@ -428,7 +430,7 @@ def initial_condition():
 # in order to calculate forcing cases we need to have an initial condition file
 def forcing_cases():
     run_shell_command("make")
-    forcing_folder = "forcing_cases"
+    forcing_folder = "forcing_cases_smaller"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
 
     if not os.path.exists(save_json_folder):
@@ -438,13 +440,14 @@ def forcing_cases():
     size = 128
     re = 40
     steps = 20_000 * 4
+    steps = 4000
     save_vtk = True
-    batch_name = "hit3d_forcing"
+    batch_name = "hit3d_forcing_smaller"
 
     epsilon_generator = EpsilonControl.load_json()
 
-    delta_1 = 0.01
-    delta_2 = 0.02
+    delta_1 = 0.001
+    delta_2 = 0.002
 
     cases = [
         [0., 0., "baseline"],
