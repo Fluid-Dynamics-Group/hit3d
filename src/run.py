@@ -336,7 +336,13 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     logs_dir = f"{output_folder}/logs/"
     clean_and_create_folder(logs_dir)
     for file in glob(f"{solver_folder}/d*.txt"):
-        shutil.move(f"{solver_folder}/{file}", logs_dir)
+        shutil.move(file, logs_dir)
+
+    # move all the scalar files to the save folder
+    scalars_dir = f"{output_folder}/scalars/"
+    clean_and_create_folder(scalars_dir)
+    for file in glob(f"{solver_folder}/sc*"):
+        shutil.move(file, scalars_dir)
 
 # parse csv files for flowfield output by fortran
 def parse_filename(filename):
@@ -611,7 +617,7 @@ def temporal_study():
 def one_case():
     save_json_folder = f"{BASE_SAVE}/single_case"
 
-    extra = "single-case-short-5k-ic-3"
+    extra = "single-case-short-5k-ic-4"
     output_folder = f"../../distribute_save/{extra}/"
     batch_name = extra
 
