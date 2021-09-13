@@ -4,6 +4,7 @@ import os
 import traceback
 import csv
 import json
+from glob import glob
 
 UNR = True 
 IS_DISTRIBUTED = True
@@ -135,7 +136,21 @@ def run_case(
     os.makedirs(save_folder)
 
     print(f"creating a config for N={size_param} | {skip_diffusion_to_str(skip_diffusion_param)} | dt={dt} | restarts = {restarts} | steps = {steps}")
-    run_shell_command(f"hit3d-utils config-generator --n {size_param} --steps {steps} --steps-between-io {steps_between_io} --flow-type 0 --skip-diffusion {skip_diffusion_param} --dt -{dt} --restarts {restarts} --reynolds {reynolds_number} --initial-condition {load_initial_data} --epsilon1 {epsilon1} --epsilon2 {epsilon2} --restart-time {restart_time} input_file.in ")
+    run_shell_command(f"hit3d-utils config-generator \
+            --n {size_param} \
+            --steps {steps} \
+            --steps-between-io {steps_between_io} \
+            --flow-type 0 \
+            --skip-diffusion {skip_diffusion_param} \
+            --dt -{dt} --restarts {restarts} \
+            --reynolds {reynolds_number} \
+            --initial-condition {load_initial_data} \
+            --epsilon1 {epsilon1} \
+            --epsilon2 {epsilon2} \
+            --restart-time {restart_time} \
+            --tscalar -0.1 \
+            --nscalar 1 \
+            input_file.in ")
 
     restart_time_slice = restarts * 1.
 
@@ -316,6 +331,12 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
 
     # generate plots for the fortran slices (already moved to output folder) and animate them into a movie
     run_shell_command(f'python3 {HIT3D_UTILS_BASE}/src/plot_slices.py {size} {output_folder}/fortran_slice_data {output_folder}/slice_plots')
+
+    # copy the fortran logging files
+    logs_dir = f"{output_folder}/logs/"
+    clean_and_create_folder(logs_dir)
+    for file in glob(f"{solver_folder}/d*.txt"):
+        shutil.move(f"{solver_folder}/{file}", logs_dir)
 
 # parse csv files for flowfield output by fortran
 def parse_filename(filename):
@@ -602,6 +623,7 @@ def one_case():
     os.makedirs(save_json_folder, exist_ok=True)
 
     run_shell_command("make")
+
     case =  RunCase(
         skip_diffusion=1,
         size=128,
@@ -628,7 +650,6 @@ def one_case():
     run_shell_command(f"hit3d-utils distribute-gen --output-folder {save_json_folder} --library {run_py} --library-save-name hit3d_helpers.py --batch-name {batch_name} --required-files {IC_SPEC_NAME} --required-files {IC_WRK_NAME} {save_json_folder}/*.json")
 
     shutil.copy(build_location, f"{save_json_folder}/build.py")
-
     shutil.copy(IC_SPEC_NAME, f"{save_json_folder}/{IC_SPEC_NAME}")
     shutil.copy(IC_WRK_NAME, f"{save_json_folder}/{IC_WRK_NAME}")
 
