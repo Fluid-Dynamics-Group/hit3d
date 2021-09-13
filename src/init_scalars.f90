@@ -18,6 +18,7 @@ subroutine init_scalars
     call flush (out)
 
     do n_scalar = 1, n_scalars
+        write(out, *) "calling init_scalar from init_scalars"
         call init_scalar(n_scalar)
     end do
 

@@ -590,9 +590,16 @@ def temporal_study():
 def one_case():
     save_json_folder = f"{BASE_SAVE}/single_case"
 
-    extra = "single-case-short-5k-ic"
+    extra = "single-case-short-5k-ic-3"
     output_folder = f"../../distribute_save/{extra}/"
     batch_name = extra
+
+    # if the directory exists remove any older files from the dir 
+    if os.path.exists(save_json_folder):
+        for f in os.listdir(save_json_folder):
+            os.remove(os.path.join(save_json_folder, f))
+
+    os.makedirs(save_json_folder, exist_ok=True)
 
     run_shell_command("make")
     case =  RunCase(
@@ -606,23 +613,21 @@ def one_case():
         load_initial_data=2,
         epsilon1=0.0000,
         epsilon2=0.0000,
+        export_vtk=True
     )
 
     case.write_to_json("single-case", save_json_folder)
 
     if UNR:
         build_location= "/home/brooks/github/hit3d-utils/build.py"
-        nodes_location = "/home/brooks/distribute/distribute-nodes.yaml"
         run_py = "/home/brooks/github/hit3d/src/run.py"
     else:
         build_location = "/home/brooks/github/fluids/hit3d-utils/build.py"
-        nodes_location = "/home/brooks/github/fluids/distribute/run/server/distribute-nodes.yaml"
         run_py = "/home/brooks/github/fluids/hit3d/src/run.py"
 
     run_shell_command(f"hit3d-utils distribute-gen --output-folder {save_json_folder} --library {run_py} --library-save-name hit3d_helpers.py --batch-name {batch_name} --required-files {IC_SPEC_NAME} --required-files {IC_WRK_NAME} {save_json_folder}/*.json")
 
     shutil.copy(build_location, f"{save_json_folder}/build.py")
-    shutil.copy(nodes_location, f"{save_json_folder}/distribute-nodes.yaml")
 
     shutil.copy(IC_SPEC_NAME, f"{save_json_folder}/{IC_SPEC_NAME}")
     shutil.copy(IC_WRK_NAME, f"{save_json_folder}/{IC_WRK_NAME}")
