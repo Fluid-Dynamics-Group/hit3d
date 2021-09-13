@@ -588,24 +588,44 @@ def temporal_study():
 
 # helpful function for runnning one-off cases
 def one_case():
+    save_json_folder = f"{BASE_SAVE}/single_case"
 
-    # 25_000 for 64
-    #
+    extra = "single-case-short-5k-ic"
+    output_folder = f"../../distribute_save/{extra}/"
+    batch_name = extra
+
     run_shell_command("make")
     case =  RunCase(
         skip_diffusion=1,
         size=128,
         dt=0.001,
-        steps=35000,
+        steps=1000,
         restarts=0,
-        reynolds_number=80,
-        path= BASE_SAVE + f'/spectra_study_128',
+        reynolds_number=40,
+        path=output_folder,
         load_initial_data=2,
         epsilon1=0.0000,
         epsilon2=0.0000,
     )
 
-    case.run(0)
+    case.write_to_json("single-case", save_json_folder)
+
+    if UNR:
+        build_location= "/home/brooks/github/hit3d-utils/build.py"
+        nodes_location = "/home/brooks/distribute/distribute-nodes.yaml"
+        run_py = "/home/brooks/github/hit3d/src/run.py"
+    else:
+        build_location = "/home/brooks/github/fluids/hit3d-utils/build.py"
+        nodes_location = "/home/brooks/github/fluids/distribute/run/server/distribute-nodes.yaml"
+        run_py = "/home/brooks/github/fluids/hit3d/src/run.py"
+
+    run_shell_command(f"hit3d-utils distribute-gen --output-folder {save_json_folder} --library {run_py} --library-save-name hit3d_helpers.py --batch-name {batch_name} --required-files {IC_SPEC_NAME} --required-files {IC_WRK_NAME} {save_json_folder}/*.json")
+
+    shutil.copy(build_location, f"{save_json_folder}/build.py")
+    shutil.copy(nodes_location, f"{save_json_folder}/distribute-nodes.yaml")
+
+    shutil.copy(IC_SPEC_NAME, f"{save_json_folder}/{IC_SPEC_NAME}")
+    shutil.copy(IC_WRK_NAME, f"{save_json_folder}/{IC_WRK_NAME}")
 
 def remove_restart_files():
     for i in ["initial_condition_espec.pkg", "initial_condition_wrk.pkg", "initial_condition_vars.json"]:
@@ -613,5 +633,6 @@ def remove_restart_files():
             os.remove(i) 
 
 if __name__ == "__main__":
-    initial_condition()
-    forcing_cases()
+    #initial_condition()
+    #forcing_cases()
+    one_case()

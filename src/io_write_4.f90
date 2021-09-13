@@ -21,9 +21,6 @@ subroutine io_write_4
     rkmax2 = real(kmax, 8)**2
 
     ! number of variables to write out
-    ! =============================================================================
-    ! brooks: used to be =3 but make =6 so that pressure could be modified as well
-    ! =============================================================================
     n_out = 3
     if (int_scalars) n_out = n_out + n_scalars
     if (les .and. n_les > 0) n_out = n_out + n_les

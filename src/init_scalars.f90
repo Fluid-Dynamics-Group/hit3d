@@ -75,8 +75,8 @@ subroutine init_scalar(n_scalar)
         ! if the last two digits are bigger than 10, the scalar is generated
         ! in physical space and then transformed in the Fourier space
         call init_scalar_space(n_scalar)
-
     end if
+
     return
 end subroutine init_scalar
 !================================================================================

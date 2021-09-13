@@ -10,7 +10,10 @@ subroutine begin_new
     TIME = zip
 
     ! deciding if we advance scalars or not
-    if (TSCALAR .le. zip .and. n_scalars .gt. 0) int_scalars = .true.
+    if (TSCALAR .le. zip .and. n_scalars .gt. 0) then
+        write(out, *) "Engaging the scalars from begin_new (int_scalars=true)"
+        int_scalars = .true.
+    end if
 
     ! defining the iteration number
     ITIME = 0
