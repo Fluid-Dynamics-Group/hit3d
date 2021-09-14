@@ -31,6 +31,8 @@ program x_code
     call m_work_init
     call init_write_energy
 
+    write(*,*) "finished calling first init functions"
+
     ! allocating and initializing FFTW arrays
     call x_fftw_allocate(1)
     call x_fftw_init
@@ -242,10 +244,13 @@ program x_code
             call m_openmpi_exit
             stop
         elseif (mod(itime, iwrite4) == 0) then
+            write(*,*) "calling write_energy stuff", int(itime)
 
             ! write energy and helicity to a csv
             call write_energy(time)
             call write_slice(int(itime))
+
+            write(*,*) "finished write_energy stuff", int(itime)
 
             ! we only write vtk files once every 400 time steps because the post processessing
             ! is very slow

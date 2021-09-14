@@ -619,7 +619,7 @@ def temporal_study():
 def one_case():
     save_json_folder = f"{BASE_SAVE}/single_case"
 
-    extra = "single-case-short-5k-ic-5"
+    extra = "single-case-short-5k-ic-6"
     output_folder = f"../../distribute_save/{extra}/"
     batch_name = extra
 
