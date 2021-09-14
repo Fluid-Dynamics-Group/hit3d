@@ -42,62 +42,64 @@ subroutine io_write_4
         end do
     end do
 
-    ! ! velocities
-    call xFFT3d(-1, 1)
-    fname = 'output/velocity/u.'//file_ext
-    tmp4(1:nx, 1:ny, 1:nz) = wrk(1:nx, 1:ny, 1:nz, 1)
-    !call write_tmp4
+    ! Brooks -> I commented all these out since i wrote my own scalar routine in write_data.f90
 
-    call xFFT3d(-1, 2)
-    fname = 'output/velocity/v.'//file_ext
-    tmp4(1:nx, 1:ny, 1:nz) = wrk(1:nx, 1:ny, 1:nz, 2)
-    !call write_tmp4
+    ! ! ! velocities
+    ! call xFFT3d(-1, 1)
+    ! fname = 'output/velocity/u.'//file_ext
+    ! tmp4(1:nx, 1:ny, 1:nz) = wrk(1:nx, 1:ny, 1:nz, 1)
+    ! !call write_tmp4
 
-    call xFFT3d(-1, 3)
-    fname = 'output/velocity/w.'//file_ext
-    tmp4(1:nx, 1:ny, 1:nz) = wrk(1:nx, 1:ny, 1:nz, 3)
-    !call write_tmp4
+    ! call xFFT3d(-1, 2)
+    ! fname = 'output/velocity/v.'//file_ext
+    ! tmp4(1:nx, 1:ny, 1:nz) = wrk(1:nx, 1:ny, 1:nz, 2)
+    ! !call write_tmp4
 
-    ! copy 4:6 from wrk so we can save the state for later
-    tmp_wrk(:, :, :, 4:6) = wrk(:, :, :, 4:6)
+    ! call xFFT3d(-1, 3)
+    ! fname = 'output/velocity/w.'//file_ext
+    ! tmp4(1:nx, 1:ny, 1:nz) = wrk(1:nx, 1:ny, 1:nz, 3)
+    ! !call write_tmp4
 
-    ! putting all variables in wrk array
-    do k = 1, nz
-        do j = 1, ny
-            do i = 1, nx + 2
-                wmag2 = akx(i)**2 + aky(k)**2 + akz(j)**2
+    ! ! copy 4:6 from wrk so we can save the state for later
+    ! tmp_wrk(:, :, :, 4:6) = wrk(:, :, :, 4:6)
 
-                if (wmag2 .gt. rkmax2) then
-                    wrk(i, j, k, 4:6) = zip
-                else
-                    wrk(i, j, k, 4:6) = pressure_field(i, j, k, 1:3)
-                end if
+    ! ! putting all variables in wrk array
+    ! do k = 1, nz
+    !     do j = 1, ny
+    !         do i = 1, nx + 2
+    !             wmag2 = akx(i)**2 + aky(k)**2 + akz(j)**2
 
-            end do
-        end do
-    end do
+    !             if (wmag2 .gt. rkmax2) then
+    !                 wrk(i, j, k, 4:6) = zip
+    !             else
+    !                 wrk(i, j, k, 4:6) = pressure_field(i, j, k, 1:3)
+    !             end if
 
-    ! invert all the pressures
-    call xFFT3d(-1, 4)
-    call xFFT3d(-1, 5)
-    call xFFT3d(-1, 6)
+    !         end do
+    !     end do
+    ! end do
 
-    ! copy wrk over to pressure_field
-    pressure_field(:, :, :, 1:3) = wrk(:, :, :, 4:6)
+    ! ! invert all the pressures
+    ! call xFFT3d(-1, 4)
+    ! call xFFT3d(-1, 5)
+    ! call xFFT3d(-1, 6)
 
-    ! set the values back to what they were before the copy
-    wrk(:, :, :, 4:6) = tmp_wrk(:, :, :, 4:6)
+    ! ! copy wrk over to pressure_field
+    ! pressure_field(:, :, :, 1:3) = wrk(:, :, :, 4:6)
 
-    ! scalars
-    if (int_scalars) then
-        do n = 1, n_scalars
-            call xFFT3d(-1, 3 + n)
-            write (fname, "('output/sc',i2.2,'.',a6)") n, file_ext
-            tmp4(1:nx, 1:ny, 1:nz) = wrk(1:nx, 1:ny, 1:nz, 3 + n)
-            call write_tmp4
+    ! ! set the values back to what they were before the copy
+    ! wrk(:, :, :, 4:6) = tmp_wrk(:, :, :, 4:6)
 
-        end do
-    end if
+    ! ! scalars
+    ! if (int_scalars) then
+    !     do n = 1, n_scalars
+    !         call xFFT3d(-1, 3 + n)
+    !         write (fname, "('output/sc',i2.2,'.',a6)") n, file_ext
+    !         tmp4(1:nx, 1:ny, 1:nz) = wrk(1:nx, 1:ny, 1:nz, 3 + n)
+    !         call write_tmp4
+
+    !     end do
+    ! end if
 
     ! LES quantities
     if (les) then

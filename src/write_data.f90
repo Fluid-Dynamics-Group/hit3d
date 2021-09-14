@@ -6,12 +6,92 @@ module m_data
     real*8, dimension(:, :, :), allocatable :: dUdX2, dUdY2, dUdZ2, dVdX2, dVdY2, dVdZ2, dWdX2, dWdY2, dWdZ2
     ! curl ( RHS) terms
     real*8, dimension(:, :, :), allocatable :: dRHS1dX, dRHS1dY, dRHS1dZ, dRHS2dX, dRHS2dY, dRHS2dZ, dRHS3dX, dRHS3dY, dRHS3dZ
+    real*8, dimension(:,:,:), allocatable :: scalars_global
 
     ! io variables
     real*8 :: energy, helicity, solver_energy, solver_helicity, udotw, umag, wmag
     real*8 :: fcomp_u_left, fcomp_u_right, fdot_u
     real*8 :: fcomp_omega_left, fcomp_omega_right, fdot_omega
 end module m_data
+
+subroutine write_scalars(current_timestep)
+    use m_work
+    use m_parameters
+    use x_fftw
+    implicit none
+
+    integer :: current_timestep, n
+
+    if (int_scalars) then
+        do n = 1, n_scalars
+            call xFFT3d(-1, 3 + n)
+            
+            ! write all the scalar data to an output file
+            call send_scalars(n, current_timestep)
+
+            call write_tmp4
+        end do
+    end if
+
+end subroutine write_scalars
+
+! collect all of the scalar information for a single scalar at the 
+! current timestep and write it to a csv file
+subroutine send_scalars(wrk_idx, current_timestep)
+    use m_work
+    use m_parameters
+    use m_data
+
+    implicit none
+
+    integer :: wrk_idx, current_timestep
+    integer :: i, j, k
+    character(len=80) :: filename
+    real*8 :: scalar_value
+
+    if (myid .ne. master) then
+        id_to = master
+        tag = myid
+        call MPI_SEND(wrk(1:nx, 1:ny, 1:nz, wrk_idx), count, MPI_REAL8, master, tag, MPI_COMM_TASK, mpi_err)
+    else
+        write (out, *) "writing scalar files"
+
+        ! allocate a global array - since we cant run any of the other modes at the same time as a write-mode
+        ! we can be sure that this array has not already been allocated
+
+        ! copy the master proc's wrk array in
+        scalars_global(1:nx, 1:ny, 1:nz) = wrk(1:nx, 1:ny, 1:nz, wrk_idx)
+
+        do id_from = 1, numprocs - 1
+            tag = id_from
+            call MPI_RECV(wrk(1:nx, 1:ny, 1:nz, wrk_idx), count, MPI_REAL8, id_from, tag, MPI_COMM_TASK, mpi_status, mpi_err)
+
+            scalars_global(1:nx, 1:ny, id_from*nz + 1:(id_from + 1)*nz) = wrk(1:nx, 1:ny, 1:nz, wrk_idx)
+        end do
+
+        ! we now have a giant array of all the data points from each mpi process, we write them to a file now
+        write (filename, "('output/scalars/sc',I2.2,'.',I6.6,'.csv')") wrk_idx, current_timestep
+
+        open (1015, file=filename, status="new")
+        write(1015, "('scalar')")
+
+        do k= 1,nz
+            do j = 1,ny
+                do i = 1,ny
+                    scalar_value = scalars_global(i,j,k)
+                    write(1015, "(E16.10)") scalar_value
+                    
+                end do
+            end do
+        end do
+
+
+        call flush (1015)
+        close(1015)
+
+        ! in a previous
+    end if
+end subroutine send_scalars
 
 subroutine write_velocity_field(current_timestep)
     use m_work ! wrk()
@@ -127,6 +207,9 @@ subroutine init_write_energy
     allocate (dRHS1dX(nx, ny, nz)); allocate (dRHS1dY(nx, ny, nz)); allocate (dRHS1dZ(nx, ny, nz)); 
     allocate (dRHS2dX(nx, ny, nz)); allocate (dRHS2dY(nx, ny, nz)); allocate (dRHS2dZ(nx, ny, nz)); 
     allocate (dRHS3dX(nx, ny, nz)); allocate (dRHS3dY(nx, ny, nz)); allocate (dRHS3dZ(nx, ny, nz)); 
+
+    ! for writing scalar stuff
+    allocate (scalars_global(nx, ny, nz_all))
 end subroutine init_write_energy
 
 ! initalize the name of the file that we are writing to with E(t) and h(t) values

@@ -59,7 +59,7 @@ class RunCase():
             #io_steps = 100
             io_steps = int(self.steps * 10 / 10_000)
         else:
-            io_steps = int(self.steps * 100 / 10_000)
+            io_steps = int(self.steps * 1 / 10_000)
 
         run_case(
             self.skip_diffusion, 
@@ -340,9 +340,7 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
 
     # move all the scalar files to the save folder
     scalars_dir = f"{output_folder}/scalars/"
-    clean_and_create_folder(scalars_dir)
-    for file in glob(f"{solver_folder}/sc*"):
-        shutil.move(file, scalars_dir)
+    shutil.move(f"{solver_folder}/scalars", scalars_dir)
 
 # parse csv files for flowfield output by fortran
 def parse_filename(filename):
@@ -364,6 +362,7 @@ def clean_output_dir():
     os.mkdir("output/energy")
     os.mkdir("output/velocity_field")
     os.mkdir("output/slice")
+    os.mkdir("output/scalars")
 
     create_file("output/.gitignore")
     create_file("output/velocity/.gitignore")
@@ -458,23 +457,24 @@ def initial_condition():
 # in order to calculate forcing cases we need to have an initial condition file
 def forcing_cases():
     run_shell_command("make")
-    forcing_folder = "forcing_cases_shorter_ic"
+    forcing_folder = "forcing_cases_short_ic_5k_higher_dt_lower_delta_forcing"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
 
     if not os.path.exists(save_json_folder):
         os.mkdir(save_json_folder)
 
-    dt = 0.0005
+    dt = 0.001
     size = 128
     re = 40
-    steps = 20_000 * 4
+    #steps = 20_000 * 4
+    steps = 20_000 * 2
     save_vtk = True
     batch_name = forcing_folder
 
     epsilon_generator = EpsilonControl.load_json()
 
-    delta_1 = 0.005
-    delta_2 = 0.01
+    delta_1 = 0.000005
+    delta_2 = 0.00001
 
     cases = [
         [0., 0., "baseline"],
@@ -528,17 +528,14 @@ def forcing_cases():
 
     if UNR:
         build_location= "/home/brooks/github/hit3d-utils/build.py"
-        nodes_location = "/home/brooks/distribute/distribute-nodes.yaml"
         run_py = "/home/brooks/github/hit3d/src/run.py"
     else:
         build_location = "/home/brooks/github/fluids/hit3d-utils/build.py"
-        nodes_location = "/home/brooks/github/fluids/distribute/run/server/distribute-nodes.yaml"
         run_py = "/home/brooks/github/fluids/hit3d/src/run.py"
 
     run_shell_command(f"hit3d-utils distribute-gen --output-folder {save_json_folder} --library {run_py} --library-save-name hit3d_helpers.py --batch-name {batch_name} --required-files {IC_SPEC_NAME} --required-files {IC_WRK_NAME} {save_json_folder}/*.json")
 
     shutil.copy(build_location, f"{save_json_folder}/build.py")
-    shutil.copy(nodes_location, f"{save_json_folder}/distribute-nodes.yaml")
 
     shutil.copy(IC_SPEC_NAME, f"{save_json_folder}/{IC_SPEC_NAME}")
     shutil.copy(IC_WRK_NAME, f"{save_json_folder}/{IC_WRK_NAME}")
@@ -622,7 +619,7 @@ def temporal_study():
 def one_case():
     save_json_folder = f"{BASE_SAVE}/single_case"
 
-    extra = "single-case-short-5k-ic-4"
+    extra = "single-case-short-5k-ic-5"
     output_folder = f"../../distribute_save/{extra}/"
     batch_name = extra
 
