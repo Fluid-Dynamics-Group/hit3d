@@ -244,11 +244,10 @@ program x_code
             call m_openmpi_exit
             stop
         elseif (mod(itime, iwrite4) == 0) then
-            write(*,*) "calling write_energy stuff", int(itime)
-
             ! write energy and helicity to a csv
             call write_energy(time)
             call write_slice(int(itime))
+            call write_scalars(int(itime))
 
             write(*,*) "finished write_energy stuff", int(itime)
 

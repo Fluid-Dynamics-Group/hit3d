@@ -58,10 +58,10 @@ class RunCase():
         if self.steps > 1000:
             #io_steps = 100
             #io_steps = int(self.steps * 10 / 10_000)
-            io_steps = 1
+            io_steps = 10
         else:
             #io_steps = int(self.steps * 1 / 10_000)
-            io_steps = 1
+            io_steps = 10
 
         run_case(
             self.skip_diffusion, 
@@ -490,8 +490,8 @@ def forcing_cases():
         [ 0., -1*delta_2, "ep2-neg"],
 
         # both ep1 and ep2 cases
-        #[ delta_1, delta_2, "epboth-pos"],
-        #[ -1*delta_1, -1 * delta_1, "epboth-neg"],
+        [ delta_1, delta_2, "epboth-pos"],
+        [ -1*delta_1, -1 * delta_1, "epboth-neg"],
     ]
 
     for skip_diffusion in [0,1]:
@@ -670,5 +670,5 @@ def remove_restart_files():
 
 if __name__ == "__main__":
     #initial_condition()
-    #forcing_cases()
-    one_case()
+    forcing_cases()
+    #one_case()

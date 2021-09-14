@@ -54,8 +54,6 @@ subroutine send_scalars(wrk_idx, current_timestep)
         tag = myid
         call MPI_SEND(wrk(1:nx, 1:ny, 1:nz, wrk_idx), count, MPI_REAL8, master, tag, MPI_COMM_TASK, mpi_err)
     else
-        write (out, *) "writing scalar files"
-
         ! allocate a global array - since we cant run any of the other modes at the same time as a write-mode
         ! we can be sure that this array has not already been allocated
 
