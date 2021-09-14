@@ -57,9 +57,11 @@ class RunCase():
         # average a io write every 10 steps
         if self.steps > 1000:
             #io_steps = 100
-            io_steps = int(self.steps * 10 / 10_000)
+            #io_steps = int(self.steps * 10 / 10_000)
+            io_steps = 1
         else:
-            io_steps = int(self.steps * 1 / 10_000)
+            #io_steps = int(self.steps * 1 / 10_000)
+            io_steps = 1
 
         run_case(
             self.skip_diffusion, 
