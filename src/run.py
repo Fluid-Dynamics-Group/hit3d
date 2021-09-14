@@ -57,7 +57,7 @@ class RunCase():
         # average a io write every 10 steps
         if self.steps > 1000:
             #io_steps = 100
-            io_steps = int(self.steps * 1000 / 10_000)
+            io_steps = int(self.steps * 10 / 10_000)
         else:
             io_steps = int(self.steps * 100 / 10_000)
 
@@ -429,15 +429,16 @@ def wrap_error_case(case, filepath):
 def initial_condition():
     dt = 0.0005
     size = 128
+    IC_STEPS = 5_000
     re = 40
-    forcing_folder = "forcing_0005_dt_longer_steps_40_000"
+    forcing_folder = "initial_condition_5k_steps"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
     output_folder = f"../../distribute_save"
 
     if not os.path.exists(save_json_folder):
         os.mkdir(save_json_folder)
 
-    case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=15_000*2, restarts=0, reynolds_number=re, path=f'{output_folder}/initial_field' ,load_initial_data=1, restart_time=1.)
+    case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=IC_STEPS, restarts=0, reynolds_number=re, path=f'{output_folder}/initial_field' ,load_initial_data=1, restart_time=1.)
     case.write_to_json("initial_condition", save_json_folder)
 
     if UNR:
@@ -457,7 +458,7 @@ def initial_condition():
 # in order to calculate forcing cases we need to have an initial condition file
 def forcing_cases():
     run_shell_command("make")
-    forcing_folder = "forcing_cases_smaller"
+    forcing_folder = "forcing_cases_shorter_ic"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
 
     if not os.path.exists(save_json_folder):
@@ -467,14 +468,13 @@ def forcing_cases():
     size = 128
     re = 40
     steps = 20_000 * 4
-    steps = 4000
     save_vtk = True
-    batch_name = "hit3d_forcing_smaller"
+    batch_name = forcing_folder
 
     epsilon_generator = EpsilonControl.load_json()
 
-    delta_1 = 0.001
-    delta_2 = 0.002
+    delta_1 = 0.005
+    delta_2 = 0.01
 
     cases = [
         [0., 0., "baseline"],
@@ -488,11 +488,16 @@ def forcing_cases():
         [ 0., -1*delta_2, "ep2-neg"],
 
         # both ep1 and ep2 cases
-        [ delta_1, delta_2, "epboth-pos"],
-        [ -1*delta_1, -1 * delta_1, "epboth-neg"],
+        #[ delta_1, delta_2, "epboth-pos"],
+        #[ -1*delta_1, -1 * delta_1, "epboth-neg"],
     ]
 
     for skip_diffusion in [0,1]:
+
+        # TODO: remove this after generating 
+        if skip_diffusion == 0:
+            continue
+
         for delta_1, delta_2, folder in cases:
             diffusion_str = skip_diffusion_to_str(skip_diffusion)
             epsilon1 = epsilon_generator.epsilon_1(delta_1)
