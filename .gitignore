@@ -8,3 +8,4 @@ src/mgm_post
 src/post/*
 **/*.pkg
 **/*.json
+**/fort.11
