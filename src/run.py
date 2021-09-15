@@ -466,7 +466,7 @@ def forcing_cases():
         os.mkdir(save_json_folder)
 
     dt = 0.001
-    size = 128
+    size = 64
     re = 40
     #steps = 20_000 * 4
     steps = 20_000 * 2

@@ -73,7 +73,7 @@ subroutine send_scalars(wrk_idx, current_timestep)
         open (1015, file=filename, status="new")
         write(1015, "('scalar')")
 
-        do k= 1,nz
+        do k= 1,nz_all
             do j = 1,ny
                 do i = 1,ny
                     scalar_value = scalars_global(i,j,k)
