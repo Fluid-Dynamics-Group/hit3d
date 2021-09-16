@@ -6,7 +6,8 @@ module m_data
     real*8, dimension(:, :, :), allocatable :: dUdX2, dUdY2, dUdZ2, dVdX2, dVdY2, dVdZ2, dWdX2, dWdY2, dWdZ2
     ! curl ( RHS) terms
     real*8, dimension(:, :, :), allocatable :: dRHS1dX, dRHS1dY, dRHS1dZ, dRHS2dX, dRHS2dY, dRHS2dZ, dRHS3dX, dRHS3dY, dRHS3dZ
-    real*8, dimension(:,:,:), allocatable :: scalars_global
+    real*8, dimension(:,:,:), allocatable :: scalars_global 
+    real*8, dimension(:,:,:,:), allocatable :: wrk_global
 
     ! io variables
     real*8 :: energy, helicity, solver_energy, solver_helicity, udotw, umag, wmag
@@ -29,7 +30,6 @@ subroutine write_scalars(current_timestep)
             ! write all the scalar data to an output file
             call send_scalars(n, current_timestep)
 
-            call write_tmp4
         end do
     end if
 
@@ -48,6 +48,8 @@ subroutine send_scalars(wrk_idx, current_timestep)
     integer :: i, j, k
     character(len=80) :: filename
     real*8 :: scalar_value
+
+    count = nx * ny * nz
 
     if (myid .ne. master) then
         id_to = master
@@ -93,15 +95,15 @@ end subroutine send_scalars
 
 subroutine write_velocity_field(current_timestep)
     use m_work ! wrk()
+    use m_data
     use m_parameters ! nx, ny, nz, pertamp1, pertamp2
 
     implicit none
 
     integer :: filenumber, meta_file, i, j, k, current_timestep
     !real*8, allocatable :: fields(:,:,:,:)
-    real*8 :: u, v, w, omgx, omgy, omgz, omg_mag
+    real*8 :: u, v, w, omgx_, omgy_, omgz_, omg_mag
     real*8 :: fcomp_left, fcomp_right, fcomp_total, epsilon_1, epsilon_2
-    real*8 :: umag, udotw, wmag
 
     character(len=60) :: filename, sizefile
 
@@ -115,56 +117,90 @@ subroutine write_velocity_field(current_timestep)
 
     filenumber = 619
 
-    write (filename, "('output/velocity_field/', i2.2, '_', i5.5, '.csv')") myid_world, current_timestep
-    open (filenumber, file=filename, status="new")
+    call send_wrk_global()
 
-    write (filenumber, "('u,v,w,omega_mag,forcing')") 
+    if (myid == master) then 
+        write (filename, "('output/velocity_field/', i5.5, '.csv')") current_timestep
+        open (filenumber, file=filename, status="new")
+        write (filenumber, "('u,v,w,omega_mag,forcing')") 
 
-    do k = 1, nz
-        do j = 1, ny
-            do i = 1, nx
-                u = wrk(i, j, k, 1)
-                v = wrk(i, j, k, 2)
-                w = wrk(i, j, k, 3)
+        do k = 1, nz_all
+            do j = 1, ny
+                do i = 1, nx
+                    u = wrk_global(i, j, k, 1)
+                    v = wrk_global(i, j, k, 2)
+                    w = wrk_global(i, j, k, 3)
 
-                omgx = wrk(i, j, k, 4)
-                omgy = wrk(i, j, k, 5)
-                omgz = wrk(i, j, k, 6)
+                    omgx_ = wrk_global(i, j, k, 4)
+                    omgy_ = wrk_global(i, j, k, 5)
+                    omgz_ = wrk_global(i, j, k, 6)
 
-                omg_mag = omgx**2 + omgy**2 + omgz**2
+                    omg_mag = omgx_**2 + omgy_**2 + omgz_**2
 
-                udotw = (u*omgx) + (v*omgy) + (w*omgz)
-                umag = u**2 + v**2 + w**2
-                wmag = omgx**2 + omgy**2 + omgz**2
+                    udotw = (u*omgx_) + (v*omgy_) + (w*omgz_)
+                    umag = u**2 + v**2 + w**2
+                    wmag = omgx_**2 + omgy_**2 + omgz_**2
 
-                fcomp_left = epsilon_1*(udotw*omgx - wmag*u) + &
-                          epsilon_1*(udotw*omgy - wmag*v) + &
-                          epsilon_1*(udotw*omgz - wmag*w)
+                    fcomp_left = epsilon_1*(udotw*omgx_ - wmag*u) + &
+                              epsilon_1*(udotw*omgy_ - wmag*v) + &
+                              epsilon_1*(udotw*omgz_ - wmag*w)
 
-                fcomp_right = epsilon_2*(udotw*u - umag*omgx) + &
-                          epsilon_2*(udotw*v - umag*omgy) + &
-                          epsilon_2*(udotw*w - umag*omgz)
+                    fcomp_right = epsilon_2*(udotw*u - umag*omgx_) + &
+                              epsilon_2*(udotw*v - umag*omgy_) + &
+                              epsilon_2*(udotw*w - umag*omgz_)
 
-                fcomp_total = fcomp_left + fcomp_right
+                    fcomp_total = fcomp_left + fcomp_right
 
-                write (filenumber, "(E16.10, ',', E16.10, ',', E16.10 ',', E16.10, ',' E16.10)") &
-                    u, v, w, omg_mag, fcomp_total
+                    write (filenumber, "(E16.10, ',', E16.10, ',', E16.10 ',', E16.10, ',' E16.10)") &
+                        u, v, w, omg_mag, fcomp_total
+                end do
             end do
         end do
-    end do
 
-    flush (filenumber)
+        flush (filenumber)
 
-    meta_file = 620
+        meta_file = 620
 
-    !write(sizefile, "('output/size_', i2.2, '.csv')") myid_world
+        !write(sizefile, "('output/size_', i2.2, '.csv')") myid_world
 
-    open (meta_file, file="output/size.csv")
+        open (meta_file, file="output/size.csv")
 
-    write (meta_file, "(A8)") "nx,ny,nz"
-    write (meta_file, "(I5.5, A1, I5.5, A1, I5.5)") nx, ",", ny, ",", nz
+        write (meta_file, "(A8)") "nx,ny,nz"
+        write (meta_file, "(I5.5, A1, I5.5, A1, I5.5)") nx, ",", ny, ",", nz_all
+    end if
 
 end subroutine write_velocity_field
+
+subroutine send_wrk_global
+    use m_parameters
+    use m_data
+    use m_work
+
+    implicit none
+
+    count = nx * ny * nz * 6
+
+    if (myid .ne. master) then
+        id_to = master
+        tag = myid
+        call MPI_SEND(wrk(1:nx, 1:ny, 1:nz, 1:6), count, MPI_REAL8, master, tag, MPI_COMM_TASK, mpi_err)
+    else
+        ! allocate a global array - since we cant run any of the other modes at the same time as a write-mode
+        ! we can be sure that this array has not already been allocated
+
+        ! copy the master proc's wrk array in
+        wrk_global(1:nx, 1:ny, 1:nz, 1:6) = wrk(1:nx, 1:ny, 1:nz, 1:6)
+
+        do id_from = 1, numprocs - 1
+            tag = id_from
+            call MPI_RECV(wrk(1:nx, 1:ny, 1:nz, 1:6), count, MPI_REAL8, id_from, tag, MPI_COMM_TASK, mpi_status, mpi_err)
+
+            wrk_global(1:nx, 1:ny, id_from*nz + 1:(id_from + 1)*nz, 1:6) = wrk(1:nx, 1:ny, 1:nz, 1:6)
+        end do
+
+    end if
+
+end subroutine send_wrk_global
 
 ! create the file name and open the CSV files that we are using to write E(t) and h(t)
 subroutine init_write_energy
@@ -208,6 +244,7 @@ subroutine init_write_energy
 
     ! for writing scalar stuff
     allocate (scalars_global(nx, ny, nz_all))
+    allocate (wrk_global(nx, ny, nz_all, 6))
 end subroutine init_write_energy
 
 ! initalize the name of the file that we are writing to with E(t) and h(t) values
