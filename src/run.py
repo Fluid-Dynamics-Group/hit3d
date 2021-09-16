@@ -245,13 +245,14 @@ class EpsilonControl():
 
 def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, save_vtk, size):
     shutil.move("input_file.in", output_folder + "/input_file.in")
-    shutil.move(f"{solver_folder}/slice", output_folder + "/fortran_slice_data")
 
     os.mkdir(output_folder + '/flowfield')
     clean_and_create_folder(f"{output_folder}/scalars")
+    clean_and_create_folder(f"{output_folder}/fortran_slice_data")
 
     flowfield_files = [i for i in os.listdir(f"{solver_folder}/velocity_field") if i !=".gitignore"]
     scalar_files = [i for i in os.listdir(f"{solver_folder}/scalars") if i !=".gitignore"]
+    slice_files = [i for i in os.listdir(f"{solver_folder}/slice") if i !=".gitignore"]
 
     print(flowfield_files)
 
@@ -259,11 +260,15 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
         for filename in flowfield_files:
             timestep = parse_filename(filename)
 
-            run_shell_command(f"hit3d-utils vtk {solver_folder}/velocity_field/{filename} {size} {output_folder}/flowfield/{timestep}.vtk")
+            run_shell_command(f"hit3d-utils vtk {solver_folder}/velocity_field/{filename} {size} {output_folder}/flowfield/{timestep:06}.vtk")
 
     for filename in scalar_files:
         timestep = parse_scalar_name(filename)
-        run_shell_command(f"hit3d-utils vtk {solver_folder}/scalars/{filename} {size} {output_folder}/scalars/sc_{timestep}.vtk")
+        run_shell_command(f"hit3d-utils scalars {solver_folder}/scalars/{filename} {size} {output_folder}/scalars/sc_{timestep:06}.vtk")
+
+    for filename in slice_files:
+        timestep = parse_filename(filename)
+        run_shell_command(f"hit3d-utils slice {solver_folder}/slice/{filename} {size} {output_folder}/fortran_slice_data/slice_{timestep:06}.vtk")
 
     #
     # parse and re-export spectral information
@@ -582,7 +587,7 @@ def temporal_study():
 def one_case():
     save_json_folder = f"{BASE_SAVE}/single_case"
 
-    extra = "single-case-short-5k-ic-6"
+    extra = "single-case-short-5k-ic-8"
     output_folder = f"../../distribute_save/{extra}/"
     batch_name = extra
 
@@ -632,5 +637,5 @@ def remove_restart_files():
 if __name__ == "__main__":
     #initial_condition()
     #forcing_cases()
-    #one_case()
+    one_case()
     #print(parse_scalar_name("sc00.123456"))
