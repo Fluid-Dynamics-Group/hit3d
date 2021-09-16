@@ -248,60 +248,22 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     shutil.move(f"{solver_folder}/slice", output_folder + "/fortran_slice_data")
 
     os.mkdir(output_folder + '/flowfield')
+    clean_and_create_folder(f"{output_folder}/scalars")
 
     flowfield_files = [i for i in os.listdir(f"{solver_folder}/velocity_field") if i !=".gitignore"]
+    scalar_files = [i for i in os.listdir(f"{solver_folder}/scalars") if i !=".gitignore"]
+
     print(flowfield_files)
 
     if save_vtk:
-        # group each of the flowfield files by the timestep that they belong to
-        # so that we can combine all of the files that are from the same t
-        groupings = {}
         for filename in flowfield_files:
-            _mpi_id, timestep = parse_filename(filename)
+            timestep = parse_filename(filename)
 
-            if groupings.get(timestep) is None:
-                groupings[timestep] = []
+            run_shell_command(f"hit3d-utils vtk {solver_folder}/velocity_field/{filename} {size} {output_folder}/flowfield/{timestep}.vtk")
 
-            groupings[timestep].append(filename)
-            # move all of the files in each group to a tmp directory and process all of the
-            # files in that directory with hit3d-utils
-
-        for filegroup in groupings.values():
-
-            #
-            # Combine all partial flowfield csv files written by each mpi process into a
-            # singular csv file - add q criterion information to the csv file and then
-            # re-export that csv to a vtk file for viewing in paraview
-            #
-
-            # clear the tmp file
-            clean_and_create_folder(f"{solver_folder}/tmp_velo")
-
-            # move all of the current files into the tmp folder to compress them
-            for current_file in filegroup:
-                shutil.move(f"{solver_folder}/velocity_field/" + current_file, f"{solver_folder}/tmp_velo/" + current_file)
-
-            _, timestep = parse_filename(filegroup[0])
-
-            concat_csv = f"{solver_folder}/velocity_field/{timestep}.csv"
-            combined_csv = f"{solver_folder}/combined_csv.csv"
-            # file is in a directory accessable by the paraview headless renderer
-            vtk_save = output_folder + f"/flowfield/timestep_{timestep}.vtk" 
-
-            # concat all of the data together
-            run_shell_command(f'hit3d-utils concat {solver_folder}/tmp_velo {solver_folder}/size.csv "{concat_csv}" {combined_csv}')
-
-            # add qcriterion data to the csv
-            run_shell_command(f'python3 {HIT3D_UTILS_BASE}/src/q_criterion.py {concat_csv} {combined_csv}')
-
-            # re-export the csv file to a vtk for viewing
-            run_shell_command(f'hit3d-utils vtk {concat_csv} {combined_csv} {vtk_save}')
-
-    #
-    # Handle time step energy files
-    #
-
-    #run_shell_command(f"hit3d-utils add {solver_folder}/energy/ {solver_folder}/energy.csv")
+    for filename in scalar_files:
+        timestep = parse_scalar_name(filename)
+        run_shell_command(f"hit3d-utils vtk {solver_folder}/scalars/{filename} {size} {output_folder}/scalars/sc_{timestep}.vtk")
 
     #
     # parse and re-export spectral information
@@ -340,15 +302,14 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     for file in glob(f"{solver_folder}/d*.txt"):
         shutil.move(file, logs_dir)
 
-    # move all the scalar files to the save folder
-    scalars_dir = f"{output_folder}/scalars/"
-    shutil.move(f"{solver_folder}/scalars", scalars_dir)
-
 # parse csv files for flowfield output by fortran
 def parse_filename(filename):
-    mpi_id = filename[0:2]
-    timestep = filename[3:8]
-    return mpi_id,timestep
+    timestep = filename[0:5]
+    return int(timestep)
+
+def parse_scalar_name(filename):
+    timestep = filename[5:5+6]
+    return int(timestep)
 
 def clean_and_create_folder(folder):
     if os.path.exists(folder):
@@ -670,5 +631,6 @@ def remove_restart_files():
 
 if __name__ == "__main__":
     #initial_condition()
-    forcing_cases()
+    #forcing_cases()
     #one_case()
+    #print(parse_scalar_name("sc00.123456"))

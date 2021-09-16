@@ -254,7 +254,7 @@ program x_code
             ! we only write vtk files once every 400 time steps because the post processessing
             ! is very slow
             ! also only write them after the restarts are done
-            if (finished_restarts .AND. mod(itime, iwrite4*80) .eq. 0) then
+            if (finished_restarts .AND. mod(itime, iwrite4*8) .eq. 0) then
                 call write_velocity_field(int(itime))
             end if
         end if
