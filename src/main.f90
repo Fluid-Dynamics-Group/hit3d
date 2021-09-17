@@ -249,8 +249,6 @@ program x_code
             call write_slice(int(itime))
             call write_scalars(int(itime))
 
-            write(*,*) "finished write_energy stuff", int(itime)
-
             ! we only write vtk files once every 400 time steps because the post processessing
             ! is very slow
             ! also only write them after the restarts are done

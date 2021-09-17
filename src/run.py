@@ -16,7 +16,7 @@ else:
 
 if IS_DISTRIBUTED:
     HIT3D_UTILS_BASE = "../../hit3d-utils"
-    BASE_SAVE = "/home/brooks/distribute-hit3d"
+    BASE_SAVE = "/home/brooks/distribute-cases"
 else:
     if UNR:
         HIT3D_UTILS_BASE = "/home/brooks/github/hit3d-utils"
@@ -58,10 +58,10 @@ class RunCase():
         if self.steps > 1000:
             #io_steps = 100
             #io_steps = int(self.steps * 10 / 10_000)
-            io_steps = 10
+            io_steps = 100
         else:
             #io_steps = int(self.steps * 1 / 10_000)
-            io_steps = 10
+            io_steps = 100
 
         run_case(
             self.skip_diffusion, 
@@ -299,7 +299,7 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     shutil.move(f"{solver_folder}/spectra.json", output_folder + '/spectra.json')
 
     # generate plots for the fortran slices (already moved to output folder) and animate them into a movie
-    run_shell_command(f'python3 {HIT3D_UTILS_BASE}/src/plot_slices.py {size} {output_folder}/fortran_slice_data {output_folder}/slice_plots')
+    run_shell_command(f'python3 {HIT3D_UTILS_BASE}/src/plot_slices.py {size} {solver_folder}/slice {output_folder}/slice_plots')
 
     # copy the fortran logging files
     logs_dir = f"{output_folder}/logs/"
@@ -425,14 +425,14 @@ def initial_condition():
 # in order to calculate forcing cases we need to have an initial condition file
 def forcing_cases():
     run_shell_command("make")
-    forcing_folder = "forcing_cases_short_ic_5k_higher_dt_lower_delta_forcing"
+    forcing_folder = "forcing_cases_short_ic_5k_128_attemp_at_final_1"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
 
     if not os.path.exists(save_json_folder):
         os.mkdir(save_json_folder)
 
     dt = 0.001
-    size = 64
+    size = 128
     re = 40
     #steps = 20_000 * 4
     steps = 20_000 * 2
