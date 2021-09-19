@@ -58,10 +58,13 @@ class RunCase():
         if self.steps > 1000:
             #io_steps = 100
             #io_steps = int(self.steps * 10 / 10_000)
-            io_steps = 100
+            io_steps = int(self.steps * 200 / 80_000)
         else:
             #io_steps = int(self.steps * 1 / 10_000)
-            io_steps = 100
+            io_steps = 200
+            io_steps = int(self.steps * 200 / 80_000)
+
+        io_steps = max(io_steps, 1)
 
         run_case(
             self.skip_diffusion, 
@@ -425,39 +428,41 @@ def initial_condition():
 # in order to calculate forcing cases we need to have an initial condition file
 def forcing_cases():
     run_shell_command("make")
-    forcing_folder = "forcing_cases_short_ic_5k_128_attemp_at_final_1"
+    forcing_folder = "forcing_cases_short_ic_5k_128_short_dt_high_forcing"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
 
     if not os.path.exists(save_json_folder):
         os.mkdir(save_json_folder)
 
-    dt = 0.001
+    for f in os.listdir(save_json_folder):
+        os.remove(os.path.join(save_json_folder, f))
+
+    dt = 0.0005
     size = 128
     re = 40
-    #steps = 20_000 * 4
-    steps = 20_000 * 2
+    steps = 20_000 * 4
     save_vtk = True
     batch_name = forcing_folder
 
     epsilon_generator = EpsilonControl.load_json()
 
-    delta_1 = 0.000005
-    delta_2 = 0.00001
+    delta_1 = 1
+    delta_2 = 2
 
     cases = [
-        [0., 0., "baseline"],
+        #[0., 0., "baseline"],
 
         #epsilon 1 cases
-        [delta_1, 0., "ep1-pos"],
+        #[delta_1, 0., "ep1-pos"],
         [-1*delta_1, 0., "ep1-neg"],
 
         # epsilon 2  cases
-        [ 0., delta_2, "ep2-pos"],
+        #[ 0., delta_2, "ep2-pos"],
         [ 0., -1*delta_2, "ep2-neg"],
 
         # both ep1 and ep2 cases
-        [ delta_1, delta_2, "epboth-pos"],
-        [ -1*delta_1, -1 * delta_1, "epboth-neg"],
+        #[ delta_1, delta_2, "epboth-pos"],
+        [ -1*delta_1, -1 * delta_2, "epboth-neg"],
     ]
 
     for skip_diffusion in [0,1]:
@@ -476,7 +481,7 @@ def forcing_cases():
             if epsilon2 == -0.0:
                 epsilon2 = 0.0
 
-            output_folder = f"../../distribute_save/{diffusion_str}/{folder}"
+            output_folder = f"../../distribute_save/{forcing_folder}/{diffusion_str}/{folder}"
 
             case =  RunCase(skip_diffusion=skip_diffusion, 
                 size=size,
@@ -636,6 +641,6 @@ def remove_restart_files():
 
 if __name__ == "__main__":
     #initial_condition()
-    #forcing_cases()
-    one_case()
+    forcing_cases()
+    #one_case()
     #print(parse_scalar_name("sc00.123456"))
