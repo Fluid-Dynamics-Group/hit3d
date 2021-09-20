@@ -58,11 +58,11 @@ class RunCase():
         if self.steps > 1000:
             #io_steps = 100
             #io_steps = int(self.steps * 10 / 10_000)
-            io_steps = int(self.steps * 200 / 80_000)
+            io_steps = int(self.steps * 150 / 80_000)
         else:
             #io_steps = int(self.steps * 1 / 10_000)
             io_steps = 200
-            io_steps = int(self.steps * 200 / 80_000)
+            io_steps = int(self.steps * 150 / 80_000)
 
         io_steps = max(io_steps, 1)
 
@@ -263,7 +263,7 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
         for filename in flowfield_files:
             timestep = parse_filename(filename)
 
-            run_shell_command(f"hit3d-utils vtk {solver_folder}/velocity_field/{filename} {size} {output_folder}/flowfield/{timestep:06}.vtk")
+            run_shell_command(f"hit3d-utils vtk {solver_folder}/velocity_field/{filename} {size} {output_folder}/flowfield/flow_{timestep:05}.vtk")
 
     for filename in scalar_files:
         timestep = parse_scalar_name(filename)
@@ -428,7 +428,7 @@ def initial_condition():
 # in order to calculate forcing cases we need to have an initial condition file
 def forcing_cases():
     run_shell_command("make")
-    forcing_folder = "forcing_cases_short_ic_5k_128_short_dt_high_forcing"
+    forcing_folder = "forcing_cases_short_ic_5k_128_short_dt_high_forcing_short_time"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
 
     if not os.path.exists(save_json_folder):
@@ -440,7 +440,7 @@ def forcing_cases():
     dt = 0.0005
     size = 128
     re = 40
-    steps = 20_000 * 4
+    steps = 10_000
     save_vtk = True
     batch_name = forcing_folder
 
@@ -450,7 +450,7 @@ def forcing_cases():
     delta_2 = 2
 
     cases = [
-        #[0., 0., "baseline"],
+        [0., 0., "baseline"],
 
         #epsilon 1 cases
         #[delta_1, 0., "ep1-pos"],

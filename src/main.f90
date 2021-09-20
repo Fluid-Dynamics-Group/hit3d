@@ -243,7 +243,7 @@ program x_code
             call my_exit(0)
             call m_openmpi_exit
             stop
-        elseif (mod(itime, iwrite4) == 0) then
+        elseif (mod(itime, iwrite4) == 0 .or. itime == 0) then
             ! write energy and helicity to a csv
             call write_energy(time)
             call write_slice(int(itime))
