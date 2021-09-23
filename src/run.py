@@ -56,13 +56,9 @@ class RunCase():
 
         # average a io write every 10 steps
         if self.steps > 1000:
-            #io_steps = 100
-            #io_steps = int(self.steps * 10 / 10_000)
-            io_steps = int(self.steps * 150 / 80_000)
+            io_steps = int(self.steps * 500 / 80_000)
         else:
-            #io_steps = int(self.steps * 1 / 10_000)
-            io_steps = 200
-            io_steps = int(self.steps * 150 / 80_000)
+            io_steps = int(self.steps * 500 / 80_000)
 
         io_steps = max(io_steps, 1)
 
@@ -428,7 +424,7 @@ def initial_condition():
 # in order to calculate forcing cases we need to have an initial condition file
 def forcing_cases():
     run_shell_command("make")
-    forcing_folder = "forcing_cases_short_ic_5k_128_short_dt_high_forcing_short_time"
+    forcing_folder = "forcing_5k_ic_50k_delta2_02_small_dt"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
 
     if not os.path.exists(save_json_folder):
@@ -437,31 +433,31 @@ def forcing_cases():
     for f in os.listdir(save_json_folder):
         os.remove(os.path.join(save_json_folder, f))
 
-    dt = 0.0005
+    dt = 0.00005
     size = 128
     re = 40
-    steps = 10_000
+    steps = 50_000
     save_vtk = True
     batch_name = forcing_folder
 
     epsilon_generator = EpsilonControl.load_json()
 
-    delta_1 = 1
-    delta_2 = 2
+    delta_1 = .1
+    delta_2 = .02
 
     cases = [
         [0., 0., "baseline"],
 
         #epsilon 1 cases
-        #[delta_1, 0., "ep1-pos"],
+        [delta_1, 0., "ep1-pos"],
         [-1*delta_1, 0., "ep1-neg"],
 
         # epsilon 2  cases
-        #[ 0., delta_2, "ep2-pos"],
+        [ 0., delta_2, "ep2-pos"],
         [ 0., -1*delta_2, "ep2-neg"],
 
         # both ep1 and ep2 cases
-        #[ delta_1, delta_2, "epboth-pos"],
+        [ delta_1, delta_2, "epboth-pos"],
         [ -1*delta_1, -1 * delta_2, "epboth-neg"],
     ]
 
