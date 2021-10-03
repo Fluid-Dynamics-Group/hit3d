@@ -176,7 +176,7 @@ reaction rate.
 	* 11: single slab of the scalar.
 	* 12: two slabs of the scalar
 	* 13: 1-D sinusoidal wave of the scalar
-
+	* 14: The Aditya gradient
 
 The reaction rate parameter is defunctional in this version of the code.
 

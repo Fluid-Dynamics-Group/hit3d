@@ -371,7 +371,10 @@ subroutine init_scalar_space(n_scalar)
         call xFFT3d_fields(1, nfi)
 
     case (14)
+        write(out, *) "init scalars by aditya condition"
         black_range = int(nx / 3)
+
+        write(out, *) "black range for scalars is ", black_range
 
         fields(:,:,:,nfi) = 0.0
 

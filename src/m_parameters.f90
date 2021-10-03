@@ -453,6 +453,7 @@ contains
 
         ! if there are scalars, then read them one by one
         if (n_scalars > 0) then
+            write(out, *) "reading in the scalar information for ", n_scalars, "scalars"
             read (in, '(A)', ERR=9000, END=9000) str_tmp
             write (out, *) str_tmp
             call flush (out)
@@ -464,8 +465,13 @@ contains
             if (ierr .ne. 0) passed = 0
 
             do n = 1, n_scalars
+                write(out, *) "reading information on a scalar"
+
                 read (in, *, ERR=9000, END=9000) scalar_type(n), sc(n), ir_exp_sc(n), &
                     peak_wavenum_sc(n), reac_sc(n)
+
+                write(out, *) "finished reading scalar information"
+
                 write (out, '(9x,i4,1x,4(f8.3,1x))') scalar_type(n), sc(n), ir_exp_sc(n), &
                     peak_wavenum_sc(n), reac_sc(n)
                 call flush (out)
