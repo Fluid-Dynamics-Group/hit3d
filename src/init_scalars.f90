@@ -288,7 +288,7 @@ subroutine init_scalar_space(n_scalar)
     implicit none
 
     integer :: i, j, k, n_scalar, sc_type, ic_type, nfi
-    integer :: black_range
+    integer :: black_range, iter
     real*8  :: zloc, sctmp, h, xx
 
     nfi = 3 + n_scalar
@@ -378,7 +378,7 @@ subroutine init_scalar_space(n_scalar)
 
         write(out, *) "black range for scalars is ", black_range
 
-        fields(:,:,:,nfi) = 0.0
+        fields(:,:,:,nfi) = -1.0
 
         
         ! black box in the top left and the bottom left
@@ -396,6 +396,7 @@ subroutine init_scalar_space(n_scalar)
             do j=  1,black_range
                 do k=  1,nz
                     fields(i,j,k, nfi) = 1.0
+                    iter = iter + 1
                 end do
             end do
 
@@ -403,6 +404,7 @@ subroutine init_scalar_space(n_scalar)
             do j=  2*black_range,ny
                 do k=  1,nz
                     fields(i,j,k, nfi) = 1.0
+                    iter = iter + 1
                 end do
             end do
         end do
@@ -422,6 +424,7 @@ subroutine init_scalar_space(n_scalar)
             do j=  1,black_range
                 do k=  1,nz
                     fields(i,j,k, nfi) = 1.0
+                    iter = iter + 1
                 end do
             end do
 
@@ -429,6 +432,7 @@ subroutine init_scalar_space(n_scalar)
             do j=  2*black_range,ny
                 do k=  1,nz
                     fields(i,j,k, nfi) = 1.0
+                    iter = iter + 1
                 end do
             end do
         end do
@@ -448,9 +452,12 @@ subroutine init_scalar_space(n_scalar)
             do j=  black_range, 2*black_range
                 do k=  1,nz
                     fields(i,j,k, nfi) = 1.0
+                    iter = iter + 1
                 end do
             end do
         end do
+
+        write(out, *) dble(iter) / dble(nx*ny*nz), "points have been colored to concentration of 1"
 
         ! apply FFT to the data
         call xFFT3d_fields(1, nfi)

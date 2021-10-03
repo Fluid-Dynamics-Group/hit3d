@@ -623,7 +623,7 @@ def one_case():
         skip_diffusion=1,
         size=64,
         dt=0.001,
-        steps=1000,
+        steps=100,
         restarts=0,
         reynolds_number=40,
         path=output_folder,

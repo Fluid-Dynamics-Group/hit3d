@@ -124,6 +124,7 @@ subroutine rhs_scalars
             ! that are formally scalars with indicies n_scalars+1...n_scalars+n_les )
             if (n .le. n_scalars) then
                 if (scalar_type(n) .ge. 100) then
+                    write(out, *) "adding a reacton to the scalars"
                     call add_reaction(n)
                     call dealias_rhs(3 + n)
                 end if
@@ -414,7 +415,8 @@ subroutine add_reaction(n)
     use m_io
     use m_parameters
     use m_fields
-    use m_work
+    use m_work          ! brooks - wrk is in real space here since we go to fourier space
+                        ! at the end of the subroutine
     use x_fftw
 
     implicit none
