@@ -29,7 +29,7 @@ IC_WRK_NAME = "initial_condition_wrk.pkg"
 IC_JSON_NAME = "initial_condition_vars.json"
 
 class RunCase():
-    def __init__(self,skip_diffusion, size, dt, steps, restarts, reynolds_number,path, load_initial_data=0, nprocs=16, export_vtk=False, epsilon1=0.0, epsilon2=0.0, restart_time=1.0, skip_steps=0 ):
+    def __init__(self,skip_diffusion, size, dt, steps, restarts, reynolds_number,path, load_initial_data=0, nprocs=16, export_vtk=False, epsilon1=0.0, epsilon2=0.0, restart_time=1.0, skip_steps=0, scalar_type=0):
         # if there are restarts, find the number of steps spent in that those restarts
         # and add them to the current number of steps
         simulation_time_restart = restarts * restart_time
@@ -50,6 +50,7 @@ class RunCase():
         self.epsilon2          = epsilon2 
         self.restart_time      = restart_time
         self.skip_steps        = skip_steps
+        self.scalar_type        = scalar_type
 
     def run(self, iteration):
         # automatically calculate a reasonable number of steps between io 
@@ -78,7 +79,8 @@ class RunCase():
             self.export_vtk,
             self.epsilon1,
             self.epsilon2,
-            self.restart_time
+            self.restart_time,
+            self.scalar_type
         )
 
     def __repr__(self):
@@ -106,6 +108,7 @@ class RunCase():
             "epsilon2":          self.epsilon2,
             "restart_time":      self.restart_time,
             "skip_steps":        self.skip_steps,
+            "scalar_type":        self.scalar_type,
             "job_name": job_name
         }
 
@@ -124,7 +127,7 @@ def run_case(
     restarts, reynolds_number, load_initial_data, 
     nprocs, save_folder, iteration, 
     steps_between_io, export_vtk, epsilon1, epsilon2, 
-    restart_time):
+    restart_time, scalar_type):
     if save_folder is None:
         save_folder = BASE_SAVE + f"/{size_param}N-dt{dt}-{skip_diffusion_to_str(skip_diffusion_param)}-{restarts}-restarts-re{reynolds_number}-steps{steps}"
 
@@ -155,6 +158,7 @@ def run_case(
             --restart-time {restart_time} \
             --tscalar -0.1 \
             --nscalar 1 \
+            --scalar-type {scalar_type} \
             input_file.in ")
 
     restart_time_slice = restarts * 1.
@@ -618,14 +622,15 @@ def one_case():
         skip_diffusion=1,
         size=64,
         dt=0.001,
-        steps=100,
+        steps=1000,
         restarts=0,
         reynolds_number=40,
         path=output_folder,
         load_initial_data=2,
         epsilon1=0.0000,
         epsilon2=0.0000,
-        export_vtk=True
+        export_vtk=True,
+        scalar_type=14
     )
 
     case.write_to_json("single-case", save_json_folder)

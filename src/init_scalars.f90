@@ -285,7 +285,8 @@ subroutine init_scalar_space(n_scalar)
 
     implicit none
 
-    integer :: i, k, n_scalar, sc_type, ic_type, nfi
+    integer :: i, j, k, n_scalar, sc_type, ic_type, nfi
+    integer :: black_range
     real*8  :: zloc, sctmp, h, xx
 
     nfi = 3 + n_scalar
@@ -368,6 +369,83 @@ subroutine init_scalar_space(n_scalar)
             fields(i, :, :, nfi) = sin(peak_wavenum_sc(n_scalar)*dx*real(i - 1))
         end do
         call xFFT3d_fields(1, nfi)
+
+    case (14)
+        black_range = int(nx / 3)
+
+        fields(:,:,:,nfi) = 0.0
+
+        
+        ! black box in the top left and the bottom left
+        !
+        ! |-------------|
+        ! |xxx          |
+        ! |xxx          |
+        ! |             |
+        ! |             |
+        ! |xxx          |
+        ! |xxx          |
+        ! |-------------|
+        do i=  1,black_range
+            ! top left
+            do j=  1,black_range
+                do k=  1,nz
+                    fields(i,j,k, nfi) = 1.0
+                end do
+            end do
+
+            ! bottom left
+            do j=  2*black_range,ny
+                do k=  1,nz
+                    fields(i,j,k, nfi) = 1.0
+                end do
+            end do
+        end do
+
+        ! black box in the top left and the bottom left
+        !
+        ! |-------------|
+        ! |          xxx|
+        ! |          xxx|
+        ! |             |
+        ! |             |
+        ! |          xxx|
+        ! |          xxx|
+        ! |-------------|
+        do i=  2*black_range, nx
+            ! top right
+            do j=  1,black_range
+                do k=  1,nz
+                    fields(i,j,k, nfi) = 1.0
+                end do
+            end do
+
+            ! bottom right
+            do j=  2*black_range,ny
+                do k=  1,nz
+                    fields(i,j,k, nfi) = 1.0
+                end do
+            end do
+        end do
+
+        ! black box in the center
+        !
+        ! |-------------|
+        ! |             |
+        ! |     xxx     |
+        ! |     xxx     |
+        ! |     xxx     |
+        ! |             |
+        ! |             |
+        ! |-------------|
+        do i=  black_range, 2*black_range
+            ! top right
+            do j=  black_range, 2*black_range
+                do k=  1,nz
+                    fields(i,j,k, nfi) = 1.0
+                end do
+            end do
+        end do
 
     case default
         write (out, *) "INIT_SCALARS: UNEXPECTED SCALAR TYPE: ", scalar_type(n_scalar)

@@ -217,7 +217,7 @@ subroutine init_write_energy
     if (master == myid) then
         open (filenumber, file="output/energy.csv")
         write (filenumber, "('current_time,', 'energy,', 'solver_energy,', 'helicity,', 'solver_helicity,', &
-  &            'fdot_u,', 'fdot_omega', 'f_rate_e', 'f_rate_h' &
+  &            'fdot_u,', 'fdot_omega,', 'f_rate_e,', 'f_rate_h' &
   &        )")
     end if
 
@@ -225,14 +225,14 @@ subroutine init_write_energy
     open (filenumber, file="output/velocity.csv")
     write (filenumber, "('u,v,w')")
 
-    allocate (dUdX(nx, ny, nz)); allocate (dUdY(nx, ny, nz)); allocate (dUdZ(nx, ny, nz)); 
-    allocate (dVdX(nx, ny, nz)); allocate (dVdY(nx, ny, nz)); allocate (dVdZ(nx, ny, nz)); 
-    allocate (dWdX(nx, ny, nz)); allocate (dWdY(nx, ny, nz)); allocate (dWdZ(nx, ny, nz)); 
-    allocate (OmgX(nx, ny, nz)); allocate (OmgY(nx, ny, nz)); allocate (OmgZ(nx, ny, nz)); 
+    allocate (dUdX(nx, ny, nz)); allocate (dUdY(nx, ny, nz)); allocate (dUdZ(nx, ny, nz));
+    allocate (dVdX(nx, ny, nz)); allocate (dVdY(nx, ny, nz)); allocate (dVdZ(nx, ny, nz));
+    allocate (dWdX(nx, ny, nz)); allocate (dWdY(nx, ny, nz)); allocate (dWdZ(nx, ny, nz));
+    allocate (OmgX(nx, ny, nz)); allocate (OmgY(nx, ny, nz)); allocate (OmgZ(nx, ny, nz));
     ! second order vars for Del^2(u)
-    allocate (dUdX2(nx, ny, nz)); allocate (dUdY2(nx, ny, nz)); allocate (dUdZ2(nx, ny, nz)); 
-    allocate (dVdX2(nx, ny, nz)); allocate (dVdY2(nx, ny, nz)); allocate (dVdZ2(nx, ny, nz)); 
-    allocate (dWdX2(nx, ny, nz)); allocate (dWdY2(nx, ny, nz)); allocate (dWdZ2(nx, ny, nz)); 
+    allocate (dUdX2(nx, ny, nz)); allocate (dUdY2(nx, ny, nz)); allocate (dUdZ2(nx, ny, nz));
+    allocate (dVdX2(nx, ny, nz)); allocate (dVdY2(nx, ny, nz)); allocate (dVdZ2(nx, ny, nz));
+    allocate (dWdX2(nx, ny, nz)); allocate (dWdY2(nx, ny, nz)); allocate (dWdZ2(nx, ny, nz));
     ! pressure terms
     allocate (dPxdX(nx, ny, nz)); allocate (dPxdY(nx, ny, nz)); allocate (dPxdZ(nx, ny, nz)); 
     allocate (dPydX(nx, ny, nz)); allocate (dPydY(nx, ny, nz)); allocate (dPydZ(nx, ny, nz)); 
