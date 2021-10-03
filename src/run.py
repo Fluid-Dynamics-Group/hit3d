@@ -61,6 +61,7 @@ class RunCase():
             io_steps = int(self.steps * 150 / 80_000)
         else:
             io_steps = int(self.steps * 300 / 80_000)
+            io_steps = 1
 
         io_steps = max(io_steps, 1)
 

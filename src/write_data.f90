@@ -25,11 +25,11 @@ subroutine write_scalars(current_timestep)
 
     if (int_scalars) then
         do n = 1, n_scalars
+            wrk(1:nx, 1:ny, 1:nz, 3+n) = fields(1:nx, 1:ny, 1:nz, 3+n)
             call xFFT3d(-1, 3 + n)
             
             ! write all the scalar data to an output file
             call send_scalars(n, current_timestep)
-
         end do
     end if
 

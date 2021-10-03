@@ -450,6 +450,11 @@ subroutine init_scalar_space(n_scalar)
             end do
         end do
 
+        ! apply FFT to the data
+        call xFFT3d_fields(1, nfi)
+
+        ! make sure mean is zero -they do that for the other types
+        if (iammaster) fields(1, 1, 1, 3 + n_scalar) = zip
     case default
         write (out, *) "INIT_SCALARS: UNEXPECTED SCALAR TYPE: ", scalar_type(n_scalar)
         call flush (out)
