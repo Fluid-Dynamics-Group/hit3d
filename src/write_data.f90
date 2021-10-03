@@ -217,7 +217,7 @@ subroutine init_write_energy
     if (master == myid) then
         open (filenumber, file="output/energy.csv")
         write (filenumber, "('current_time,', 'energy,', 'solver_energy,', 'helicity,', 'solver_helicity,', &
-  &            'fdot_u,', 'fdot_omega' &
+  &            'fdot_u,', 'fdot_omega', 'f_rate_e', 'f_rate_h' &
   &        )")
     end if
 
@@ -268,6 +268,7 @@ subroutine write_energy(current_time)
     real*8 :: current_time
     ! tmp variables for calculations
     real*8 :: u, v, w, u_rhs, v_rhs, w_rhs, omg_x, omg_y, omg_z
+    real*8 :: f_rate, f_rate_e, f_rate_h
     ! loop variables
     integer :: i, j, k
 
@@ -392,6 +393,11 @@ subroutine write_energy(current_time)
                                     omg_y*epsilon_2*(udotw*v - umag*omg_y) + &
                                     omg_z*epsilon_2*(udotw*w - umag*omg_z)
 
+                f_rate = f_rate + &
+                    (v *omg_z - w *omg_y)**2 + &
+                    (u *omg_z - w *omg_x)**2 + &
+                    (u *omg_y - v *omg_x)**2
+
             end do
         end do
         !write(*,*) "energy", energy
@@ -405,6 +411,8 @@ subroutine write_energy(current_time)
     solver_energy = solver_energy*frac
     fdot_u = (fcomp_u_left + fcomp_u_right)*frac
     fdot_omega = (fcomp_omega_left + fcomp_omega_right)*frac
+    f_rate_e = f_rate * epsilon_1 * frac/2
+    f_rate_h = f_rate * epsilon_2 * frac/2
 
     !
     ! check that all of the variables are not NAN
@@ -416,6 +424,8 @@ subroutine write_energy(current_time)
     call error_on_nan(solver_energy, "solver energy")
     call error_on_nan(fdot_u, "fdot_u")
     call error_on_nan(fdot_omega, "fdot_omega")
+    call error_on_nan(f_rate_e, "f_rate_e")
+    call error_on_nan(f_rate_h, "f_rate_h")
 
     !call get_helicity
 
@@ -429,6 +439,8 @@ subroutine write_energy(current_time)
     call add_through_mpi(solver_energy)
     call add_through_mpi(fdot_u)
     call add_through_mpi(fdot_omega)
+    call add_through_mpi(f_rate_e)
+    call add_through_mpi(f_rate_h)
 
     !
     ! write the summary data to file if we are the master process
@@ -439,8 +451,10 @@ subroutine write_energy(current_time)
         ! initialize the name of the csv that this mpi process will write to
         open (filenumber, file="output/energy.csv")
         write (filenumber, "(E16.10, ',', E16.10, ',', E16.10, ',', &
-  &            E16.10, ',', E16.10, ',', E16.10, ',', E16.10)") &
-            current_time, energy, solver_energy, helicity, solver_helicity, fdot_u, fdot_omega
+  &            E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',' E16.10, ',', E16.10)") &
+            current_time, energy, solver_energy, helicity, solver_helicity, fdot_u, fdot_omega, &
+            f_rate_e, f_rate_h
+            
 
         flush (filenumber)
     end if

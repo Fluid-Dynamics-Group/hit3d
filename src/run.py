@@ -8,6 +8,7 @@ from glob import glob
 
 UNR = True 
 IS_DISTRIBUTED = True
+IS_SINGULARITY = False
 
 if UNR:
     BASE_SAVE = "/home/brooks/sync/hit3d"
@@ -56,9 +57,9 @@ class RunCase():
 
         # average a io write every 10 steps
         if self.steps > 1000:
-            io_steps = int(self.steps * 500 / 80_000)
+            io_steps = int(self.steps * 150 / 80_000)
         else:
-            io_steps = int(self.steps * 500 / 80_000)
+            io_steps = int(self.steps * 300 / 80_000)
 
         io_steps = max(io_steps, 1)
 
@@ -130,11 +131,14 @@ def run_case(
     if steps_between_io is None:
         steps_between_io = 100
 
-    # delete the entire folder and remake it
-    if os.path.exists(save_folder):
-        shutil.rmtree(save_folder)
+    # we can only remove the directories if we are not
+    # using singularity to run the jobs
+    if not IS_SINGULARITY:
+        # delete the entire folder and remake it
+        if os.path.exists(save_folder):
+            shutil.rmtree(save_folder)
 
-    os.makedirs(save_folder)
+        os.makedirs(save_folder)
 
     print(f"creating a config for N={size_param} | {skip_diffusion_to_str(skip_diffusion_param)} | dt={dt} | restarts = {restarts} | steps = {steps}")
     run_shell_command(f"hit3d-utils config-generator \
@@ -159,7 +163,10 @@ def run_case(
         print(steps*dt, restart_time_slice)
         raise ValueError("restarts last longer than the simulation - this will cause a crash down the line")
 
-    run_hit3d(nprocs)
+    try: 
+        run_hit3d(nprocs)
+    except Exception as e:
+        print("exception running hit3d: {}\n ----> calling postprocessessing anyway".format(e))
 
     postprocessing("output/", save_folder, restart_time_slice, steps, dt, export_vtk,size_param)
 
@@ -167,7 +174,10 @@ def run_case(
         organize_initial_condition(save_folder)
 
 def run_hit3d(nprocs):
-    clean_output_dir()
+    # if we are not using singularity then we are responsible for cleaning
+    # up our own mess
+    if not IS_SINGULARITY:
+        clean_output_dir()
 
     run_shell_command(f'mpirun -np {nprocs} --mca opal_warn_on_missing_libcuda 0 ./hit3d.x "input_file" "nosplit"')
 
@@ -424,7 +434,7 @@ def initial_condition():
 # in order to calculate forcing cases we need to have an initial condition file
 def forcing_cases():
     run_shell_command("make")
-    forcing_folder = "forcing_5k_ic_50k_delta2_02_small_dt"
+    forcing_folder = "test_forcing"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
 
     if not os.path.exists(save_json_folder):
@@ -433,31 +443,31 @@ def forcing_cases():
     for f in os.listdir(save_json_folder):
         os.remove(os.path.join(save_json_folder, f))
 
-    dt = 0.00005
+    dt = 0.0001
     size = 128
     re = 40
-    steps = 50_000
+    steps = 10_000 * 5
     save_vtk = True
     batch_name = forcing_folder
 
     epsilon_generator = EpsilonControl.load_json()
 
     delta_1 = .1
-    delta_2 = .02
+    delta_2 = .2
 
     cases = [
         [0., 0., "baseline"],
 
         #epsilon 1 cases
-        [delta_1, 0., "ep1-pos"],
+        #[delta_1, 0., "ep1-pos"],
         [-1*delta_1, 0., "ep1-neg"],
 
         # epsilon 2  cases
-        [ 0., delta_2, "ep2-pos"],
+        #[ 0., delta_2, "ep2-pos"],
         [ 0., -1*delta_2, "ep2-neg"],
 
         # both ep1 and ep2 cases
-        [ delta_1, delta_2, "epboth-pos"],
+        #[ delta_1, delta_2, "epboth-pos"],
         [ -1*delta_1, -1 * delta_2, "epboth-neg"],
     ]
 
@@ -477,7 +487,7 @@ def forcing_cases():
             if epsilon2 == -0.0:
                 epsilon2 = 0.0
 
-            output_folder = f"../../distribute_save/{forcing_folder}/{diffusion_str}/{folder}"
+            output_folder = f"/distribute_save/{forcing_folder}/{diffusion_str}/{folder}"
 
             case =  RunCase(skip_diffusion=skip_diffusion, 
                 size=size,
@@ -586,11 +596,14 @@ def temporal_study():
 
 # helpful function for runnning one-off cases
 def one_case():
-    save_json_folder = f"{BASE_SAVE}/single_case"
+    save_json_folder = f"{BASE_SAVE}/simple_test_case"
 
-    extra = "single-case-short-5k-ic-8"
-    output_folder = f"../../distribute_save/{extra}/"
-    batch_name = extra
+    if IS_SINGULARITY and IS_DISTRIBUTED:
+        output_folder = f"/distribute_save/"
+    else:
+        output_folder = f"../../distribute_save/"
+
+    batch_name = "one_case"
 
     # if the directory exists remove any older files from the dir 
     if os.path.exists(save_json_folder):
@@ -603,9 +616,9 @@ def one_case():
 
     case =  RunCase(
         skip_diffusion=1,
-        size=128,
+        size=64,
         dt=0.001,
-        steps=1000,
+        steps=100,
         restarts=0,
         reynolds_number=40,
         path=output_folder,
@@ -618,17 +631,24 @@ def one_case():
     case.write_to_json("single-case", save_json_folder)
 
     if UNR:
-        build_location= "/home/brooks/github/hit3d-utils/build.py"
         run_py = "/home/brooks/github/hit3d/src/run.py"
     else:
-        build_location = "/home/brooks/github/fluids/hit3d-utils/build.py"
         run_py = "/home/brooks/github/fluids/hit3d/src/run.py"
 
-    run_shell_command(f"hit3d-utils distribute-gen --output-folder {save_json_folder} --library {run_py} --library-save-name hit3d_helpers.py --batch-name {batch_name} --required-files {IC_SPEC_NAME} --required-files {IC_WRK_NAME} {save_json_folder}/*.json")
+    run_shell_command(f"hit3d-utils distribute-gen \
+            --output-folder {save_json_folder} \
+            --library {run_py} \
+            --library-save-name hit3d_helpers.py \
+            --batch-name {batch_name} \
+            --required-files {IC_SPEC_NAME} \
+            --required-files {IC_WRK_NAME} \
+            {save_json_folder}/*.json"
+    )
 
-    shutil.copy(build_location, f"{save_json_folder}/build.py")
     shutil.copy(IC_SPEC_NAME, f"{save_json_folder}/{IC_SPEC_NAME}")
     shutil.copy(IC_WRK_NAME, f"{save_json_folder}/{IC_WRK_NAME}")
+    shutil.copy(f"{HIT3D_UTILS_BASE}/generic_run.py", save_json_folder)
+    shutil.copy(f"{HIT3D_UTILS_BASE}/build.py", save_json_folder)
 
 def remove_restart_files():
     for i in ["initial_condition_espec.pkg", "initial_condition_wrk.pkg", "initial_condition_vars.json"]:
@@ -637,6 +657,6 @@ def remove_restart_files():
 
 if __name__ == "__main__":
     #initial_condition()
-    forcing_cases()
-    #one_case()
+    #forcing_cases()
+    one_case()
     #print(parse_scalar_name("sc00.123456"))
