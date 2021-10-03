@@ -25,16 +25,18 @@ subroutine init_scalars
     write (out, *) "Generated the scalars."
     call flush (out)
 
-    ! now making sure that the scalars do not have any high
-    ! Fourier harmonics by zeroing out everything that has a wavenumber
-    ! that potentially can produce aliasing
-    do k = 1, nz
-        do j = 1, ny
-            do i = 1, nx + 2
-                if (ialias(i, j, k) .gt. 0) fields(i, j, k, 4:3 + n_scalars) = zip
-            end do
-        end do
-    end do
+    ! temporary removing this to see results - Brooks
+    !
+    ! ! now making sure that the scalars do not have any high
+    ! ! Fourier harmonics by zeroing out everything that has a wavenumber
+    ! ! that potentially can produce aliasing
+    ! do k = 1, nz
+    !     do j = 1, ny
+    !         do i = 1, nx + 2
+    !             if (ialias(i, j, k) .gt. 0) fields(i, j, k, 4:3 + n_scalars) = zip
+    !         end do
+    !     end do
+    ! end do
 
     return
 
