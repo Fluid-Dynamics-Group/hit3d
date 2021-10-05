@@ -517,6 +517,55 @@ def forcing_cases():
 
     copy_distribute_files(save_json_folder, batch_name)
 
+def ep1_temporal_cases():
+    delta_1 = .01
+    delta_2 = .02
+
+    run_shell_command("make")
+    forcing_folder = f"temporal_check_{delta_1},{delta_2}"
+    save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
+
+    if not os.path.exists(save_json_folder):
+        os.mkdir(save_json_folder)
+
+    for f in os.listdir(save_json_folder):
+        os.remove(os.path.join(save_json_folder, f))
+
+    dt = 0.0001
+    size = 128
+    re = 40
+    steps = 10_000 * 5
+    save_vtk = True
+
+    cases = [
+        [dt, steps, "dt_1E-4"],
+        [dt/10, steps*10, "dt_1E-5"],
+        [dt/100, steps*100, "dt_1E-6"]
+    ]
+
+    epsilon_generator = EpsilonControl.load_json()
+    epsilon1 = epsilon_generator.epsilon_1(delta_1)
+    epsilon2 = epsilon_generator.epsilon_1(delta_2)
+
+    for dt, steps, folder in cases:
+        case =  RunCase(skip_diffusion=1,
+            size=size,
+            dt=dt,
+            steps=steps,
+            restarts=0,
+            restart_time=1.,
+            reynolds_number=re,
+            path= folder,
+            load_initial_data=0,
+            epsilon1=epsilon1,
+            epsilon2=epsilon2,
+            export_vtk=save_vtk,
+            scalar_type=14
+        )
+        case.write_to_json(folder, save_json_folder)
+
+    copy_distribute_files(save_json_folder,forcing_folder)
+
 def copy_distribute_files(target_folder, batch_name):
     if UNR:
         build_location= "/home/brooks/github/hit3d-utils/build.py"
@@ -590,6 +639,6 @@ def remove_restart_files():
 
 if __name__ == "__main__":
     #initial_condition()
-    forcing_cases()
+    #forcing_cases()
+    ep1_temporal_cases()
     #one_case()
-    #print(parse_scalar_name("sc00.123456"))
