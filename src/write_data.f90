@@ -411,8 +411,8 @@ subroutine write_energy(current_time)
     solver_energy = solver_energy*frac
     fdot_u = (fcomp_u_left + fcomp_u_right)*frac
     fdot_omega = (fcomp_omega_left + fcomp_omega_right)*frac
-    f_rate_e = f_rate * epsilon_1 * frac/2
-    f_rate_h = f_rate * epsilon_2 * frac/2
+    f_rate_e = (f_rate * epsilon_1 * frac/2)*(-1/2)
+    f_rate_h = (f_rate * epsilon_2 * frac/2)*(-1/2)
 
     !
     ! check that all of the variables are not NAN

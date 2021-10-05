@@ -438,8 +438,12 @@ def initial_condition():
 
 # in order to calculate forcing cases we need to have an initial condition file
 def forcing_cases():
+
+    delta_1 = .01
+    delta_2 = .02
+
     run_shell_command("make")
-    forcing_folder = "test_forcing"
+    forcing_folder = f"parameter_sweep_{delta_1},{delta_2}"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
 
     if not os.path.exists(save_json_folder):
@@ -457,24 +461,26 @@ def forcing_cases():
 
     epsilon_generator = EpsilonControl.load_json()
 
-    delta_1 = .1
-    delta_2 = .2
-
     cases = [
-        [0., 0., "baseline"],
+        #[0., 0., "baseline"],
 
         #epsilon 1 cases
-        #[delta_1, 0., "ep1-pos"],
+        [delta_1, 0., "ep1-pos"],
         [-1*delta_1, 0., "ep1-neg"],
 
         # epsilon 2  cases
-        #[ 0., delta_2, "ep2-pos"],
+        [ 0., delta_2, "ep2-pos"],
         [ 0., -1*delta_2, "ep2-neg"],
 
         # both ep1 and ep2 cases
-        #[ delta_1, delta_2, "epboth-pos"],
+        [ delta_1, delta_2, "epboth-pos"],
         [ -1*delta_1, -1 * delta_2, "epboth-neg"],
     ]
+
+    if IS_SINGULARITY and IS_DISTRIBUTED:
+        output_folder = f"/distribute_save/"
+    else:
+        output_folder = f"../../distribute_save/"
 
     for skip_diffusion in [0,1]:
 
@@ -492,8 +498,6 @@ def forcing_cases():
             if epsilon2 == -0.0:
                 epsilon2 = 0.0
 
-            output_folder = f"/distribute_save/{forcing_folder}/{diffusion_str}/{folder}"
-
             case =  RunCase(skip_diffusion=skip_diffusion, 
                 size=size,
                 dt=dt,
@@ -505,11 +509,15 @@ def forcing_cases():
                 load_initial_data=0,
                 epsilon1=epsilon1,
                 epsilon2=epsilon2,
-                export_vtk=save_vtk
+                export_vtk=save_vtk,
+                scalar_type=14
             )
 
             case.write_to_json(f"{folder}_{diffusion_str}", save_json_folder)
 
+    copy_distribute_files(save_json_folder, batch_name)
+
+def copy_distribute_files(target_folder, batch_name):
     if UNR:
         build_location= "/home/brooks/github/hit3d-utils/build.py"
         run_py = "/home/brooks/github/hit3d/src/run.py"
@@ -517,87 +525,24 @@ def forcing_cases():
         build_location = "/home/brooks/github/fluids/hit3d-utils/build.py"
         run_py = "/home/brooks/github/fluids/hit3d/src/run.py"
 
-    run_shell_command(f"hit3d-utils distribute-gen --output-folder {save_json_folder} --library {run_py} --library-save-name hit3d_helpers.py --batch-name {batch_name} --required-files {IC_SPEC_NAME} --required-files {IC_WRK_NAME} {save_json_folder}/*.json")
+    run_shell_command(f"hit3d-utils distribute-gen \
+            --output-folder {target_folder} \
+            --library {run_py} \
+            --library-save-name hit3d_helpers.py \
+            --batch-name {batch_name} \
+            --required-files {IC_SPEC_NAME} \
+            --required-files {IC_WRK_NAME} \
+            {target_folder}/*.json"
+    )
 
-    shutil.copy(build_location, f"{save_json_folder}/build.py")
+    shutil.copy(build_location, f"{target_folder}/build.py")
 
-    shutil.copy(IC_SPEC_NAME, f"{save_json_folder}/{IC_SPEC_NAME}")
-    shutil.copy(IC_WRK_NAME, f"{save_json_folder}/{IC_WRK_NAME}")
+    shutil.copy(IC_SPEC_NAME, f"{target_folder}/{IC_SPEC_NAME}")
+    shutil.copy(IC_WRK_NAME, f"{target_folder}/{IC_WRK_NAME}")
 
-def resolution_study():
-    run_shell_command("make")
-    N = 256
+    shutil.copy(f"{HIT3D_UTILS_BASE}/generic_run.py", target_folder)
+    shutil.copy(f"{HIT3D_UTILS_BASE}/build.py", target_folder)
 
-    num_stencil = [ int(i*N) for i in [
-        1/2,
-        1,
-        2,
-    ]]
-
-    dt = 0.0005
-    re = 80
-    steps = 10_000 
-    initial_steps = 25_000
-    resolution_folder = "resolution_study_3"
-
-    for n in num_stencil:
-        for skip_diffusion in [0,1]:
-            diff_str = skip_diffusion_to_str(skip_diffusion)
-            folder_name = f"{n}"
-
-            case = RunCase(
-                skip_diffusion=skip_diffusion,
-                size = n,
-                dt = dt,
-                steps = steps,
-                restarts = 0,
-                reynolds_number=re,
-                path = f"{BASE_SAVE}/{resolution_folder}/{diff_str}/{folder_name}",
-                load_initial_data=2,
-                export_vtk=True,
-                skip_steps=initial_steps
-            )
-
-            wrap_error_case(case, f"{BASE_SAVE}/{resolution_folder}/errors.txt")
-
-def temporal_study():
-    run_shell_command("make")
-
-    DT = 0.0005
-    STEPS = 10_000 
-    INITIAL_STEPS = 25_000
-
-    timesteps = [ [i*DT, int(STEPS / i), int(INITIAL_STEPS / i)] for i in [
-        1/2,
-        1,
-        2,
-    ]]
-
-    N = 256
-    re = 80
-    temporal_folder = "temporal_study_3"
-
-    print("timesteps are", timesteps)
-
-    for dt, steps, initial_steps in timesteps:
-        for skip_diffusion in [0,1]:
-            diff_str = skip_diffusion_to_str(skip_diffusion)
-            folder_name = f"{dt}"
-
-            case = RunCase(
-                skip_diffusion=skip_diffusion,
-                size = N,
-                dt = dt,
-                steps = steps,
-                restarts = 0,
-                reynolds_number=re,
-                path = f"{BASE_SAVE}/{temporal_folder}/{diff_str}/{folder_name}",
-                load_initial_data=2,
-                export_vtk=True,
-                skip_steps=initial_steps
-            )
-
-            wrap_error_case(case, f"{BASE_SAVE}/{temporal_folder}/errors.txt")
 
 # helpful function for runnning one-off cases
 def one_case():
@@ -636,25 +581,7 @@ def one_case():
 
     case.write_to_json("single-case", save_json_folder)
 
-    if UNR:
-        run_py = "/home/brooks/github/hit3d/src/run.py"
-    else:
-        run_py = "/home/brooks/github/fluids/hit3d/src/run.py"
-
-    run_shell_command(f"hit3d-utils distribute-gen \
-            --output-folder {save_json_folder} \
-            --library {run_py} \
-            --library-save-name hit3d_helpers.py \
-            --batch-name {batch_name} \
-            --required-files {IC_SPEC_NAME} \
-            --required-files {IC_WRK_NAME} \
-            {save_json_folder}/*.json"
-    )
-
-    shutil.copy(IC_SPEC_NAME, f"{save_json_folder}/{IC_SPEC_NAME}")
-    shutil.copy(IC_WRK_NAME, f"{save_json_folder}/{IC_WRK_NAME}")
-    shutil.copy(f"{HIT3D_UTILS_BASE}/generic_run.py", save_json_folder)
-    shutil.copy(f"{HIT3D_UTILS_BASE}/build.py", save_json_folder)
+    copy_distribute_files(save_json_folder, batch_name)
 
 def remove_restart_files():
     for i in ["initial_condition_espec.pkg", "initial_condition_wrk.pkg", "initial_condition_vars.json"]:
@@ -663,6 +590,6 @@ def remove_restart_files():
 
 if __name__ == "__main__":
     #initial_condition()
-    #forcing_cases()
-    one_case()
+    forcing_cases()
+    #one_case()
     #print(parse_scalar_name("sc00.123456"))
