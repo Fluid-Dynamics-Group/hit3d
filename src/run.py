@@ -172,7 +172,7 @@ def run_case(
     except Exception as e:
         print("exception running hit3d: {}\n ----> calling postprocessessing anyway".format(e))
 
-    postprocessing("output/", save_folder, restart_time_slice, steps, dt, export_vtk,size_param)
+    postprocessing("output/", save_folder, restart_time_slice, steps, dt, export_vtk,size_param, epsilon1, epsilon2)
 
     if load_initial_data == 1:
         organize_initial_condition(save_folder)
@@ -256,7 +256,7 @@ class EpsilonControl():
     def epsilon_2(self,delta):
         return delta * self.helicity/ self.fdot_h
 
-def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, save_vtk, size):
+def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, save_vtk, size, epsilon_1, epsilon_2):
     shutil.move("input_file.in", output_folder + "/input_file.in")
 
     os.mkdir(output_folder + '/flowfield')
@@ -303,7 +303,7 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     # and for the spectra
     #
 
-    run_shell_command(f'python3 {HIT3D_UTILS_BASE}/plots/energy_helicity.py {solver_folder}/energy.csv {output_folder} "{restart_time_slice}"')
+    run_shell_command(f'python3 {HIT3D_UTILS_BASE}/plots/energy_helicity.py {solver_folder}/energy.csv {output_folder} "{restart_time_slice}" {epsilon_1} {epsilon_2}')
     run_shell_command(f'python3 {HIT3D_UTILS_BASE}/plots/spectra.py {solver_folder}/spectra.json {output_folder}')
 
     # move some of the important files to the save folder so they do not get purged

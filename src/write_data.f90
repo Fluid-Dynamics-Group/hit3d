@@ -217,8 +217,8 @@ subroutine init_write_energy
     if (master == myid) then
         open (filenumber, file="output/energy.csv")
         write (filenumber, "('current_time,', 'energy,', 'solver_energy,', 'helicity,', 'solver_helicity,', &
-              'fdot_u_1,', 'fdot_u_2', 'fdot_omega_1,', 'fdot_omega_2', 'f_rate_e,', 'f_rate_h', &
-              're_lambda,' &
+              'fdot_u_1,', 'fdot_u_2,', 'fdot_omega_1,', 'fdot_omega_2,', 'f_rate_e,', 'f_rate_h,', &
+              're_lambda' &
           )")
     end if
 
