@@ -60,8 +60,7 @@ class RunCase():
         if self.steps > 1000:
             io_steps = int(self.steps * 150 / 80_000)
         else:
-            io_steps = int(self.steps * 300 / 80_000)
-            io_steps = 1
+            io_steps = int(self.steps * 150 / 80_000)
 
         io_steps = max(io_steps, 1)
 
@@ -438,12 +437,11 @@ def initial_condition():
 
 # in order to calculate forcing cases we need to have an initial condition file
 def forcing_cases():
-
-    delta_1 = .01
-    delta_2 = .02
+    delta_1 = .1
+    delta_2 = .2
 
     run_shell_command("make")
-    forcing_folder = f"parameter_sweep_{delta_1},{delta_2}"
+    forcing_folder = f"parameter_sweep_{delta_1},{delta_2}_again"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
 
     if not os.path.exists(save_json_folder):
@@ -456,14 +454,13 @@ def forcing_cases():
     size = 128
     re = 40
     steps = 10_000 * 5
+    #steps = 100
     save_vtk = True
     batch_name = forcing_folder
 
     epsilon_generator = EpsilonControl.load_json()
 
     cases = [
-        #[0., 0., "baseline"],
-
         #epsilon 1 cases
         [delta_1, 0., "ep1-pos"],
         [-1*delta_1, 0., "ep1-neg"],
@@ -476,6 +473,9 @@ def forcing_cases():
         [ delta_1, delta_2, "epboth-pos"],
         [ -1*delta_1, -1 * delta_2, "epboth-neg"],
     ]
+
+    if delta_1 == 0.1 and delta_2 == 0.2:
+        cases.append([0., 0., "baseline"])
 
     if IS_SINGULARITY and IS_DISTRIBUTED:
         output_folder = f"/distribute_save/"
@@ -616,15 +616,15 @@ def one_case():
     case =  RunCase(
         skip_diffusion=1,
         size=64,
-        dt=0.001,
+        dt=0.0001,
         steps=100,
         restarts=0,
         reynolds_number=40,
         path=output_folder,
         load_initial_data=2,
-        epsilon1=0.0000,
-        epsilon2=0.0000,
-        export_vtk=True,
+        epsilon1=0.000001,
+        epsilon2=0.000001,
+        export_vtk=False,
         scalar_type=14
     )
 
@@ -640,5 +640,6 @@ def remove_restart_files():
 if __name__ == "__main__":
     #initial_condition()
     #forcing_cases()
-    ep1_temporal_cases()
-    #one_case()
+    #ep1_temporal_cases()
+    one_case()
+    pass

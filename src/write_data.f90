@@ -11,8 +11,8 @@ module m_data
 
     ! io variables
     real*8 :: energy, helicity, solver_energy, solver_helicity, udotw, umag, wmag
-    real*8 :: fcomp_u_left, fcomp_u_right, fdot_u
-    real*8 :: fcomp_omega_left, fcomp_omega_right, fdot_omega
+    real*8 :: fcomp_u_left, fcomp_u_right
+    real*8 :: fcomp_omega_left, fcomp_omega_right
 end module m_data
 
 subroutine write_scalars(current_timestep)
@@ -217,8 +217,9 @@ subroutine init_write_energy
     if (master == myid) then
         open (filenumber, file="output/energy.csv")
         write (filenumber, "('current_time,', 'energy,', 'solver_energy,', 'helicity,', 'solver_helicity,', &
-  &            'fdot_u,', 'fdot_omega,', 'f_rate_e,', 'f_rate_h' &
-  &        )")
+              'fdot_u_1,', 'fdot_u_2', 'fdot_omega_1,', 'fdot_omega_2', 'f_rate_e,', 'f_rate_h', &
+              're_lambda,' &
+          )")
     end if
 
     filenumber = 622
@@ -269,22 +270,14 @@ subroutine write_energy(current_time)
     ! tmp variables for calculations
     real*8 :: u, v, w, u_rhs, v_rhs, w_rhs, omg_x, omg_y, omg_z
     real*8 :: f_rate, f_rate_e, f_rate_h
+    real*8 :: energy_derivative, helicity_derivative
     ! loop variables
     integer :: i, j, k
 
     real*8 :: epsilon_1, epsilon_2
     real*8 :: tmp_val, frac
+    real*8 :: re_lambda
 
-    ! if we are storing an initial condition then we
-    ! hard code the epsilons to have a forcing amplitude of 1.0
-    ! otherwise we use the values from the configuration
-    if (load_initial_condition == 1) then
-        epsilon_1 = 1.0
-        epsilon_2 = 1.0
-    else
-        epsilon_1 = pertamp1
-        epsilon_2 = pertamp2
-    end if
 
     ! ifft the RHS variables so we are in x-space
     call ifft_rhs
@@ -374,30 +367,29 @@ subroutine write_energy(current_time)
 
                 ! calculate forcing stuff
                 fcomp_u_left = fcomp_u_left + &
-                               u*epsilon_1*(udotw*omg_x - wmag*u) + &
-                               v*epsilon_1*(udotw*omg_y - wmag*v) + &
-                               w*epsilon_1*(udotw*omg_z - wmag*w)
+                               u*(udotw*omg_x - wmag*u) + &
+                               v*(udotw*omg_y - wmag*v) + &
+                               w*(udotw*omg_z - wmag*w)
 
                 fcomp_u_right = fcomp_u_right + &
-                                u*epsilon_2*(udotw*u - umag*omg_x) + &
-                                v*epsilon_2*(udotw*v - umag*omg_y) + &
-                                w*epsilon_2*(udotw*w - umag*omg_z)
+                                u*(udotw*u - umag*omg_x) + &
+                                v*(udotw*v - umag*omg_y) + &
+                                w*(udotw*w - umag*omg_z)
 
                 fcomp_omega_left = fcomp_omega_left + &
-                                   omg_x*epsilon_1*(udotw*omg_x - wmag*u) + &
-                                   omg_y*epsilon_1*(udotw*omg_y - wmag*v) + &
-                                   omg_z*epsilon_1*(udotw*omg_z - wmag*w)
+                                   omg_x*(udotw*omg_x - wmag*u) + &
+                                   omg_y*(udotw*omg_y - wmag*v) + &
+                                   omg_z*(udotw*omg_z - wmag*w)
 
                 fcomp_omega_right = fcomp_omega_right + &
-                                    omg_x*epsilon_2*(udotw*u - umag*omg_x) + &
-                                    omg_y*epsilon_2*(udotw*v - umag*omg_y) + &
-                                    omg_z*epsilon_2*(udotw*w - umag*omg_z)
+                                    omg_x*(udotw*u - umag*omg_x) + &
+                                    omg_y*(udotw*v - umag*omg_y) + &
+                                    omg_z*(udotw*w - umag*omg_z)
 
                 f_rate = f_rate + &
                     (v *omg_z - w *omg_y)**2 + &
                     (u *omg_z - w *omg_x)**2 + &
                     (u *omg_y - v *omg_x)**2
-
             end do
         end do
         !write(*,*) "energy", energy
@@ -409,8 +401,12 @@ subroutine write_energy(current_time)
     solver_helicity = solver_helicity*frac
     energy = energy*frac/2.
     solver_energy = solver_energy*frac
-    fdot_u = (fcomp_u_left + fcomp_u_right)*frac
-    fdot_omega = (fcomp_omega_left + fcomp_omega_right)*frac
+
+    fcomp_u_left = fcomp_u_left * frac
+    fcomp_u_right = fcomp_u_right * frac
+    fcomp_omega_left = fcomp_omega_left * frac
+    fcomp_omega_right = fcomp_omega_right * frac
+
     f_rate_e = (-1* f_rate * epsilon_1 * frac)
     f_rate_h = (-1*f_rate * epsilon_2 * frac)
 
@@ -422,12 +418,15 @@ subroutine write_energy(current_time)
     call error_on_nan(solver_helicity, "solver helicity")
     call error_on_nan(energy, "energy")
     call error_on_nan(solver_energy, "solver energy")
-    call error_on_nan(fdot_u, "fdot_u")
-    call error_on_nan(fdot_omega, "fdot_omega")
+
+    ! check the nan on the forcing terms
+    call error_on_nan(fcomp_u_left, "f_u 1")
+    call error_on_nan(fcomp_u_right, "f_u 2")
+    call error_on_nan(fcomp_omega_left, "f_omega 1")
+    call error_on_nan(fcomp_omega_right, "f_omega 2")
+
     call error_on_nan(f_rate_e, "f_rate_e")
     call error_on_nan(f_rate_h, "f_rate_h")
-
-    !call get_helicity
 
     !
     ! sum the values through mpi
@@ -437,10 +436,19 @@ subroutine write_energy(current_time)
     call add_through_mpi(solver_helicity)
     call add_through_mpi(energy)
     call add_through_mpi(solver_energy)
-    call add_through_mpi(fdot_u)
-    call add_through_mpi(fdot_omega)
+
+    ! add the forcing terms
+    call add_through_mpi(fcomp_u_left)
+    call add_through_mpi(fcomp_u_right)
+    call add_through_mpi(fcomp_omega_left)
+    call add_through_mpi(fcomp_omega_right)
+
     call add_through_mpi(f_rate_e)
     call add_through_mpi(f_rate_h)
+
+    ! calculate Re_lambda (taylor reynolds number) according to MGM's 
+    ! formulation in m_stats.f90 subroutine stat_velocity
+    call calculate_re_lambda(re_lambda)
 
     !
     ! write the summary data to file if we are the master process
@@ -451,15 +459,28 @@ subroutine write_energy(current_time)
         ! initialize the name of the csv that this mpi process will write to
         open (filenumber, file="output/energy.csv")
         write (filenumber, "(E16.10, ',', E16.10, ',', E16.10, ',', &
-  &            E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',' E16.10, ',', E16.10)") &
-            current_time, energy, solver_energy, helicity, solver_helicity, fdot_u, fdot_omega, &
-            f_rate_e, f_rate_h
-            
+  &            E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',' E16.10, ',', E16.10, ',' &
+               E16.10, ',', E16.10, ',', E16.10 &
+              )") &
+            current_time, energy, solver_energy, helicity, solver_helicity, fcomp_u_left, &
+            fcomp_u_right, fcomp_omega_left, fcomp_omega_right, f_rate_e, f_rate_h, re_lambda
 
         flush (filenumber)
     end if
 
 end subroutine
+
+subroutine calculate_re_lambda(re_lambda_us)
+    use m_stats
+
+    implicit none
+
+    real * 8 :: re_lambda_us
+
+    call stat_velocity
+
+    re_lambda_us = re_lambda
+end 
 
 subroutine ifft_rhs
     use m_work !tmp_wrk + wrk + rhs_saved
