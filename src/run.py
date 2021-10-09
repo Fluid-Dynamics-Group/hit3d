@@ -56,11 +56,12 @@ class RunCase():
         # automatically calculate a reasonable number of steps between io 
         # operations (~ 100 every 10_000 steps)
 
-        # average a io write every 10 steps
-        if self.steps > 1000:
-            io_steps = int(self.steps * 150 / 80_000)
-        else:
-            io_steps = int(self.steps * 150 / 80_000)
+        # keep the amount of data produced constant 
+        io_steps = int(self.steps * 150 / 80_000)
+
+        # only save the data half as often for 256 cases
+        if self.size == 256:
+            io_steps /= 2
 
         io_steps = max(io_steps, 1)
 
@@ -219,7 +220,6 @@ def organize_initial_condition(save_folder):
         shutil.copy(file, save_folder + "/" + file)
         file = IC_WRK_NAME
         shutil.copy(file, save_folder + "/" + file)
-
 
 class EpsilonControl():
     def __init__(self):
@@ -408,40 +408,41 @@ def wrap_error_case(case, filepath):
 
 def initial_condition():
     dt = 0.0005
-    size = 128
+    size = 256
     IC_STEPS = 5_000
     re = 40
-    forcing_folder = "initial_condition_5k_steps"
+
+    forcing_folder = f"initial_condition_5k_steps{size}"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
     output_folder = f"../../distribute_save"
+    batch_name = forcing_folder
 
     if not os.path.exists(save_json_folder):
         os.mkdir(save_json_folder)
 
-    case =  RunCase(skip_diffusion=0, size=size, dt=dt, steps=IC_STEPS, restarts=0, reynolds_number=re, path=f'{output_folder}/initial_field' ,load_initial_data=1, restart_time=1.)
-    case.write_to_json("initial_condition", save_json_folder)
+    case =  RunCase(
+        skip_diffusion=0, 
+        size=size, 
+        dt=dt, 
+        steps=IC_STEPS, 
+        restarts=0, 
+        reynolds_number=re, 
+        path=output_folder,
+        load_initial_data=1, 
+        restart_time=1.
+    )
 
-    if UNR:
-        build_location= "/home/brooks/github/hit3d-utils/build.py"
-        nodes_location = "/home/brooks/distribute/distribute-nodes.yaml"
-        run_py = "/home/brooks/github/hit3d/src/run.py"
-    else:
-        build_location = "/home/brooks/github/fluids/hit3d-utils/build.py"
-        nodes_location = "/home/brooks/github/fluids/distribute/run/server/distribute-nodes.yaml"
-        run_py = "/home/brooks/github/fluids/hit3d/src/run.py"
+    case.write_to_json(batch_name, save_json_folder)
 
-    run_shell_command(f"hit3d-utils distribute-gen --output-folder {save_json_folder} --library {run_py} --library-save-name hit3d_helpers.py --batch-name hit3d_initial_condition {save_json_folder}/*.json")
-
-    shutil.copy(build_location, f"{save_json_folder}/build.py")
-    shutil.copy(nodes_location, f"{save_json_folder}/distribute-nodes.yaml")
+    copy_distribute_files(save_json_folder, batch_name)
 
 # in order to calculate forcing cases we need to have an initial condition file
 def forcing_cases():
-    delta_1 = .1
-    delta_2 = .2
+    delta_1 = .001
+    delta_2 = .002
 
     run_shell_command("make")
-    forcing_folder = f"parameter_sweep_{delta_1},{delta_2}_again"
+    forcing_folder = f"parameter_sweep_{delta_1},{delta_2}_smaller_delta_256"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
 
     if not os.path.exists(save_json_folder):
@@ -451,10 +452,9 @@ def forcing_cases():
         os.remove(os.path.join(save_json_folder, f))
 
     dt = 0.0001
-    size = 128
+    size = 256
     re = 40
-    steps = 10_000 * 5
-    #steps = 100
+    steps = 10_000
     save_vtk = True
     batch_name = forcing_folder
 
@@ -474,7 +474,7 @@ def forcing_cases():
         [ -1*delta_1, -1 * delta_2, "epboth-neg"],
     ]
 
-    if delta_1 == 0.1 and delta_2 == 0.2:
+    if (delta_1 == 0.1 and delta_2 == 0.2) or True:
         cases.append([0., 0., "baseline"])
 
     if IS_SINGULARITY and IS_DISTRIBUTED:
@@ -638,8 +638,8 @@ def remove_restart_files():
             os.remove(i) 
 
 if __name__ == "__main__":
-    #initial_condition()
+    initial_condition()
     #forcing_cases()
     #ep1_temporal_cases()
-    one_case()
+    #one_case()
     pass
