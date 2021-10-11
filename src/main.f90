@@ -219,7 +219,8 @@ program x_code
                 ! send the velocities to the "stats" part of the code for statistics
                 if (task_split) call fields_to_stats
                 ! checking if we need to stop the calculations due to simulation time
-                if (TIME .gt. TMAX) call my_exit(1)
+                ! Brooks - removed a stop to simulation time
+                ! if (TIME .gt. TMAX) call my_exit(1)
 
                 ! checking if we need to start advancing scalars
                 if (n_scalars .gt. 0 .and. .not. int_scalars .and. time .gt. TSCALAR) then
@@ -233,7 +234,7 @@ program x_code
         end if hydro
 
         ! if we are at the specified timestep and our job is to write a restart file ...
-        if (ITIME == ITMAX .and. load_initial_condition == 1) then
+        if (ITIME >= ITMAX .and. load_initial_condition == 1) then
             ! write a full flowfield file
             call write_velocity_field(int(itime))
             ! write the energy info at the final timestep
@@ -257,6 +258,7 @@ program x_code
                 .or. &
                 itime == 0 &
                 ) then
+                write(out, *) "writing flowfield at itime ", itime
                 call write_velocity_field(int(itime))
             end if
         end if
@@ -270,7 +272,8 @@ program x_code
                 ! if this is a separate set of processors, then...
                 stats_task_split: if (task_split) then
                     ! checking if we need to stop the calculations due to simulation time
-                    if (TIME .gt. TMAX) call my_exit(1)
+                    ! Brooks - remove any stops due to simulation time
+                    ! if (TIME .gt. TMAX) call my_exit(1)
                 end if stats_task_split
 
                 ! these are executed regardless of the processor configuration
@@ -300,9 +303,10 @@ program x_code
                 if (mod(itime, iwrite4) .eq. 0) call particles_restart_write_binary
             end if
 
-            if (mod(itime, iprint1) .eq. 0 .or. mod(itime, iwrite4) .eq. 0) then
-                if (TIME .gt. TMAX) call my_exit(1)
-            end if
+            ! remove any exit due to time overrun
+            !if (mod(itime, iprint1) .eq. 0 .or. mod(itime, iwrite4) .eq. 0) then
+            !    if (TIME .gt. TMAX) call my_exit(1)
+            !end if
         end if particles
 !!$!--------------------------------------------------------------------------------
 !!$!                             OTHER PARTS
@@ -334,7 +338,9 @@ program x_code
             ! the restart writing time can be long (up to 20 minutes or so).
             ! this should be taken care of in the job submission script
             ! via file job_parameters.txt
-            if (cpu_min_total + 5 .gt. job_runlimit) call my_exit(2)
+            
+            ! Brooks - no early exit to the simulation
+            ! if (cpu_min_total + 5 .gt. job_runlimit) call my_exit(2)
 
             ! user termination.  If the file "stop" is in the directory, stop
             inquire (file='stop', exist=there)
