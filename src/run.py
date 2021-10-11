@@ -57,11 +57,12 @@ class RunCase():
         # operations (~ 100 every 10_000 steps)
 
         # keep the amount of data produced constant 
-        io_steps = int(self.steps * 150 / 80_000)
+        # higher number = more steps saved
+        io_steps = int(self.steps * 300 / 80_000)
 
         # only save the data half as often for 256 cases
         if self.size == 256:
-            io_steps /= 2
+            io_steps *= 2
 
         io_steps = max(io_steps, 1)
 
@@ -129,6 +130,10 @@ def run_case(
     nprocs, save_folder, iteration, 
     steps_between_io, export_vtk, epsilon1, epsilon2, 
     restart_time, scalar_type):
+
+    if IS_DISTRIBUTED:
+        print("running in distributed mode - singularity: ", IS_SINGULARITY);
+
     if save_folder is None:
         save_folder = BASE_SAVE + f"/{size_param}N-dt{dt}-{skip_diffusion_to_str(skip_diffusion_param)}-{restarts}-restarts-re{reynolds_number}-steps{steps}"
 
@@ -419,6 +424,9 @@ def initial_condition():
 
     if not os.path.exists(save_json_folder):
         os.mkdir(save_json_folder)
+
+    for f in os.listdir(save_json_folder):
+        os.remove(os.path.join(save_json_folder, f))
 
     case =  RunCase(
         skip_diffusion=0, 
