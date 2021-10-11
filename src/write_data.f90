@@ -551,11 +551,13 @@ end subroutine add_through_mpi
 
 subroutine error_on_nan(variable_to_check, variable_name)
     use m_openmpi
+    use m_io
     implicit none
     real*8 :: variable_to_check
     character(len=*) :: variable_name
 
     if (variable_to_check /= variable_to_check) then
+        write(out, *) variable_name, " was NAN - killing the simulation"
         write(*, *) variable_name, " was NAN - killing the simulation"
         call my_exit(1)
         call m_openmpi_exit

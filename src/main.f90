@@ -196,7 +196,8 @@ program x_code
             TIME = TIME + DT
 
             ! write the restart file if it's the time
-            if (mod(itime, IPRINT2) .eq. 0) call restart_write_parallel
+            ! Brooks - dont use his restart files
+            !if (mod(itime, IPRINT2) .eq. 0) call restart_write_parallel
 
             ! change the timestep in case we're running with variable timestep
             if (variable_dt) call my_dt

@@ -412,12 +412,12 @@ def wrap_error_case(case, filepath):
                 f.write(f"failed for case {case} {case.path}\ntraceback:\n{traceback_str}")
 
 def initial_condition():
-    dt = 0.0005
+    dt = 0.0001
     size = 256
-    IC_STEPS = 5_000
+    IC_STEPS = 5_000  * 5
     re = 40
 
-    forcing_folder = f"initial_condition_5k_steps{size}"
+    forcing_folder = f"initial_condition_25k_steps{size}"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
     output_folder = f"../../distribute_save"
     batch_name = forcing_folder
