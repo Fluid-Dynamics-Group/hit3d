@@ -195,7 +195,7 @@ def run_hit3d(nprocs):
 
 # we have just run a process to generate an initial condition for the other datasets
 # this function organizes the outputs so that they may be used by other processes
-def organize_initial_condition(save_folder):
+def organize_initial_condition(save_folder, epsilon_1, epsilon_2):
     #run_shell_command(f"hit3d-utils add {solver_folder}/energy/ {solver_folder}/energy.csv")
 
     with open(save_folder + "/energy.csv", "r") as file:
@@ -210,11 +210,19 @@ def organize_initial_condition(save_folder):
 
             energy = float(row[1])
             helicity = float(row[3])
-            fdot_u = float(row[5])
-            fdot_h = float(row[6])
+
+            # these need to change if the CSV every changes
+            fdot_u_l = float(row[5])
+            fdot_u_r = float(row[6])
+
+            fdot_h_l = float(row[7])
+            fdot_h_r = float(row[8])
 
     if first==True:
         raise ValueError("there were no rows in the energy.csv outputted by the solver")
+
+    fdot_u = (fdot_u_l * epsilon_1) + (fdot_u_r * epsilon_2)
+    fdot_h = (fdot_h_l * epsilon_1) + (fdot_h_r * epsilon_2)
 
     EpsilonControl.to_json(energy, helicity, fdot_u, fdot_h)
 
@@ -263,6 +271,7 @@ class EpsilonControl():
 
 def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, save_vtk, size, epsilon_1, epsilon_2):
     shutil.move("input_file.in", output_folder + "/input_file.in")
+    shutil.copy(f"{solver_folder}/energy.csv", output_folder + '/energy.csv')
 
     os.mkdir(output_folder + '/flowfield')
     clean_and_create_folder(f"{output_folder}/scalars")
@@ -312,7 +321,6 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     run_shell_command(f'python3 {HIT3D_UTILS_BASE}/plots/spectra.py {solver_folder}/spectra.json {output_folder}')
 
     # move some of the important files to the save folder so they do not get purged
-    shutil.move(f"{solver_folder}/energy.csv", output_folder + '/energy.csv')
     shutil.move(f"{solver_folder}/es.gp", output_folder + '/es.gp')
     shutil.move(f"{solver_folder}/spectra.json", output_folder + '/spectra.json')
 
@@ -411,13 +419,26 @@ def wrap_error_case(case, filepath):
                 print(f"failed for case {case}")
                 f.write(f"failed for case {case} {case.path}\ntraceback:\n{traceback_str}")
 
+def copy_init_files(size):
+    if size == 128:
+        prefix = "/home/brooks/distribute-server/results/hit3d/initial_condition_5k_steps128/initial_condition_5k_steps128"
+    elif size == 256:
+        prefix = "/home/brooks/distribute-server/results/hit3d/initial_condition_25k_steps256/initial_condition_25k_steps256"
+    else:
+        raise ValueError("unknown initial condition file formats")
+
+    shutil.copy(prefix + "/" + IC_JSON_NAME, IC_JSON_NAME)
+    shutil.copy(prefix + "/" + IC_SPEC_NAME, IC_SPEC_NAME)
+    shutil.copy(prefix + "/" + IC_WRK_NAME, IC_WRK_NAME)
+
 def initial_condition():
-    dt = 0.0001
+    dt = 0.0005
     size = 256
-    IC_STEPS = 5_000  * 5
+    IC_STEPS = 5_000
     re = 40
 
-    forcing_folder = f"initial_condition_25k_steps{size}"
+
+    forcing_folder = f"initial_condition_5k_steps{size}"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
     output_folder = f"../../distribute_save"
     batch_name = forcing_folder
@@ -466,6 +487,8 @@ def forcing_cases():
     save_vtk = True
     batch_name = forcing_folder
 
+    copy_init_files(size)
+
     epsilon_generator = EpsilonControl.load_json()
 
     cases = [
@@ -498,8 +521,11 @@ def forcing_cases():
 
         for delta_1, delta_2, folder in cases:
             diffusion_str = skip_diffusion_to_str(skip_diffusion)
-            epsilon1 = epsilon_generator.epsilon_1(delta_1)
-            epsilon2 = epsilon_generator.epsilon_2(delta_2)
+            #epsilon1 = epsilon_generator.epsilon_1(delta_1)
+            #epsilon2 = epsilon_generator.epsilon_2(delta_2)
+
+            epsilon1 = delta_1 / 10
+            epsilon2 = delta_2 / 10
 
             if epsilon1 == -0.0:
                 epsilon1 = 0.0
@@ -646,8 +672,8 @@ def remove_restart_files():
             os.remove(i) 
 
 if __name__ == "__main__":
-    initial_condition()
-    #forcing_cases()
+    #initial_condition()
+    forcing_cases()
     #ep1_temporal_cases()
     #one_case()
     pass
