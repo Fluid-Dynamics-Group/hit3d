@@ -407,11 +407,12 @@ subroutine write_energy(current_time)
     fcomp_omega_left = fcomp_omega_left * frac
     fcomp_omega_right = fcomp_omega_right * frac
 
+    ! we initialize these values for the rate specifically
     epsilon_1 = PERTamp1
     epsilon_2 = PERTamp2
 
     f_rate_e = (-1* f_rate * epsilon_1 * frac)
-    f_rate_h = (-1*f_rate * epsilon_2 * frac)
+    f_rate_h = (-1* f_rate * epsilon_2 * frac)
 
     !
     ! check that all of the variables are not NAN

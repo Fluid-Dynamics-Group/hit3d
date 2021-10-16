@@ -221,8 +221,11 @@ def organize_initial_condition(save_folder, epsilon_1, epsilon_2):
     if first==True:
         raise ValueError("there were no rows in the energy.csv outputted by the solver")
 
-    fdot_u = (fdot_u_l * epsilon_1) + (fdot_u_r * epsilon_2)
-    fdot_h = (fdot_h_l * epsilon_1) + (fdot_h_r * epsilon_2)
+    # fdot_u = (fdot_u_l * epsilon_1) + (fdot_u_r * epsilon_2)
+    # fdot_h = (fdot_h_l * epsilon_1) + (fdot_h_r * epsilon_2)
+
+    fdot_u = fdot_u_l + fdot_u_r
+    fdot_h = fdot_h_l + fdot_h_r
 
     EpsilonControl.to_json(energy, helicity, fdot_u, fdot_h)
 
@@ -433,10 +436,9 @@ def copy_init_files(size):
 
 def initial_condition():
     dt = 0.0005
-    size = 256
+    size = 64
     IC_STEPS = 5_000
     re = 40
-
 
     forcing_folder = f"initial_condition_5k_steps{size}"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
@@ -467,11 +469,11 @@ def initial_condition():
 
 # in order to calculate forcing cases we need to have an initial condition file
 def forcing_cases():
-    delta_1 = .001
-    delta_2 = .002
+    delta_1 = .1
+    delta_2 = .2
 
     run_shell_command("make")
-    forcing_folder = f"parameter_sweep_{delta_1},{delta_2}_smaller_delta_256"
+    forcing_folder = f"check_output_128_short"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
 
     if not os.path.exists(save_json_folder):
@@ -481,9 +483,11 @@ def forcing_cases():
         os.remove(os.path.join(save_json_folder, f))
 
     dt = 0.0001
-    size = 256
+    #size = 256
+    size = 128
     re = 40
-    steps = 10_000
+    #steps = 10_000
+    steps = 1000
     save_vtk = True
     batch_name = forcing_folder
 
@@ -672,8 +676,8 @@ def remove_restart_files():
             os.remove(i) 
 
 if __name__ == "__main__":
-    #initial_condition()
-    forcing_cases()
+    initial_condition()
+    #forcing_cases()
     #ep1_temporal_cases()
     #one_case()
     pass
