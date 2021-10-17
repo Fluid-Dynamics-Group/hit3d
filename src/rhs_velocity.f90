@@ -27,58 +27,7 @@ subroutine rhs_velocity
 ! ===========================MGM-Forcing=====================
 !--------------------------------------------------------------------------------
     if (PERT .eq. 1) then
-        !write(*,*) "running mgm foring in rhs_velocity"
-
-        epsilon1 = PERTamp1
-        epsilon2 = PERTamp2
-        ! ******1. Compute vorticity
-        ! velocities in Fourier space
-        wrk(:, :, :, 1:3) = fields(:, :, :, 1:3)
-        ! Taking derivatives
-        call x_derivative(3, 'y', 6)
-        call x_derivative(3, 'x', 5)
-        call x_derivative(2, 'z', 4)
-        call x_derivative(2, 'x', 3)
-        call x_derivative(1, 'z', 2)
-        call x_derivative(1, 'y', 1)
-        ! getting vorticity
-        wrk(:, :, :, 3) = wrk(:, :, :, 3) - wrk(:, :, :, 1)  ! omega_3 = v_x - u_y
-        wrk(:, :, :, 2) = wrk(:, :, :, 2) - wrk(:, :, :, 5)  ! omega_2 = u_z - w_x
-        wrk(:, :, :, 1) = wrk(:, :, :, 6) - wrk(:, :, :, 4)  ! omega_1 = w_y - v_z
-        ! velocities
-        wrk(:, :, :, 4:6) = fields(:, :, :, 1:3)
-        ! convert to X-space
-        do n = 1, 6
-            call xFFT3d(-1, n)
-        end do
-
-        ! ******2. Compute forcing terms & take FFTs
-        ! u \cdot omg
-        fcomp(:, :, :, 0) = wrk(:, :, :, 1)*wrk(:, :, :, 4) + wrk(:, :, :, 2)*wrk(:, :, :, 5) + wrk(:, :, :, 3)*wrk(:, :, :, 6)
-        ! ||omg||^2
-        fcomp(:, :, :, 1) = wrk(:, :, :, 1)**2 + wrk(:, :, :, 2)**2 + wrk(:, :, :, 3)**2
-        ! ||u||^2
-        fcomp(:, :, :, 2) = wrk(:, :, :, 4)**2 + wrk(:, :, :, 5)**2 + wrk(:, :, :, 6)**2
-        ! u, v, w components of forcing term
-        do n = 1, 3
-            fcomp(:, :, :, 2 + n) = epsilon1*(fcomp(:, :, :, 0)*wrk(:, :, :, n) - fcomp(:, :, :, 1)*wrk(:, :, :, 3 + n)) + &
-                                    epsilon2*(fcomp(:, :, :, 0)*wrk(:, :, :, 3 + n) - fcomp(:, :, :, 2)*wrk(:, :, :, n))
-        end do
-        ! copy to work array to perform FFT
-        wrk(:, :, :, 1:3) = fcomp(:, :, :, 3:5)
-        ! converting the products to the Fourier space
-        do n = 1, 3
-            call xFFT3d(1, n)
-        end do
-
-        ! ******3. save to temp array
-        fcomp(:, :, :, 1:3) = wrk(:, :, :, 1:3)
-
-        ! converting velocities to the real space, similar to output of rhs_scalar
-        wrk(:, :, :, 1:3) = fields(:, :, :, 1:3)
-        do n = 1, 3
-            call xFFT3d(-1, n)
-        end do
+        call calculate_forcing(PERTamp1, PERTamp2)
     end if   ! end forcing
 !-------------------------------------------------------------------------
 
@@ -627,3 +576,69 @@ subroutine test_rhs_velocity
     end if
     return
 end subroutine test_rhs_velocity
+
+
+
+subroutine calculate_forcing(epsilon1, epsilon2)
+
+    use m_io
+    use m_parameters
+    use m_fields
+    use m_work
+    use x_fftw
+
+    implicit none
+
+    real*8 :: epsilon1, epsilon2
+    integer :: n
+
+    ! ******1. Compute vorticity
+    ! velocities in Fourier space
+    wrk(:, :, :, 1:3) = fields(:, :, :, 1:3)
+    ! Taking derivatives
+    call x_derivative(3, 'y', 6) ! derivative of (1) WRT (2) -> store it in (3)
+    call x_derivative(3, 'x', 5)
+    call x_derivative(2, 'z', 4)
+    call x_derivative(2, 'x', 3)
+    call x_derivative(1, 'z', 2)
+    call x_derivative(1, 'y', 1)
+    ! getting vorticity
+    wrk(:, :, :, 3) = wrk(:, :, :, 3) - wrk(:, :, :, 1)  ! omega_3 = v_x - u_y
+    wrk(:, :, :, 2) = wrk(:, :, :, 2) - wrk(:, :, :, 5)  ! omega_2 = u_z - w_x
+    wrk(:, :, :, 1) = wrk(:, :, :, 6) - wrk(:, :, :, 4)  ! omega_1 = w_y - v_z
+    ! velocities
+    wrk(:, :, :, 4:6) = fields(:, :, :, 1:3)
+    ! convert to X-space
+    do n = 1, 6
+        call xFFT3d(-1, n)
+    end do
+
+    ! ******2. Compute forcing terms & take FFTs
+    ! u \cdot omg
+    fcomp(:, :, :, 0) = wrk(:, :, :, 1)*wrk(:, :, :, 4) + wrk(:, :, :, 2)*wrk(:, :, :, 5) + wrk(:, :, :, 3)*wrk(:, :, :, 6)
+    ! ||omg||^2
+    fcomp(:, :, :, 1) = wrk(:, :, :, 1)**2 + wrk(:, :, :, 2)**2 + wrk(:, :, :, 3)**2
+    ! ||u||^2
+    fcomp(:, :, :, 2) = wrk(:, :, :, 4)**2 + wrk(:, :, :, 5)**2 + wrk(:, :, :, 6)**2
+    ! u, v, w components of forcing term
+    do n = 1, 3
+        fcomp(:, :, :, 2 + n) = epsilon1*(fcomp(:, :, :, 0)*wrk(:, :, :, n) - fcomp(:, :, :, 1)*wrk(:, :, :, 3 + n)) + &
+                                epsilon2*(fcomp(:, :, :, 0)*wrk(:, :, :, 3 + n) - fcomp(:, :, :, 2)*wrk(:, :, :, n))
+    end do
+    ! copy to work array to perform FFT
+    wrk(:, :, :, 1:3) = fcomp(:, :, :, 3:5)
+    ! converting the products to the Fourier space
+    do n = 1, 3
+        call xFFT3d(1, n)
+    end do
+
+    ! ******3. save to temp array
+    fcomp(:, :, :, 1:3) = wrk(:, :, :, 1:3)
+
+    ! converting velocities to the real space, similar to output of rhs_scalar
+    wrk(:, :, :, 1:3) = fields(:, :, :, 1:3)
+    do n = 1, 3
+        call xFFT3d(-1, n)
+    end do
+
+end 
