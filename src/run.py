@@ -7,7 +7,7 @@ import json
 from glob import glob
 
 UNR = True 
-IS_DISTRIBUTED = True
+IS_DISTRIBUTED = False
 IS_SINGULARITY = False
 
 if UNR:
@@ -427,6 +427,8 @@ def copy_init_files(size):
         prefix = "/home/brooks/distribute-server/results/hit3d/initial_condition_5k_steps128/initial_condition_5k_steps128"
     elif size == 256:
         prefix = "/home/brooks/distribute-server/results/hit3d/initial_condition_25k_steps256/initial_condition_25k_steps256"
+    elif size == 64:
+        prefix = "/home/brooks/distribute-server/results/hit3d/initial_condition_5k_steps64/initial_condition_5k_steps64"
     else:
         raise ValueError("unknown initial condition file formats")
 
@@ -634,11 +636,22 @@ def copy_distribute_files(target_folder, batch_name):
 # helpful function for runnning one-off cases
 def one_case():
     save_json_folder = f"{BASE_SAVE}/simple_test_case"
+    size = 128
+    steps = 1
 
-    if IS_SINGULARITY and IS_DISTRIBUTED:
-        output_folder = f"/distribute_save/"
+    if IS_DISTRIBUTED:
+        if IS_SINGULARITY: 
+            # running distributed and in singularity
+            output_folder = f"/distribute_save/"
+        else:
+            # running distributed without singularity
+            output_folder = f"../../distribute_save/"
     else:
-        output_folder = f"../../distribute_save/"
+        # running locally
+        output_folder = "./current_results"
+        if os.path.exists(output_folder):
+            shutil.rmtree(output_folder)
+        os.mkdir(output_folder)
 
     batch_name = "one_case"
 
@@ -653,22 +666,28 @@ def one_case():
 
     case =  RunCase(
         skip_diffusion=1,
-        size=64,
+        size=size,
         dt=0.0001,
-        steps=100,
+        steps=steps,
         restarts=0,
         reynolds_number=40,
         path=output_folder,
         load_initial_data=2,
-        epsilon1=0.000001,
-        epsilon2=0.000001,
+        epsilon1=0.000000,
+        epsilon2=0.000000,
         export_vtk=False,
         scalar_type=14
     )
 
-    case.write_to_json("single-case", save_json_folder)
+    if IS_DISTRIBUTED:
+        print("createing files to run on distributed compute")
+        case.write_to_json("single-case", save_json_folder)
 
-    copy_distribute_files(save_json_folder, batch_name)
+        copy_distribute_files(save_json_folder, batch_name)
+    else:
+        print("running the case locally")
+        copy_init_files(size)
+        case.run(1)
 
 def remove_restart_files():
     for i in ["initial_condition_espec.pkg", "initial_condition_wrk.pkg", "initial_condition_vars.json"]:
@@ -676,8 +695,8 @@ def remove_restart_files():
             os.remove(i) 
 
 if __name__ == "__main__":
-    initial_condition()
+    #initial_condition()
     #forcing_cases()
     #ep1_temporal_cases()
-    #one_case()
+    one_case()
     pass

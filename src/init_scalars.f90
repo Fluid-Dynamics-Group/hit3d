@@ -25,18 +25,18 @@ subroutine init_scalars
     write (out, *) "Generated the scalars."
     call flush (out)
 
-    ! temporary removing this to see results - Brooks
-    !
-    ! ! now making sure that the scalars do not have any high
-    ! ! Fourier harmonics by zeroing out everything that has a wavenumber
-    ! ! that potentially can produce aliasing
-    ! do k = 1, nz
-    !     do j = 1, ny
-    !         do i = 1, nx + 2
-    !             if (ialias(i, j, k) .gt. 0) fields(i, j, k, 4:3 + n_scalars) = zip
-    !         end do
-    !     end do
-    ! end do
+    ! now making sure that the scalars do not have any high
+    ! Fourier harmonics by zeroing out everything that has a wavenumber
+    ! that potentially can produce aliasing
+    do k = 1, nz
+        do j = 1, ny
+            do i = 1, nx + 2
+                if (ialias(i, j, k) .gt. 0) fields(i, j, k, 4:3 + n_scalars) = zip
+            end do
+        end do
+    end do
+
+    call write_scalars("after dealiasing things")
 
     return
 
@@ -55,7 +55,7 @@ subroutine init_scalar(n_scalar)
 
     integer :: n_scalar, ic_type, sc_type
 
-    write (out, *) 'Generating scalar #', n_scalar
+    write (out, *) 'Generating scalar #', n_scalar, "(general init_scalar)"
     call flush (out)
 
     sc_type = scalar_type(n_scalar)
@@ -110,7 +110,7 @@ subroutine init_scalar_spectrum(n_scalar)
     real*8 :: wmag, wmag2, ratio, fac, fac2
 
 !--------------------------------------------------------------------------------
-    write (out, *) " Generating scalar # ", n_scalar
+    write (out, *) " Generating scalar # ", n_scalar, " spectrum"
     call flush (out)
 
     ! Initializing the random sequence with the seed RN2
@@ -293,7 +293,7 @@ subroutine init_scalar_space(n_scalar)
 
     nfi = 3 + n_scalar
 
-    write (out, *) " Generating scalar # ", n_scalar
+    write (out, *) " Generating scalar # ", n_scalar, "(space)"
     call flush (out)
 
     sc_type = scalar_type(n_scalar)
@@ -378,11 +378,12 @@ subroutine init_scalar_space(n_scalar)
 
         write(out, *) "black range for scalars is ", black_range
 
-        fields(:,:,:,nfi) = -1.0
-
+        wrk(:,:,:,0) = -1.0
         
         ! black box in the top left and the bottom left
         !
+        ! ^ ymax
+        ! |
         ! |-------------|
         ! |xxx          |
         ! |xxx          |
@@ -390,12 +391,12 @@ subroutine init_scalar_space(n_scalar)
         ! |             |
         ! |xxx          |
         ! |xxx          |
-        ! |-------------|
+        ! |-------------|  --> xmax
         do i=  1,black_range
-            ! top left
+            ! bottom left
             do j=  1,black_range
                 do k=  1,nz
-                    fields(i,j,k, nfi) = 1.0
+                    wrk(i,j,k, 0) = 1.0
                     iter = iter + 1
                 end do
             end do
@@ -403,7 +404,7 @@ subroutine init_scalar_space(n_scalar)
             ! bottom left
             do j=  2*black_range,ny
                 do k=  1,nz
-                    fields(i,j,k, nfi) = 1.0
+                    wrk(i,j,k, 0) = 1.0
                     iter = iter + 1
                 end do
             end do
@@ -423,7 +424,7 @@ subroutine init_scalar_space(n_scalar)
             ! top right
             do j=  1,black_range
                 do k=  1,nz
-                    fields(i,j,k, nfi) = 1.0
+                    wrk(i,j,k, 0) = 1.0
                     iter = iter + 1
                 end do
             end do
@@ -431,7 +432,7 @@ subroutine init_scalar_space(n_scalar)
             ! bottom right
             do j=  2*black_range,ny
                 do k=  1,nz
-                    fields(i,j,k, nfi) = 1.0
+                    wrk(i,j,k, 0) = 1.0
                     iter = iter + 1
                 end do
             end do
@@ -451,16 +452,22 @@ subroutine init_scalar_space(n_scalar)
             ! top right
             do j=  black_range, 2*black_range
                 do k=  1,nz
-                    fields(i,j,k, nfi) = 1.0
+                    wrk(i,j,k, 0) = 1.0
                     iter = iter + 1
                 end do
             end do
         end do
 
-        write(out, *) dble(iter) / dble(nx*ny*nz), "points have been colored to concentration of 1"
+        write(out, *) dble(iter) / dble(nx*ny*nz), " percent points have been colored to concentration of 1"
+        write(*, *) "nfi is", nfi
+        write(*,*) "black range is", black_range
 
         ! apply FFT to the data
-        call xFFT3d_fields(1, nfi)
+        call xFFT3d(1, 0)
+
+        fields(1:nx, 1:ny, 1:nz, nfi) = wrk(1:nx, 1:ny, 1:nz, 0)
+
+        call write_scalars("directly after initialization")
 
         ! make sure mean is zero -they do that for the other types
         if (iammaster) fields(1, 1, 1, 3 + n_scalar) = zip

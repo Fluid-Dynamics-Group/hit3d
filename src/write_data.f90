@@ -13,25 +13,44 @@ module m_data
     real*8 :: energy, helicity, solver_energy, solver_helicity, udotw, umag, wmag
     real*8 :: fcomp_u_left, fcomp_u_right
     real*8 :: fcomp_omega_left, fcomp_omega_right
+    integer :: scalar_number
 end module m_data
 
-subroutine write_scalars(current_timestep)
+! write all the scalars with a given description to a VTK file
+! This routine expects the scalar information to be in fourier space
+subroutine write_scalars(description)
     use m_work
     use m_parameters
     use x_fftw
+    use m_data
     implicit none
 
-    integer :: current_timestep, n
+    integer :: n
+    character(len=100) :: description
+
+
+    if (iammaster) then
+        write(*,*) "writing scalar ", scalar_number, " at ", description
+        write(out,*) "writing scalar ", scalar_number, " at ", description
+        call flush
+        call flush(out)
+    end if
 
     if (int_scalars) then
         do n = 1, n_scalars
             wrk(1:nx, 1:ny, 1:nz, 3+n) = fields(1:nx, 1:ny, 1:nz, 3+n)
+            ! map into time space
             call xFFT3d(-1, 3 + n)
             
             ! write all the scalar data to an output file
-            call send_scalars(n, current_timestep)
+            call send_scalars(n+3, scalar_number)
+
+            ! map back to fourier space
+            call xFFT3d(1, 3 + n)
         end do
     end if
+
+    scalar_number = scalar_number + 1
 
 end subroutine write_scalars
 
@@ -48,6 +67,10 @@ subroutine send_scalars(wrk_idx, current_timestep)
     integer :: i, j, k
     character(len=80) :: filename
     real*8 :: scalar_value
+
+    if (iammaster) then
+        write(*,*) "send scalars for step", current_timestep
+    end if
 
     count = nx * ny * nz
 
@@ -213,6 +236,8 @@ subroutine init_write_energy
 
     filenumber = 621
     call create_energy_filename(filename)
+
+    scalar_number = 0
 
     if (master == myid) then
         open (filenumber, file="output/energy.csv")

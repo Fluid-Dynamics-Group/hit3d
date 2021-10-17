@@ -20,6 +20,7 @@ subroutine begin_new
     file_ext = '000000'
 
     if (task .eq. 'hydro') then
+        write (out, *) " calling init scalars from begin_new"
         call init_velocity
         if (n_scalars .gt. 0) call init_scalars
         call io_write_4

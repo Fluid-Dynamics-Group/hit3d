@@ -69,6 +69,8 @@ program x_code
         stop 1
     end if
 
+    call write_scalars(trim("after loading initial condition data"))
+
     ! Initializing the LES stuff
     if (les) call m_les_begin
 
@@ -91,6 +93,7 @@ program x_code
 !  MAIN CYCLE
 !================================================================================
 
+    call write_scalars("before main solver loop")
     do 100 ITIME = ITMIN + 1, ITMAX
 
         ! output some runtime statistics on how far into the simulation we are
@@ -118,6 +121,7 @@ program x_code
 !--------------------------------------------------------------------------------
         hydro: if (task .eq. 'hydro') then
 
+            call write_scalars("before TRESCALE block")
             ! ------------------------------------------------------------
             ! taking care of rescaling when running decaying turbulence
             ! if the time just was divisible by TRESCALE
@@ -139,8 +143,12 @@ program x_code
                 end if
             end if
 
+            call write_scalars("after TRESCALE block - before rhs_scalars")
+
             ! RHS for scalars
             call rhs_scalars
+
+            call write_scalars("after rhs_scalars, before field_to_parts")
 
             ! now the velocities in x-space are contained in wrk1...3
             ! if we are moving particles, then we want to send the velocity field
@@ -164,11 +172,15 @@ program x_code
 
             end if
 
+            call write_scalars("after advancing the scalars with euler / AB, about to call rhs_velo")
+
             ! RHS for velocities
             call rhs_velocity
 
             ! adding forcing, if computing forced flow
             if (flow_type .eq. 1) call force_velocity
+
+            call write_scalars("after RHS velo, before advancing the velocity")
 
             ! advance velocity - either Euler or Adams-Bashforth
             if (fov) then
@@ -186,6 +198,8 @@ program x_code
                                        dt*(rhs_saved)
                 rhs_old(:, :, :, 1:3) = wrk(:, :, :, 1:3)
             end if
+
+            call write_scalars("after advancing the velocity, before pressure")
 
             ! solve for pressure and update velocities so they are incompressible
             ! we solve for the pressure after finding the pressure
@@ -215,6 +229,8 @@ program x_code
                 call flush (out)
             end if
 
+            call write_scalars("right before potentially starting the scalars at a later time")
+
             if (mod(itime, iprint1) .eq. 0 .or. mod(itime, iwrite4) .eq. 0) then
 
                 ! send the velocities to the "stats" part of the code for statistics
@@ -226,6 +242,7 @@ program x_code
                 ! checking if we need to start advancing scalars
                 if (n_scalars .gt. 0 .and. .not. int_scalars .and. time .gt. TSCALAR) then
                     int_scalars = .true.
+                    write (out,*) "moving the scalars from main.f90 - calling init"
                     call init_scalars
                     write (out, *) "Starting to move the scalars."
                     call flush (out)
@@ -233,6 +250,8 @@ program x_code
 
             end if
         end if hydro
+
+        call write_scalars("at the point where we normally initialize the scalar information")
 
         ! if we are at the specified timestep and our job is to write a restart file ...
         if (ITIME >= ITMAX .and. load_initial_condition == 1) then
@@ -249,7 +268,7 @@ program x_code
             ! write energy and helicity to a csv
             call write_energy(time)
             call write_slice(int(itime))
-            call write_scalars(int(itime))
+            !call write_scalars(int(itime))
 
             ! we only write vtk files once every *8 time steps because the post processessing
             ! is very slow
@@ -263,6 +282,8 @@ program x_code
                 call write_velocity_field(int(itime))
             end if
         end if
+
+        call write_scalars("before statistics portion")
 
 !--------------------------------------------------------------------------------
 !                             STATISTICS PART
@@ -287,6 +308,8 @@ program x_code
 
             end if
         end if stats
+
+        call write_scalars("before particle parts")
 
 !--------------------------------------------------------------------------------
 !                             PARTICLE PARTS
@@ -322,6 +345,8 @@ program x_code
 !                             COMMON PARTS
 !--------------------------------------------------------------------------------
 
+        call write_scalars("before common parts")
+
         ! every 10 iterations checking
         ! 1) for the run time: are we getting close to the job_runlimit?
         ! 2) for the user termination: is there a file "stop" in directory?
@@ -349,11 +374,15 @@ program x_code
         end if
 
 100     continue
+
+        call write_scalars("finished main solver loop")
 !================================================================================
 
 !--------------------------------------------------------------------------------
 !  In a case when we've gone to ITMAX, write the restart file
 !--------------------------------------------------------------------------------
+
+        call write_scalars("before restart write parallel")
 
         ITIME = ITIME - 1
         if (task .eq. 'hydro') call restart_write_parallel
