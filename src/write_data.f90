@@ -29,7 +29,7 @@ subroutine write_scalars(current_timestep)
             call xFFT3d(-1, 3 + n)
             
             ! write all the scalar data to an output file
-            call send_scalars(n, current_timestep)
+            call send_scalars(n+3, current_timestep)
         end do
     end if
 
