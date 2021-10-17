@@ -245,7 +245,8 @@ program x_code
             call my_exit(0)
             call m_openmpi_exit
             stop
-        elseif (mod(itime, iwrite4) == 0 .or. itime == 0) then
+        ! write data at the first iteration of any IWRITE4 (config file) point after
+        elseif (mod(itime, iwrite4) == 0 .or. itime == ITMIN+1) then
             ! write energy and helicity to a csv
             call write_energy(time)
             call write_slice(int(itime))
@@ -255,9 +256,10 @@ program x_code
             ! is very slow
             ! also only write them after the restarts are done
             if ( &
-                (finished_restarts .AND. mod(itime, iwrite4*8) .eq. 0) &
-                .or. &
-                itime == 0 &
+                ( &
+                    finished_restarts .AND. mod(itime, iwrite4*8) .eq. 0) &
+                    .or. &
+                    itime == ITMIN + 1 &
                 ) then
                 write(out, *) "writing flowfield at itime ", itime
                 call write_velocity_field(int(itime))

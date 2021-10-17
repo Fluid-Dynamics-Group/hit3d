@@ -7,7 +7,7 @@ import json
 from glob import glob
 
 UNR = True 
-IS_DISTRIBUTED = False
+IS_DISTRIBUTED = True
 IS_SINGULARITY = False
 
 if UNR:
@@ -485,11 +485,9 @@ def forcing_cases():
         os.remove(os.path.join(save_json_folder, f))
 
     dt = 0.0001
-    #size = 256
-    size = 128
+    size = 256
     re = 40
-    #steps = 10_000
-    steps = 1000
+    steps = 80_000
     save_vtk = True
     batch_name = forcing_folder
 
@@ -509,10 +507,9 @@ def forcing_cases():
         # both ep1 and ep2 cases
         [ delta_1, delta_2, "epboth-pos"],
         [ -1*delta_1, -1 * delta_2, "epboth-neg"],
-    ]
 
-    if (delta_1 == 0.1 and delta_2 == 0.2) or True:
-        cases.append([0., 0., "baseline"])
+        [0., 0., "baseline"]
+    ]
 
     if IS_SINGULARITY and IS_DISTRIBUTED:
         output_folder = f"/distribute_save/"
@@ -527,11 +524,8 @@ def forcing_cases():
 
         for delta_1, delta_2, folder in cases:
             diffusion_str = skip_diffusion_to_str(skip_diffusion)
-            #epsilon1 = epsilon_generator.epsilon_1(delta_1)
-            #epsilon2 = epsilon_generator.epsilon_2(delta_2)
-
-            epsilon1 = delta_1 / 10
-            epsilon2 = delta_2 / 10
+            epsilon1 = epsilon_generator.epsilon_1(delta_1)
+            epsilon2 = epsilon_generator.epsilon_2(delta_2)
 
             if epsilon1 == -0.0:
                 epsilon1 = 0.0
@@ -635,9 +629,9 @@ def copy_distribute_files(target_folder, batch_name):
 
 # helpful function for runnning one-off cases
 def one_case():
-    save_json_folder = f"{BASE_SAVE}/simple_test_case"
+    save_json_folder = f"{BASE_SAVE}/100k_128N_scalars"
     size = 128
-    steps = 1
+    steps = 100_000
 
     if IS_DISTRIBUTED:
         if IS_SINGULARITY: 
@@ -667,7 +661,7 @@ def one_case():
     case =  RunCase(
         skip_diffusion=1,
         size=size,
-        dt=0.0001,
+        dt=0.0005,
         steps=steps,
         restarts=0,
         reynolds_number=40,
