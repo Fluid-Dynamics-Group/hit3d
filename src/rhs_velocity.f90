@@ -26,9 +26,11 @@ subroutine rhs_velocity
 !--------------------------------------------------------------------------------
 ! ===========================MGM-Forcing=====================
 !--------------------------------------------------------------------------------
+    ! right here the velicities in fields() are in fourier space
     if (PERT .eq. 1) then
         call calculate_forcing(PERTamp1, PERTamp2)
     end if   ! end forcing
+    ! after this if statement going forward the velocities should be in x-space
 !-------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------
@@ -82,14 +84,13 @@ subroutine rhs_velocity
         end do
 
         ! Building the RHS.
-        ! First, put into wrk arrays the convectove terms (that will be multiplyed by "i"
+        ! First, put into wrk arrays the convective terms (that will be multiplyed by "i"
         ! later) and the factor that corresponds to the diffusion
 
         ! Do not forget that in Fourier space the indicies are (ix, iz, iy)
         do k = 1, nz
             do j = 1, ny
                 do i = 1, nx + 2
-
                     t1(1) = -(akx(i)*wrk(i, j, k, 1) + aky(k)*wrk(i, j, k, 2) + akz(j)*wrk(i, j, k, 3))
                     t1(2) = -(akx(i)*wrk(i, j, k, 2) + aky(k)*wrk(i, j, k, 4) + akz(j)*wrk(i, j, k, 5))
                     t1(3) = -(akx(i)*wrk(i, j, k, 3) + aky(k)*wrk(i, j, k, 5) + akz(j)*wrk(i, j, k, 6))
@@ -104,6 +105,13 @@ subroutine rhs_velocity
                 end do
             end do
         end do
+
+        ! previously we have calculated the forcing according to epsilon 1/2
+        ! 
+        ! if the config says to do viscous compensation then we do it here
+        if ((PERT == 1) .and. (viscous_compensation == 1)) then
+            call update_forcing_viscous_compensation()
+        end if
 
         ! now take the actual fields from fields(:,:,:,:) and calculate the RHSs
 
@@ -148,13 +156,15 @@ subroutine rhs_velocity
                                 ! taking the convective term, multiply it by "i"
                                 ! (see how it's done in x_fftw.f90)
                                 ! and adding the diffusion term
-                                rtmp =           - wrk(i+1,j,k,n) + wrk(i  ,j,k,4) * fields(i  ,j,k,n) &
-                                + fcomp(i  ,j,k,n)
-                                wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) + wrk(i+1,j,k,4) * fields(i+1,j,k,n) &
-                                + fcomp(i+1,j,k,n)
-                                wrk(i, j, k, n) = rtmp
 
-                                ! dot this wrk variable with u - can try doing truncation here based on rtmp
+                                ! Brooks - based on the above comment it looks like Convective term is in wrk(i,j,k,4)
+                                !          based on the above comment it looks like diffusion term is in wrk(i,j,k,n)
+                                !          But above we see that t(4) (wrk(:,:,:,4)) looks like it contains a diffusion term
+                                !          but that term is the one getting multiplied by `i`
+
+                                rtmp =            - wrk(i+1,j,k,n) + wrk(i ,j,k,4) * fields(i  ,j,k,n) + fcomp(i  ,j,k,n)
+                                wrk(i+1,j,k,n) =    wrk(i  ,j,k,n) + wrk(i+1,j,k,4) *fields(i+1,j,k,n) + fcomp(i+1,j,k,n)
+                                wrk(i, j, k, n) =   rtmp
 
                             end if
 
@@ -239,13 +249,10 @@ subroutine rhs_velocity
                     ! The rest of the modes is purged.
 
                     if (ialias(i, j, k) .gt. 1) then ! run for dealias = 1
-                        !write(*,*) "AVOIDING THE BROOKS CODE CODE"
                         ! setting the Fourier components to zero
                         wrk(i, j, k, 1:3) = zip
                         wrk(i + 1, j, k, 1:3) = zip
                     else ! run for dealias = 0
-                        !write(*,*) "RUNNING THE BROOKS CODE"
-
                         if (skip_diffusion == 1) then ! we _ARE NOT_ doing diffusion calculations
                             ! RHS for u, v and w
                             do n = 1, 3
@@ -577,8 +584,10 @@ subroutine test_rhs_velocity
     return
 end subroutine test_rhs_velocity
 
-
-
+! calculate f_u matrix
+! expects fields arrays to be in fourier space
+! (transitively the wrk arrays are also in fourier space)
+! returns arrays in x-space
 subroutine calculate_forcing(epsilon1, epsilon2)
 
     use m_io
@@ -621,6 +630,7 @@ subroutine calculate_forcing(epsilon1, epsilon2)
     ! ||u||^2
     fcomp(:, :, :, 2) = wrk(:, :, :, 4)**2 + wrk(:, :, :, 5)**2 + wrk(:, :, :, 6)**2
     ! u, v, w components of forcing term
+    ! Brooks - I think this is all calculated in X-space (not fourier)
     do n = 1, 3
         fcomp(:, :, :, 2 + n) = epsilon1*(fcomp(:, :, :, 0)*wrk(:, :, :, n) - fcomp(:, :, :, 1)*wrk(:, :, :, 3 + n)) + &
                                 epsilon2*(fcomp(:, :, :, 0)*wrk(:, :, :, 3 + n) - fcomp(:, :, :, 2)*wrk(:, :, :, n))
@@ -642,3 +652,76 @@ subroutine calculate_forcing(epsilon1, epsilon2)
     end do
 
 end 
+
+! the input to this subroutine has the wrk array in fourier space
+! the output arrays should also be in fourier space
+! wrk(:,:,:,1-3) contains the convective terms
+! wrk(:,:,:,4) contains the diffusion term
+subroutine update_forcing_viscous_compensation()
+    use m_work
+    use m_fields
+    use x_fftw
+
+    implicit none
+
+    ! F_1, D_i and d/dt (Q_1)
+    real*8 :: F_1, D_1, dQ_1
+    real*8 :: term1, term2, term3
+    real*8 :: diffusion_x, diffusion_y, diffusion_z
+    integer :: i,j,k
+
+    F_1 = 0.
+    D_1 = 0.
+    dQ_1 = 0.
+
+    !
+    ! first calculate the terms used for i=1
+    !
+
+    ! copy all the old varaibles to tmp_work
+    tmp_wrk(:,:,:,:) = wrk(:,:,:,:)
+
+    ! copy the fcomp stuff into wrk so that we can move it to fourier space
+    wrk(:,:,:,1:3) = fcomp(:,:,:,1:3)
+
+    do i=1,3
+        call xFFT3d(1, i)
+    end do
+
+    ! fcomp now has all its components in fourier space
+    fcomp(:,:,:,1:3) = wrk(:,:,:,1:3)
+
+    ! can we do all this in fourier space?
+    ! What is going on here.
+    ! what are we allowed to do and not allowed to do
+
+    do i=1,nx
+        do j=1,nx
+            do k=1,nx
+                F_1 = F_1 + &
+                    fields(i,j,k,1) * fcomp(i,j,k,1) + &
+                    fields(i,j,k,2) * fcomp(i,j,k,2) + &
+                    fields(i,j,k,3) * fcomp(i,j,k,3)
+
+                diffusion_x = tmp_wrk(i,j,k,4) * fields(i,j,k,1)
+                diffusion_y = tmp_wrk(i,j,k,4) * fields(i,j,k,2)
+                diffusion_z = tmp_wrk(i,j,k,4) * fields(i,j,k,3)
+
+                D_1 = D_1 + &
+                    fields(i,j,k,1) * diffusion_x + &
+                    fields(i,j,k,2) * diffusion_y + &
+                    fields(i,j,k,3) * diffusion_z
+                
+                dQ_1 = dQ_1 + &
+                    fields(i,j,k,1) * (diffusion_x + fcomp(i,j,k,1) )
+                    fields(i,j,k,2) * (diffusion_y + fcomp(i,j,k,2) )
+                    fields(i,j,k,3) * (diffusion_z + fcomp(i,j,k,2) )
+
+            end do
+        end do
+    end do
+
+
+
+
+end
