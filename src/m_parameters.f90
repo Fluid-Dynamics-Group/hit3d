@@ -73,6 +73,19 @@ module m_parameters
     ! whether or not to skip calculating the diffusion term of euler
     integer :: skip_diffusion, load_initial_condition
 
+    ! when we do the calculation of diffusion keep the term in its 
+    ! own array so that we can use it for viscous compensation calculation later
+    ! = 1 -> allocates a separate array to store the diffusion term
+    ! = 0 -> calculates the diffusion normally without a separate array
+    integer :: calculate_diffusion_separate
+
+    ! whether or not to use viscous compensation
+    ! if you are using viscous compensation calculate_diffusion_separate
+    ! must be == 1
+    ! = 1 -> use viscous compensation formulation
+    ! = 0 -> do not use viscous compensation formulation
+    integer :: viscous_compensation
+
     ! number of particles assigned to the processor
     ! and the total number of particles
     integer(kind=MPI_INTEGER_KIND) :: np, np1, nptot
@@ -424,7 +437,24 @@ contains
 
         read (in, *, err=9000) load_initial_condition
         write (out, *) "load_initial_condition : ", load_initial_condition
+
+        ! -------------------------------------------------------------
+
+        ! check if we are using a separate array for the diffusion terms
+
+        read (in, *, err=9000) calculate_diffusion_separate
+        write (out, *) "calculate_diffusion_separate", calculate_diffusion_separate
+
+        ! -------------------------------------------------------------
+
+        ! check if we are using a viscous compensation formulation
+
+        read (in, *, err=9000) viscous_compensation
+        write (out, *) "viscous_compensation", viscous_compensation
+
+
         read (in, *) ! skips the --- line
+
 
         ! -------------------------------------------------------------
 

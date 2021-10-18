@@ -29,7 +29,14 @@ IC_WRK_NAME = "initial_condition_wrk.pkg"
 IC_JSON_NAME = "initial_condition_vars.json"
 
 class RunCase():
-    def __init__(self,skip_diffusion, size, dt, steps, restarts, reynolds_number,path, load_initial_data=0, nprocs=16, export_vtk=False, epsilon1=0.0, epsilon2=0.0, restart_time=1.0, skip_steps=0, scalar_type=0):
+    def __init__(self,
+            skip_diffusion, size, dt, 
+            steps, restarts, reynolds_number,
+            path, load_initial_data=0, nprocs=16, 
+            export_vtk=False, epsilon1=0.0, epsilon2=0.0, 
+            restart_time=1.0, skip_steps=0, scalar_type=0,
+            calculate_diffusion_separate=0, viscous_compensation=0,
+            ):
         # if there are restarts, find the number of steps spent in that those restarts
         # and add them to the current number of steps
         simulation_time_restart = restarts * restart_time
@@ -51,6 +58,9 @@ class RunCase():
         self.restart_time      = restart_time
         self.skip_steps        = skip_steps
         self.scalar_type        = scalar_type
+        
+        self.calculate_diffusion_separate= calculate_diffusion_separate
+        self.viscous_compensation = viscous_compensation
 
     def run(self, iteration):
         # automatically calculate a reasonable number of steps between io 
@@ -111,11 +121,43 @@ class RunCase():
             "restart_time":      self.restart_time,
             "skip_steps":        self.skip_steps,
             "scalar_type":        self.scalar_type,
-            "job_name": job_name
+            "job_name": job_name,
+            "calculate_diffusion_separate": self.calculate_diffusion_separate,
+            "viscous_compensation": self.viscous_compensation
         }
 
         with open(file_name, "w", encoding="utf-8") as file:
             json.dump(json_data, file)
+
+# define some schema so that we can more dynamically build
+# the correct branches of code
+class Build():
+    def __init__(self, hit3d_branch, hit3d_utils_branch):
+
+        self.hit3d_branch = hit3d_branch
+        self.hit3d_utils_branch = hit3d_utils_branch
+
+    def to_json(self, output_folder):
+        json_data = {
+            "hit3d_branch": self.hit3d_branch,
+            "hit3d_utils_branch": self.hit3d_utils_branch
+        }
+
+        with open(output_folder + "/build.json", "w", encoding="utf-8") as file:
+            json.dump(json_data, file)
+
+    @staticmethod
+    def load_json(from_folder):
+        json_path = from_folder + "/build.json"
+        print("loading json from ", json_path)
+
+        with open(json_path, "r", encoding="utf-8") as file:
+            json_data = json.load(file)
+
+            hit3d_branch = json_data["hit3d_branch"]
+            hit3d_utils_branch = json_data["hit3d_utils_branch"]
+
+            return Build(hit3d_branch, hit3d_utils_branch)
 
 # skip diffusion - 0 / 1 - whether or not to skip the diffusion calculations in rhs_velocity
 # size param - the number of divisions in each dimension (size_param=64 means 64x64x64 slices)
@@ -608,6 +650,12 @@ def copy_distribute_files(target_folder, batch_name):
         build_location = "/home/brooks/github/fluids/hit3d-utils/build.py"
         run_py = "/home/brooks/github/fluids/hit3d/src/run.py"
 
+    # read in all the json config files (skip build.json)
+    files = [i for i in glob(f"{target_folder}/*.json") if not "build.json" in i]
+    files = " ".join(files)
+
+    print("files are \n",files)
+
     run_shell_command(f"hit3d-utils distribute-gen \
             --output-folder {target_folder} \
             --library {run_py} \
@@ -615,7 +663,7 @@ def copy_distribute_files(target_folder, batch_name):
             --batch-name {batch_name} \
             --required-files {IC_SPEC_NAME} \
             --required-files {IC_WRK_NAME} \
-            {target_folder}/*.json"
+            {files}"
     )
 
     shutil.copy(build_location, f"{target_folder}/build.py")
@@ -626,12 +674,80 @@ def copy_distribute_files(target_folder, batch_name):
     shutil.copy(f"{HIT3D_UTILS_BASE}/generic_run.py", target_folder)
     shutil.copy(f"{HIT3D_UTILS_BASE}/build.py", target_folder)
 
+def test_viscous_compensation():
+    batch_name = "viscous_compensation_test"
+    save_json_folder = f"{BASE_SAVE}/{batch_name}"
+    size = 128
+    steps = 100
+
+    if IS_DISTRIBUTED:
+        if IS_SINGULARITY: 
+            # running distributed and in singularity
+            output_folder = f"/distribute_save/"
+        else:
+            # running distributed without singularity
+            output_folder = f"../../distribute_save/"
+    else:
+        raise ValueError("dont run viscous compensation test locally!")
+
+    # if the directory exists remove any older files from the dir 
+    if os.path.exists(save_json_folder):
+        for f in os.listdir(save_json_folder):
+            os.remove(os.path.join(save_json_folder, f))
+
+    os.makedirs(save_json_folder, exist_ok=True)
+
+    run_shell_command("make")
+    dt= 0.0005
+    restarts = 0
+    re = 40
+
+
+    visc_params = [
+        # no viscous compensation, dont store diffusion data in separate array
+        [0, 0],
+
+        # no viscous compensation, store diffusion data in separate array
+        [0, 1],
+
+        # viscous compensation, store diffusion data in separate array
+        [1, 1]
+    ]
+
+    for viscous_compensation, calculate_diffusion_separate in visc_params:
+
+        case =  RunCase(
+            skip_diffusion=1,
+            size=size,
+            dt=0.0005,
+            steps=steps,
+            restarts=0,
+            reynolds_number=40,
+            path=output_folder,
+            load_initial_data=2,
+            epsilon1=0.000000,
+            epsilon2=0.000000,
+            export_vtk=False,
+            scalar_type=14,
+            calculate_diffusion_separate=calculate_diffusion_separate,
+            viscous_compensation=viscous_compensation
+        )
+
+        case.write_to_json("single-case", save_json_folder)
+
+    copy_distribute_files(save_json_folder, batch_name)
+
+    # write a build.json file so that our code pulls the correct versions that we want
+
+    build = Build("visc-compensation", "visc-compensation")
+    build.to_json(save_json_folder)
 
 # helpful function for runnning one-off cases
 def one_case():
-    save_json_folder = f"{BASE_SAVE}/100k_128N_scalars"
+    batch_name = "100k_128N_scalars"
+    save_json_folder = f"{BASE_SAVE}/{batch_name}"
     size = 128
-    steps = 100_000
+    steps = 40_000
 
     if IS_DISTRIBUTED:
         if IS_SINGULARITY: 
@@ -647,7 +763,7 @@ def one_case():
             shutil.rmtree(output_folder)
         os.mkdir(output_folder)
 
-    batch_name = "one_case"
+    copy_init_files(size)
 
     # if the directory exists remove any older files from the dir 
     if os.path.exists(save_json_folder):
@@ -692,5 +808,6 @@ if __name__ == "__main__":
     #initial_condition()
     #forcing_cases()
     #ep1_temporal_cases()
-    one_case()
+    test_viscous_compensation()
+    #one_case()
     pass
