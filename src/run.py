@@ -92,7 +92,9 @@ class RunCase():
             self.epsilon1,
             self.epsilon2,
             self.restart_time,
-            self.scalar_type
+            self.scalar_type,
+            self.calculate_diffusion_separate,
+            self.viscous_compensation,
         )
 
     def __repr__(self):
@@ -171,7 +173,8 @@ def run_case(
     restarts, reynolds_number, load_initial_data, 
     nprocs, save_folder, iteration, 
     steps_between_io, export_vtk, epsilon1, epsilon2, 
-    restart_time, scalar_type):
+    restart_time, scalar_type,
+    calculate_diffusion_separate, viscous_compensation):
 
     if IS_DISTRIBUTED:
         print("running in distributed mode - singularity: ", IS_SINGULARITY);
@@ -207,6 +210,8 @@ def run_case(
             --tscalar -0.1 \
             --nscalar 1 \
             --scalar-type {scalar_type} \
+            --separate-diffusion {calculate_diffusion_separate} \
+            --viscous-compensation {viscous_compensation} \
             input_file.in ")
 
     restart_time_slice = restarts * 1.
@@ -702,38 +707,45 @@ def test_viscous_compensation():
     restarts = 0
     re = 40
 
+    delta_1 = .1
+    delta_2 = .2
+
+    epsilon_generator = EpsilonControl.load_json()
+
+    ep1 = epsilon_generator.epsilon_1(delta_1)
+    ep2 = epsilon_generator.epsilon_2(delta_2)
 
     visc_params = [
         # no viscous compensation, dont store diffusion data in separate array
-        [0, 0],
+        [0, 0, "no-compensation-no-separate"],
 
         # no viscous compensation, store diffusion data in separate array
-        [0, 1],
+        [0, 1, "no-compensation-separate"],
 
         # viscous compensation, store diffusion data in separate array
-        [1, 1]
+        [1, 1, "compensation-separate"]
     ]
 
-    for viscous_compensation, calculate_diffusion_separate in visc_params:
+    for viscous_compensation, calculate_diffusion_separate, case_name in visc_params:
 
         case =  RunCase(
             skip_diffusion=1,
             size=size,
-            dt=0.0005,
+            dt=dt,
             steps=steps,
-            restarts=0,
-            reynolds_number=40,
+            restarts=restarts,
+            reynolds_number=re,
             path=output_folder,
             load_initial_data=2,
-            epsilon1=0.000000,
-            epsilon2=0.000000,
+            epsilon1=ep1,
+            epsilon2=ep2,
             export_vtk=False,
             scalar_type=14,
             calculate_diffusion_separate=calculate_diffusion_separate,
             viscous_compensation=viscous_compensation
         )
 
-        case.write_to_json("single-case", save_json_folder)
+        case.write_to_json(case_name, save_json_folder)
 
     copy_distribute_files(save_json_folder, batch_name)
 
