@@ -60,10 +60,6 @@ class RunCase():
         # higher number = more steps saved
         io_steps = int(self.steps * 300 / 80_000)
 
-        # only save the data half as often for 256 cases
-        if self.size == 256:
-            io_steps *= 2
-
         io_steps = max(io_steps, 1)
 
         run_case(
@@ -471,11 +467,11 @@ def initial_condition():
 
 # in order to calculate forcing cases we need to have an initial condition file
 def forcing_cases():
-    delta_1 = .1
+    delta_1 = .001
     delta_2 = .2
 
     run_shell_command("make")
-    forcing_folder = f"check_output_128_short"
+    forcing_folder = f"physical_interpretation_256_fixed_scalars_cases"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
 
     if not os.path.exists(save_json_folder):
@@ -496,19 +492,19 @@ def forcing_cases():
     epsilon_generator = EpsilonControl.load_json()
 
     cases = [
+        [0., 0., "baseline"],
+
         #epsilon 1 cases
         [delta_1, 0., "ep1-pos"],
-        [-1*delta_1, 0., "ep1-neg"],
+        #[-1*delta_1, 0., "ep1-neg"],
 
         # epsilon 2  cases
-        [ 0., delta_2, "ep2-pos"],
-        [ 0., -1*delta_2, "ep2-neg"],
+        #[ 0., delta_2, "ep2-pos"],
+        #[ 0., -1*delta_2, "ep2-neg"],
 
         # both ep1 and ep2 cases
         [ delta_1, delta_2, "epboth-pos"],
-        [ -1*delta_1, -1 * delta_2, "epboth-neg"],
-
-        [0., 0., "baseline"]
+        #[ -1*delta_1, -1 * delta_2, "epboth-neg"],
     ]
 
     if IS_SINGULARITY and IS_DISTRIBUTED:
@@ -690,7 +686,7 @@ def remove_restart_files():
 
 if __name__ == "__main__":
     #initial_condition()
-    #forcing_cases()
+    forcing_cases()
     #ep1_temporal_cases()
-    one_case()
+    #one_case()
     pass
