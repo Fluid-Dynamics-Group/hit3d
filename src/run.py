@@ -467,8 +467,8 @@ def initial_condition():
 
 # in order to calculate forcing cases we need to have an initial condition file
 def forcing_cases():
-    delta_1 = .001
-    delta_2 = .2
+    delta_1 = .0001
+    delta_2 = .002
 
     run_shell_command("make")
     forcing_folder = f"physical_interpretation_256_fixed_scalars_cases"
