@@ -130,7 +130,7 @@ subroutine rhs_velocity
 
         do k = 1, nz
             do j = 1, ny
-                do i = 1, nx + 1, 2
+                do i = 1, nx+ 1, 2
                     ! If the dealiasing option is 2/3-rule (dealias=0) then we retain the modes
                     ! inside the cube described by $| k_i | \leq  k_{max}$, $i=1,2,3$.
                     ! The rest of the modes is purged
@@ -771,8 +771,8 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     fcomp(:, :, :, 2) = wrk(:, :, :, 4)**2 + wrk(:, :, :, 5)**2 + wrk(:, :, :, 6)**2
 
     do i=1,nx
-        do j=1,nx
-            do k=1,nx
+        do j=1,ny
+            do k=1,nz
 
                 ! for each n direction
                 do n = 1,3
@@ -795,14 +795,14 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
                         F_2 = F_2 + f_right
 
                         ! D_1 = u \cdot d_u
-                        D_1 = D_1 + wrk(i,j,k,n+1) * tmp_wrk(i,j,k,n+3)
+                        D_1 = D_1 + wrk(i,j,k,n+3) * tmp_wrk(i,j,k,n+3)
 
                         ! D_2 = \omega \cdot d_u
                         D_2 = D_2 + wrk(i,j,k,n) * tmp_wrk(i,j,k,n+3)
 
                         ! d/dt Q_1 = u \cdot (d_u + f_u)
                         dQ_1 = dQ_1 +&
-                            wrk(i,j,k,n+1) * (tmp_wrk(i,j,k,n+3) + f_total)
+                            wrk(i,j,k,n+3) * (tmp_wrk(i,j,k,n+3) + f_total)
 
                         ! d/dt Q_2 = \omega \cdot (d_u + f_u)
                         dQ_2 = dQ_1 +&
