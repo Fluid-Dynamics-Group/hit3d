@@ -770,53 +770,56 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     ! ||u||^2
     fcomp(:, :, :, 2) = wrk(:, :, :, 4)**2 + wrk(:, :, :, 5)**2 + wrk(:, :, :, 6)**2
 
-    do i=1,nx
-        do j=1,ny
-            do k=1,nz
+    fcomp(:,:,:,1:3) = 0.0
 
-                ! for each n direction
-                do n = 1,3
-                    !
-                    ! Calculate the forcing components for 1 and 2
-                    !
+    ! Temporarily remove this section so that we can test indexing issues
+    !do i=1,nx
+    !    do j=1,ny
+    !        do k=1,nz
 
-                    ! u \cdot omg * omg_i - |omg|^2 * u_i
-                    f_left = fcomp(i,j,k,0) * wrk(i,j,k,n) - fcomp(i,j,k,1) * wrk(i,j,k,3+n)
-                    ! u \cdot omg * u_i - |u|^2 * omg_i
-                    f_right = fcomp(i,j,k,0) * wrk(i,j,k,3+n) - fcomp(i,j,k,2) * wrk(i,j,k,n)
+    !            ! for each n direction
+    !            do n = 1,3
+    !                !
+    !                ! Calculate the forcing components for 1 and 2
+    !                !
 
-                    ! the total forcing
-                    f_total = (f_left * epsilon_1) + (f_right * epsilon_2)
+    !                ! u \cdot omg * omg_i - |omg|^2 * u_i
+    !                f_left = fcomp(i,j,k,0) * wrk(i,j,k,n) - fcomp(i,j,k,1) * wrk(i,j,k,3+n)
+    !                ! u \cdot omg * u_i - |u|^2 * omg_i
+    !                f_right = fcomp(i,j,k,0) * wrk(i,j,k,3+n) - fcomp(i,j,k,2) * wrk(i,j,k,n)
 
-                    if (viscous_compensation == 1) then
-                        ! integrate all the forcing components without the corresponding
-                        ! epsilons into each F term
-                        F_1 = F_1 + f_left
-                        F_2 = F_2 + f_right
+    !                ! the total forcing
+    !                f_total = (f_left * epsilon_1) + (f_right * epsilon_2)
 
-                        ! D_1 = u \cdot d_u
-                        D_1 = D_1 + wrk(i,j,k,n+3) * tmp_wrk(i,j,k,n+3)
+    !                if (viscous_compensation == 1) then
+    !                    ! integrate all the forcing components without the corresponding
+    !                    ! epsilons into each F term
+    !                    F_1 = F_1 + f_left
+    !                    F_2 = F_2 + f_right
 
-                        ! D_2 = \omega \cdot d_u
-                        D_2 = D_2 + wrk(i,j,k,n) * tmp_wrk(i,j,k,n+3)
+    !                    ! D_1 = u \cdot d_u
+    !                    D_1 = D_1 + wrk(i,j,k,n+3) * tmp_wrk(i,j,k,n+3)
 
-                        ! d/dt Q_1 = u \cdot (d_u + f_u)
-                        dQ_1 = dQ_1 +&
-                            wrk(i,j,k,n+3) * (tmp_wrk(i,j,k,n+3) + f_total)
+    !                    ! D_2 = \omega \cdot d_u
+    !                    D_2 = D_2 + wrk(i,j,k,n) * tmp_wrk(i,j,k,n+3)
 
-                        ! d/dt Q_2 = \omega \cdot (d_u + f_u)
-                        dQ_2 = dQ_1 +&
-                            wrk(i,j,k,n) * (tmp_wrk(i,j,k,n+3) + f_total) 
-                    else
-                        ! forcing results if no viscous compensation go in 3:5
-                        fcomp(i,j,k,n+2) = f_total
-                    end if
-                end do
+    !                    ! d/dt Q_1 = u \cdot (d_u + f_u)
+    !                    dQ_1 = dQ_1 +&
+    !                        wrk(i,j,k,n+3) * (tmp_wrk(i,j,k,n+3) + f_total)
 
-                ! end
-            end do
-        end do
-    end do
+    !                    ! d/dt Q_2 = \omega \cdot (d_u + f_u)
+    !                    dQ_2 = dQ_1 +&
+    !                        wrk(i,j,k,n) * (tmp_wrk(i,j,k,n+3) + f_total) 
+    !                else
+    !                    ! forcing results if no viscous compensation go in 3:5
+    !                    fcomp(i,j,k,n+2) = f_total
+    !                end if
+    !            end do
+
+    !            ! end
+    !        end do
+    !    end do
+    !end do
 
     ! now we have evaluated the integral so we can set the forcing components to their true value
     if (viscous_compensation == 1) then
