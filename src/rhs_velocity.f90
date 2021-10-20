@@ -770,7 +770,6 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     ! ||u||^2
     fcomp(:, :, :, 2) = wrk(:, :, :, 4)**2 + wrk(:, :, :, 5)**2 + wrk(:, :, :, 6)**2
 
-    fcomp(:,:,:,1:3) = 0.0
 
     ! Temporarily remove this section so that we can test indexing issues
     !do i=1,nx
@@ -836,7 +835,9 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     ! copy either forcing result to the wrk array (we dont care about any of the data in it anymore)
     ! so that we can go back to fourier space
 
-    wrk(:,:,:,1:3) = fcomp(:,:,:,3:5)
+    ! TODO: uncomment this line once we have found the issues that are causing segfaults
+    ! wrk(:,:,:,1:3) = fcomp(:,:,:,3:5)
+    wrk(:,:,:,1:3) = 0.0
 
     do n = 1, 3
         call xFFT3d(1, n)

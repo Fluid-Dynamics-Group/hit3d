@@ -331,6 +331,12 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     scalar_files = [i for i in os.listdir(f"{solver_folder}/scalars") if i !=".gitignore"]
     slice_files = [i for i in os.listdir(f"{solver_folder}/slice") if i !=".gitignore"]
 
+    # copy the fortran logging files
+    logs_dir = f"{output_folder}/logs/"
+    clean_and_create_folder(logs_dir)
+    for file in glob(f"{solver_folder}/d*.txt"):
+        shutil.move(file, logs_dir)
+
     print(flowfield_files)
 
     if save_vtk:
@@ -377,11 +383,6 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     # generate plots for the fortran slices (already moved to output folder) and animate them into a movie
     run_shell_command(f'python3 {HIT3D_UTILS_BASE}/src/plot_slices.py {size} {solver_folder}/slice {output_folder}/slice_plots')
 
-    # copy the fortran logging files
-    logs_dir = f"{output_folder}/logs/"
-    clean_and_create_folder(logs_dir)
-    for file in glob(f"{solver_folder}/d*.txt"):
-        shutil.move(file, logs_dir)
 
 # parse csv files for flowfield output by fortran
 def parse_filename(filename):
