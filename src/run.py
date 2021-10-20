@@ -35,7 +35,7 @@ class RunCase():
             path, load_initial_data=0, nprocs=16, 
             export_vtk=False, epsilon1=0.0, epsilon2=0.0, 
             restart_time=1.0, skip_steps=0, scalar_type=0,
-            calculate_diffusion_separate=0, viscous_compensation=0,
+            use_visc_forcing=0, viscous_compensation=0,
             ):
         # if there are restarts, find the number of steps spent in that those restarts
         # and add them to the current number of steps
@@ -59,7 +59,7 @@ class RunCase():
         self.skip_steps        = skip_steps
         self.scalar_type        = scalar_type
         
-        self.calculate_diffusion_separate= calculate_diffusion_separate
+        self.use_visc_forcing = use_visc_forcing 
         self.viscous_compensation = viscous_compensation
 
     def run(self, iteration):
@@ -93,7 +93,7 @@ class RunCase():
             self.epsilon2,
             self.restart_time,
             self.scalar_type,
-            self.calculate_diffusion_separate,
+            self.use_visc_forcing,
             self.viscous_compensation,
         )
 
@@ -124,7 +124,7 @@ class RunCase():
             "skip_steps":        self.skip_steps,
             "scalar_type":        self.scalar_type,
             "job_name": job_name,
-            "calculate_diffusion_separate": self.calculate_diffusion_separate,
+            "use_visc_forcing": self.use_visc_forcing,
             "viscous_compensation": self.viscous_compensation
         }
 
@@ -174,7 +174,7 @@ def run_case(
     nprocs, save_folder, iteration, 
     steps_between_io, export_vtk, epsilon1, epsilon2, 
     restart_time, scalar_type,
-    calculate_diffusion_separate, viscous_compensation):
+    use_visc_forcing, viscous_compensation):
 
     if IS_DISTRIBUTED:
         print("running in distributed mode - singularity: ", IS_SINGULARITY);
@@ -210,7 +210,7 @@ def run_case(
             --tscalar -0.1 \
             --nscalar 1 \
             --scalar-type {scalar_type} \
-            --separate-diffusion {calculate_diffusion_separate} \
+            --use-visc-forcing {use_visc_forcing} \
             --viscous-compensation {viscous_compensation} \
             input_file.in ")
 
@@ -228,7 +228,7 @@ def run_case(
     postprocessing("output/", save_folder, restart_time_slice, steps, dt, export_vtk,size_param, epsilon1, epsilon2)
 
     if load_initial_data == 1:
-        organize_initial_condition(save_folder)
+        organize_initial_condition(save_folder, epsilon1, epsilon2)
 
 def run_hit3d(nprocs):
     # if we are not using singularity then we are responsible for cleaning
@@ -707,8 +707,8 @@ def test_viscous_compensation():
     restarts = 0
     re = 40
 
-    delta_1 = .1
-    delta_2 = .2
+    delta_1 = .01
+    delta_2 = .02
 
     epsilon_generator = EpsilonControl.load_json()
 
@@ -716,17 +716,17 @@ def test_viscous_compensation():
     ep2 = epsilon_generator.epsilon_2(delta_2)
 
     visc_params = [
-        # no viscous compensation, dont store diffusion data in separate array
-        [0, 0, "no-compensation-no-separate"],
+        # no viscous compensation, use MGM array
+        [0, 0, "mgm-forcing"],
 
-        # no viscous compensation, store diffusion data in separate array
-        [0, 1, "no-compensation-separate"],
+        # no viscous compensation, use new formulation
+        [0, 1, "brooks-forcing"],
 
-        # viscous compensation, store diffusion data in separate array
-        [1, 1, "compensation-separate"]
+        # viscous compensation, there are no formulations so dont send 1-1
+        [1, 0, "visc-compensation"]
     ]
 
-    for viscous_compensation, calculate_diffusion_separate, case_name in visc_params:
+    for viscous_compensation, use_visc_forcing, case_name in visc_params:
 
         case =  RunCase(
             skip_diffusion=1,
@@ -741,7 +741,7 @@ def test_viscous_compensation():
             epsilon2=ep2,
             export_vtk=False,
             scalar_type=14,
-            calculate_diffusion_separate=calculate_diffusion_separate,
+            use_visc_forcing=use_visc_forcing,
             viscous_compensation=viscous_compensation
         )
 

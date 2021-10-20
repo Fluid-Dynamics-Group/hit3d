@@ -75,9 +75,9 @@ module m_parameters
 
     ! when we do the calculation of diffusion keep the term in its 
     ! own array so that we can use it for viscous compensation calculation later
-    ! = 1 -> allocates a separate array to store the diffusion term
-    ! = 0 -> calculates the diffusion normally without a separate array
-    integer :: calculate_diffusion_separate
+    ! = 1 -> use the if statement in the viscous compensation equation to calculate the forcing
+    ! = 0 -> use the regular forcing formulation from MGM to calculate forcing
+    integer :: use_visc_forcing_anyway
 
     ! whether or not to use viscous compensation
     ! if you are using viscous compensation calculate_diffusion_separate
@@ -442,8 +442,8 @@ contains
 
         ! check if we are using a separate array for the diffusion terms
 
-        read (in, *, err=9000) calculate_diffusion_separate
-        write (out, *) "calculate_diffusion_separate", calculate_diffusion_separate
+        read (in, *, err=9000) use_visc_forcing_anyway
+        write (out, *) "use_visc_forcing_anyway", use_visc_forcing_anyway
 
         ! -------------------------------------------------------------
 
