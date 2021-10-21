@@ -808,7 +808,7 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
                             wrk(i,j,k,n+3) * (tmp_wrk(i,j,k,n+3) + f_total)
 
                         ! d/dt Q_2 = \omega \cdot (d_u + f_u)
-                        dQ_2 = dQ_1 +&
+                        dQ_2 = dQ_2 +&
                             wrk(i,j,k,n) * (tmp_wrk(i,j,k,n+3) + f_total) 
                     else
                         ! forcing results if no viscous compensation go in 3:5
@@ -829,7 +829,7 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
         write(out, *) "dQ_2", dQ_2
 
         write(out, *) "F_1", F_1
-        write(out, *) "F_1", F_2
+        write(out, *) "F_2", F_2
 
         new_epsilon_1 = epsilon_1 + ((D_1 - dQ_1)/F_1)
         new_epsilon_2 = epsilon_2 + ((D_2 - dQ_2)/F_2)
