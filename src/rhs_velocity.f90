@@ -792,24 +792,24 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
                     f_total = (f_left * epsilon_1) + (f_right * epsilon_2)
 
                     if (viscous_compensation == 1) then
-                        ! ! integrate all the forcing components without the corresponding
-                        ! ! epsilons into each F term
-                        ! F_1 = F_1 + f_left
-                        ! F_2 = F_2 + f_right
+                        ! integrate all the forcing components without the corresponding
+                        ! epsilons into each F term
+                        F_1 = F_1 + f_left
+                        F_2 = F_2 + f_right
 
-                        ! ! D_1 = u \cdot d_u
-                        ! D_1 = D_1 + wrk(i,j,k,n+3) * tmp_wrk(i,j,k,n+3)
+                        ! D_1 = u \cdot d_u
+                        D_1 = D_1 + wrk(i,j,k,n+3) * tmp_wrk(i,j,k,n+3)
 
-                        ! ! D_2 = \omega \cdot d_u
-                        ! D_2 = D_2 + wrk(i,j,k,n) * tmp_wrk(i,j,k,n+3)
+                        ! D_2 = \omega \cdot d_u
+                        D_2 = D_2 + wrk(i,j,k,n) * tmp_wrk(i,j,k,n+3)
 
-                        ! ! d/dt Q_1 = u \cdot (d_u + f_u)
-                        ! dQ_1 = dQ_1 +&
-                        !     wrk(i,j,k,n+3) * (tmp_wrk(i,j,k,n+3) + f_total)
+                        ! d/dt Q_1 = u \cdot (d_u + f_u)
+                        dQ_1 = dQ_1 +&
+                            wrk(i,j,k,n+3) * (tmp_wrk(i,j,k,n+3) + f_total)
 
-                        ! ! d/dt Q_2 = \omega \cdot (d_u + f_u)
-                        ! dQ_2 = dQ_1 +&
-                        !     wrk(i,j,k,n) * (tmp_wrk(i,j,k,n+3) + f_total) 
+                        ! d/dt Q_2 = \omega \cdot (d_u + f_u)
+                        dQ_2 = dQ_1 +&
+                            wrk(i,j,k,n) * (tmp_wrk(i,j,k,n+3) + f_total) 
                     else
                         ! forcing results if no viscous compensation go in 3:5
                         fcomp(i,j,k,n+2) = f_total
@@ -823,8 +823,6 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
 
     ! now we have evaluated the integral so we can set the forcing components to their true value
     if (viscous_compensation == 1) then
-        F_1 = 1.0
-        F_2 = 1.0
 
         new_epsilon_1 = epsilon_1 + ((D_1 - dQ_1)/F_1)
         new_epsilon_2 = epsilon_2 + ((D_2 - dQ_2)/F_2)

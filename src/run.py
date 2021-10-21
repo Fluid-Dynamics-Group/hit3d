@@ -681,7 +681,7 @@ def copy_distribute_files(target_folder, batch_name):
     shutil.copy(f"{HIT3D_UTILS_BASE}/build.py", target_folder)
 
 def test_viscous_compensation():
-    batch_name = "viscous_compensation_test"
+    batch_name = "viscous_compensation_test_not_inviscid"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
     size = 128
     steps = 100
@@ -730,7 +730,7 @@ def test_viscous_compensation():
     for viscous_compensation, use_visc_forcing, case_name in visc_params:
 
         case =  RunCase(
-            skip_diffusion=1,
+            skip_diffusion=0,
             size=size,
             dt=dt,
             steps=steps,
