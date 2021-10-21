@@ -823,8 +823,14 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
 
     ! now we have evaluated the integral so we can set the forcing components to their true value
     if (viscous_compensation == 1) then
+        F_1 = 1.0
+        F_2 = 1.0
+
         new_epsilon_1 = epsilon_1 + ((D_1 - dQ_1)/F_1)
         new_epsilon_1 = epsilon_2 + ((D_2 - dQ_2)/F_2)
+
+        write(out, *) "original ep1 was ", epsilon_1, "new ep1 is ", new_epsilon_1
+        write(out, *) "original ep2 was ", epsilon_2, "new ep2 is ", new_epsilon_2
 
         ! recalculate the forcing components with the new values
         do n = 1, 3
