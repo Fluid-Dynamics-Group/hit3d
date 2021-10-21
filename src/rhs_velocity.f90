@@ -690,8 +690,12 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     real*8 :: diffusion_x, diffusion_y, diffusion_z
     real*8 :: epsilon_1, epsilon_2
     real*8 :: new_epsilon_1, new_epsilon_2
-    real*8 :: f_left, f_right, f_total
+    real*8 :: f_left, f_right, f_total, diffusion
     integer :: i,j,k,n
+
+    if (ITIME == 1) then 
+        write(out, *) "calculating forcing components with visc compensation routine"
+    end if
 
     F_1 = 0.
     D_1 = 0.
@@ -704,6 +708,9 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     ! copy the first 3 terms (used for derivatives or something) to the temp array 
     ! so that we can use the first three indicies to store the results of the diffusion term
     tmp_wrk(:,:,:,1:3) = wrk(:,:,:,1:3)
+
+    ! copy the diffusion term to the 7th slot
+    tmp_wrk(:,:,:,7) = wrk(:,:,:,4)
 
     ! FIRST:
     ! we evaluate the diffusion term from the RHS in fourier space
@@ -741,9 +748,9 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     call calculate_vorticity()
 
     ! now:
-    ! wrk(:,:,:,1) -> omg x
-    ! wrk(:,:,:,2) -> omg y
-    ! wrk(:,:,:,3) -> omg z
+    ! wrk(:,:,:,1) -> omg x (fourier-space)
+    ! wrk(:,:,:,2) -> omg y (fourier-space)
+    ! wrk(:,:,:,3) -> omg z (fourier-space)
 
     ! copy the velocities into wrk(:,:,:,4-6) so that we can shamelessly copy-paste more code from murali
 
@@ -797,6 +804,8 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
                         F_1 = F_1 + f_left
                         F_2 = F_2 + f_right
 
+                        diffusion = tmp_wrk(i,j,k,n+3)
+
                         ! D_1 = u \cdot d_u
                         D_1 = D_1 + wrk(i,j,k,n+3) * tmp_wrk(i,j,k,n+3)
 
@@ -805,11 +814,11 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
 
                         ! d/dt Q_1 = u \cdot (d_u + f_u)
                         dQ_1 = dQ_1 +&
-                            wrk(i,j,k,n+3) * (tmp_wrk(i,j,k,n+3) + f_total)
+                            wrk(i,j,k,n+3) * (diffusion + f_total)
 
                         ! d/dt Q_2 = \omega \cdot (d_u + f_u)
                         dQ_2 = dQ_2 +&
-                            wrk(i,j,k,n) * (tmp_wrk(i,j,k,n+3) + f_total) 
+                            wrk(i,j,k,n) * (diffusion + f_total) 
                     else
                         ! forcing results if no viscous compensation go in 3:5
                         fcomp(i,j,k,n+2) = f_total
@@ -849,6 +858,7 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
 
     wrk(:,:,:,1:3) = fcomp(:,:,:,3:5)
 
+    ! Do the IFFT over the 3 forcing components
     do n = 1, 3
         call xFFT3d(1, n)
     end do
@@ -857,6 +867,11 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     
     ! copy back whatever fourier derivatives used to be at this position
     wrk(:,:,:,1:3) = tmp_wrk(:,:,:,1:3)
+
+    ! copy back the original diffusion term (fourier space) and just recalculate diffusion components as normal
+    ! This is a missed optimization in the parent routine
+
+    wrk(:,:,:,4) = tmp_wrk(:,:,:,7)
 end
 
 
