@@ -772,53 +772,54 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
 
 
     ! Temporarily remove this section so that we can test indexing issues
-    !do i=1,nx
-    !    do j=1,ny
-    !        do k=1,nz
+    ! TODO: The segfault error is in this block:
+    do i=1,nx
+        do j=1,ny
+            do k=1,nz
 
-    !            ! for each n direction
-    !            do n = 1,3
-    !                !
-    !                ! Calculate the forcing components for 1 and 2
-    !                !
+                ! for each n direction
+                do n = 1,3
+                    !
+                    ! Calculate the forcing components for 1 and 2
+                    !
 
-    !                ! u \cdot omg * omg_i - |omg|^2 * u_i
-    !                f_left = fcomp(i,j,k,0) * wrk(i,j,k,n) - fcomp(i,j,k,1) * wrk(i,j,k,3+n)
-    !                ! u \cdot omg * u_i - |u|^2 * omg_i
-    !                f_right = fcomp(i,j,k,0) * wrk(i,j,k,3+n) - fcomp(i,j,k,2) * wrk(i,j,k,n)
+                    ! u \cdot omg * omg_i - |omg|^2 * u_i
+                    f_left = fcomp(i,j,k,0) * wrk(i,j,k,n) - fcomp(i,j,k,1) * wrk(i,j,k,3+n)
+                    ! u \cdot omg * u_i - |u|^2 * omg_i
+                    f_right = fcomp(i,j,k,0) * wrk(i,j,k,3+n) - fcomp(i,j,k,2) * wrk(i,j,k,n)
 
-    !                ! the total forcing
-    !                f_total = (f_left * epsilon_1) + (f_right * epsilon_2)
+                    ! the total forcing
+                    f_total = (f_left * epsilon_1) + (f_right * epsilon_2)
 
-    !                if (viscous_compensation == 1) then
-    !                    ! integrate all the forcing components without the corresponding
-    !                    ! epsilons into each F term
-    !                    F_1 = F_1 + f_left
-    !                    F_2 = F_2 + f_right
+                    if (viscous_compensation == 1) then
+                        ! ! integrate all the forcing components without the corresponding
+                        ! ! epsilons into each F term
+                        ! F_1 = F_1 + f_left
+                        ! F_2 = F_2 + f_right
 
-    !                    ! D_1 = u \cdot d_u
-    !                    D_1 = D_1 + wrk(i,j,k,n+3) * tmp_wrk(i,j,k,n+3)
+                        ! ! D_1 = u \cdot d_u
+                        ! D_1 = D_1 + wrk(i,j,k,n+3) * tmp_wrk(i,j,k,n+3)
 
-    !                    ! D_2 = \omega \cdot d_u
-    !                    D_2 = D_2 + wrk(i,j,k,n) * tmp_wrk(i,j,k,n+3)
+                        ! ! D_2 = \omega \cdot d_u
+                        ! D_2 = D_2 + wrk(i,j,k,n) * tmp_wrk(i,j,k,n+3)
 
-    !                    ! d/dt Q_1 = u \cdot (d_u + f_u)
-    !                    dQ_1 = dQ_1 +&
-    !                        wrk(i,j,k,n+3) * (tmp_wrk(i,j,k,n+3) + f_total)
+                        ! ! d/dt Q_1 = u \cdot (d_u + f_u)
+                        ! dQ_1 = dQ_1 +&
+                        !     wrk(i,j,k,n+3) * (tmp_wrk(i,j,k,n+3) + f_total)
 
-    !                    ! d/dt Q_2 = \omega \cdot (d_u + f_u)
-    !                    dQ_2 = dQ_1 +&
-    !                        wrk(i,j,k,n) * (tmp_wrk(i,j,k,n+3) + f_total) 
-    !                else
-    !                    ! forcing results if no viscous compensation go in 3:5
-    !                    fcomp(i,j,k,n+2) = f_total
-    !                end if
-    !            end do
+                        ! ! d/dt Q_2 = \omega \cdot (d_u + f_u)
+                        ! dQ_2 = dQ_1 +&
+                        !     wrk(i,j,k,n) * (tmp_wrk(i,j,k,n+3) + f_total) 
+                    else
+                        ! forcing results if no viscous compensation go in 3:5
+                        fcomp(i,j,k,n+2) = f_total
+                    end if
+                end do
 
-    !            ! end
-    !        end do
-    !    end do
-    !end do
+                ! end
+            end do
+        end do
+    end do
 
     ! now we have evaluated the integral so we can set the forcing components to their true value
     if (viscous_compensation == 1) then
@@ -835,9 +836,7 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     ! copy either forcing result to the wrk array (we dont care about any of the data in it anymore)
     ! so that we can go back to fourier space
 
-    ! TODO: uncomment this line once we have found the issues that are causing segfaults
-    ! wrk(:,:,:,1:3) = fcomp(:,:,:,3:5)
-    wrk(:,:,:,1:3) = 0.0
+    wrk(:,:,:,1:3) = fcomp(:,:,:,3:5)
 
     do n = 1, 3
         call xFFT3d(1, n)
