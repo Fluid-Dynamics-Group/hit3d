@@ -681,10 +681,10 @@ def copy_distribute_files(target_folder, batch_name):
     shutil.copy(f"{HIT3D_UTILS_BASE}/build.py", target_folder)
 
 def test_viscous_compensation():
-    batch_name = "viscous_compensation_test_not_inviscid"
+    batch_name = "viscous_compensation_shorter"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
     size = 128
-    steps = 100
+    steps = 1000
 
     if IS_DISTRIBUTED:
         if IS_SINGULARITY: 
@@ -727,26 +727,33 @@ def test_viscous_compensation():
         [1, 0, "visc-compensation"]
     ]
 
-    for viscous_compensation, use_visc_forcing, case_name in visc_params:
+    for skip_diffusion in [0,1]:
+        if skip_diffusion == 0:
+            diffusion = "yes-diffusion"
+        else:
+            diffusion = "no-diffusion"
 
-        case =  RunCase(
-            skip_diffusion=0,
-            size=size,
-            dt=dt,
-            steps=steps,
-            restarts=restarts,
-            reynolds_number=re,
-            path=output_folder,
-            load_initial_data=2,
-            epsilon1=ep1,
-            epsilon2=ep2,
-            export_vtk=False,
-            scalar_type=14,
-            use_visc_forcing=use_visc_forcing,
-            viscous_compensation=viscous_compensation
-        )
+        for viscous_compensation, use_visc_forcing, case_name in visc_params:
+            case_name = f"{case_name}_{diffusion}"
 
-        case.write_to_json(case_name, save_json_folder)
+            case =  RunCase(
+                skip_diffusion=skip_diffusion,
+                size=size,
+                dt=dt,
+                steps=steps,
+                restarts=restarts,
+                reynolds_number=re,
+                path=output_folder,
+                load_initial_data=2,
+                epsilon1=ep1,
+                epsilon2=ep2,
+                export_vtk=False,
+                scalar_type=14,
+                use_visc_forcing=use_visc_forcing,
+                viscous_compensation=viscous_compensation
+            )
+
+            case.write_to_json(case_name, save_json_folder)
 
     copy_distribute_files(save_json_folder, batch_name)
 
