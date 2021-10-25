@@ -282,19 +282,30 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
 
     print(flowfield_files)
 
+    # if we are saving the vtk data then rip it from the csv files, and delete the csv file once donw
     if save_vtk:
         for filename in flowfield_files:
             timestep = parse_filename(filename)
 
             run_shell_command(f"hit3d-utils vtk {solver_folder}/velocity_field/{filename} {size} {output_folder}/flowfield/flow_{timestep:05}.vtk")
 
+            shutil.rmtree(filename)
+    # othewise just remove the csv files anyway
+    else:
+        for filename in flowfield_files:
+            os.remove(f"{solver_folder}/velocity_field/{filename}")
+
     for filename in scalar_files:
         timestep = parse_scalar_name(filename)
-        run_shell_command(f"hit3d-utils scalars {solver_folder}/scalars/{filename} {size} {output_folder}/scalars/sc_{timestep:06}.vtk")
+        file = f"{solver_folder}/scalars/{filename}"
+        run_shell_command(f"hit3d-utils scalars {file} {size} {output_folder}/scalars/sc_{timestep:06}.vtk")
+        os.remove(file)
 
     for filename in slice_files:
         timestep = parse_filename(filename)
-        run_shell_command(f"hit3d-utils slice {solver_folder}/slice/{filename} {size} {output_folder}/fortran_slice_data/slice_{timestep:06}.vtk")
+        file = f"{solver_folder}/slice/{filename}"
+        run_shell_command(f"hit3d-utils slice {file} {size} {output_folder}/fortran_slice_data/slice_{timestep:06}.vtk")
+        os.remove(file)
 
     #
     # parse and re-export spectral information
@@ -483,7 +494,7 @@ def forcing_cases():
     dt = 0.0001
     size = 256
     re = 40
-    steps = 80_000
+    steps = 40_000
     save_vtk = True
     batch_name = forcing_folder
 
@@ -496,15 +507,15 @@ def forcing_cases():
 
         #epsilon 1 cases
         [delta_1, 0., "ep1-pos"],
-        #[-1*delta_1, 0., "ep1-neg"],
+        [-1*delta_1, 0., "ep1-neg"],
 
         # epsilon 2  cases
-        #[ 0., delta_2, "ep2-pos"],
-        #[ 0., -1*delta_2, "ep2-neg"],
+        [ 0., delta_2, "ep2-pos"],
+        [ 0., -1*delta_2, "ep2-neg"],
 
         # both ep1 and ep2 cases
         [ delta_1, delta_2, "epboth-pos"],
-        #[ -1*delta_1, -1 * delta_2, "epboth-neg"],
+        [ -1*delta_1, -1 * delta_2, "epboth-neg"],
     ]
 
     if IS_SINGULARITY and IS_DISTRIBUTED:
@@ -625,9 +636,9 @@ def copy_distribute_files(target_folder, batch_name):
 
 # helpful function for runnning one-off cases
 def one_case():
-    save_json_folder = f"{BASE_SAVE}/100k_128N_scalars"
-    size = 128
-    steps = 100_000
+    save_json_folder = f"{BASE_SAVE}/test_case"
+    size = 64
+    steps = 100
 
     if IS_DISTRIBUTED:
         if IS_SINGULARITY: 
@@ -686,7 +697,7 @@ def remove_restart_files():
 
 if __name__ == "__main__":
     #initial_condition()
-    forcing_cases()
+    #forcing_cases()
     #ep1_temporal_cases()
-    #one_case()
+    one_case()
     pass
