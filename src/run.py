@@ -289,7 +289,8 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
 
             run_shell_command(f"hit3d-utils vtk {solver_folder}/velocity_field/{filename} {size} {output_folder}/flowfield/flow_{timestep:05}.vtk")
 
-            shutil.rmtree(filename)
+            os.remove(f"{solver_folder}/velocity_field/{filename}")
+
     # othewise just remove the csv files anyway
     else:
         for filename in flowfield_files:
@@ -299,12 +300,6 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
         timestep = parse_scalar_name(filename)
         file = f"{solver_folder}/scalars/{filename}"
         run_shell_command(f"hit3d-utils scalars {file} {size} {output_folder}/scalars/sc_{timestep:06}.vtk")
-        os.remove(file)
-
-    for filename in slice_files:
-        timestep = parse_filename(filename)
-        file = f"{solver_folder}/slice/{filename}"
-        run_shell_command(f"hit3d-utils slice {file} {size} {output_folder}/fortran_slice_data/slice_{timestep:06}.vtk")
         os.remove(file)
 
     #
@@ -333,9 +328,6 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     # move some of the important files to the save folder so they do not get purged
     shutil.move(f"{solver_folder}/es.gp", output_folder + '/es.gp')
     shutil.move(f"{solver_folder}/spectra.json", output_folder + '/spectra.json')
-
-    # generate plots for the fortran slices (already moved to output folder) and animate them into a movie
-    run_shell_command(f'python3 {HIT3D_UTILS_BASE}/src/plot_slices.py {size} {solver_folder}/slice {output_folder}/slice_plots')
 
     # copy the fortran logging files
     logs_dir = f"{output_folder}/logs/"
