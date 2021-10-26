@@ -397,7 +397,7 @@ subroutine write_energy(current_time)
 
     frac = (2*3.1415)**3/(nx*ny*nz_all)
 
-    helicity = helicity*frac/2
+    helicity = helicity*frac/2.
     solver_helicity = solver_helicity*frac
     energy = energy*frac/2.
     solver_energy = solver_energy*frac
@@ -452,7 +452,13 @@ subroutine write_energy(current_time)
 
     ! calculate Re_lambda (taylor reynolds number) according to MGM's 
     ! formulation in m_stats.f90 subroutine stat_velocity
+
+    ! This modifies the wrk variables so we copy over to the tmp wrk before calculating Re_lambda
+    tmp_wrk(:, :, :, 1:6) = wrk(:, :, :, 1:6)
+
     call calculate_re_lambda(re_lambda)
+    
+    wrk(:, :, :, 1:6) = tmp_wrk(:, :, :, 1:6)
 
     !
     ! write the summary data to file if we are the master process

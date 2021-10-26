@@ -61,6 +61,7 @@ class RunCase():
         io_steps = int(self.steps * 300 / 80_000)
 
         io_steps = max(io_steps, 1)
+        io_steps = 10 
 
         run_case(
             self.skip_diffusion, 
@@ -495,19 +496,19 @@ def forcing_cases():
     epsilon_generator = EpsilonControl.load_json()
 
     cases = [
-        [0., 0., "baseline"],
+        #[0., 0., "baseline"],
 
         #epsilon 1 cases
-        [delta_1, 0., "ep1-pos"],
+        #[delta_1, 0., "ep1-pos"],
         [-1*delta_1, 0., "ep1-neg"],
 
         # epsilon 2  cases
-        [ 0., delta_2, "ep2-pos"],
-        [ 0., -1*delta_2, "ep2-neg"],
+        #[ 0., delta_2, "ep2-pos"],
+        #[ 0., -1*delta_2, "ep2-neg"],
 
         # both ep1 and ep2 cases
         [ delta_1, delta_2, "epboth-pos"],
-        [ -1*delta_1, -1 * delta_2, "epboth-neg"],
+        #[ -1*delta_1, -1 * delta_2, "epboth-neg"],
     ]
 
     if IS_SINGULARITY and IS_DISTRIBUTED:
@@ -628,8 +629,9 @@ def copy_distribute_files(target_folder, batch_name):
 
 # helpful function for runnning one-off cases
 def one_case():
-    save_json_folder = f"{BASE_SAVE}/test_case"
-    size = 64
+    batch_name = "base64encode"
+    save_json_folder = f"{BASE_SAVE}/{batch_name}"
+    size = 128
     steps = 100
 
     if IS_DISTRIBUTED:
@@ -646,7 +648,6 @@ def one_case():
             shutil.rmtree(output_folder)
         os.mkdir(output_folder)
 
-    batch_name = "one_case"
 
     # if the directory exists remove any older files from the dir 
     if os.path.exists(save_json_folder):
@@ -668,7 +669,7 @@ def one_case():
         load_initial_data=2,
         epsilon1=0.000000,
         epsilon2=0.000000,
-        export_vtk=False,
+        export_vtk=True,
         scalar_type=14
     )
 
