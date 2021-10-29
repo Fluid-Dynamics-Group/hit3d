@@ -36,7 +36,8 @@ class RunCase():
             export_vtk=False, epsilon1=0.0, epsilon2=0.0, 
             restart_time=1.0, skip_steps=0, scalar_type=0,
             use_visc_forcing=0, viscous_compensation=0,
-            ):
+            require_forcing=0
+        ):
         # if there are restarts, find the number of steps spent in that those restarts
         # and add them to the current number of steps
         simulation_time_restart = restarts * restart_time
@@ -61,6 +62,8 @@ class RunCase():
         
         self.use_visc_forcing = use_visc_forcing 
         self.viscous_compensation = viscous_compensation
+
+        self.require_forcing = require_forcing
 
     def run(self, iteration):
         # automatically calculate a reasonable number of steps between io 
@@ -92,6 +95,7 @@ class RunCase():
             self.scalar_type,
             self.use_visc_forcing,
             self.viscous_compensation,
+            self.require_forcing
         )
 
     def __repr__(self):
@@ -171,7 +175,9 @@ def run_case(
     nprocs, save_folder, iteration, 
     steps_between_io, export_vtk, epsilon1, epsilon2, 
     restart_time, scalar_type,
-    use_visc_forcing, viscous_compensation):
+    use_visc_forcing, viscous_compensation,
+    require_forcing
+    ):
 
     if IS_DISTRIBUTED:
         print("running in distributed mode - singularity: ", IS_SINGULARITY);
@@ -209,6 +215,7 @@ def run_case(
             --scalar-type {scalar_type} \
             --use-visc-forcing {use_visc_forcing} \
             --viscous-compensation {viscous_compensation} \
+            --require-forcing {require_forcing} \
             input_file.in ")
 
     restart_time_slice = restarts * 1.
@@ -682,7 +689,7 @@ def test_viscous_compensation():
     batch_name = "viscous_compensation_shorter"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
     size = 128
-    steps = 1000
+    steps = 30_000
 
     if IS_DISTRIBUTED:
         if IS_SINGULARITY: 
@@ -706,8 +713,8 @@ def test_viscous_compensation():
     restarts = 0
     re = 40
 
-    delta_1 = .01
-    delta_2 = .02
+    delta_1 = .0001
+    delta_2 = .002
 
     epsilon_generator = EpsilonControl.load_json()
 
@@ -718,10 +725,7 @@ def test_viscous_compensation():
         # no viscous compensation, use MGM array
         [0, 0, "mgm-forcing"],
 
-        # no viscous compensation, use new formulation
-        [0, 1, "brooks-forcing"],
-
-        # viscous compensation, there are no formulations so dont send 1-1
+        # use viscous compensation
         [1, 0, "visc-compensation"]
     ]
 
@@ -743,12 +747,13 @@ def test_viscous_compensation():
                 reynolds_number=re,
                 path=output_folder,
                 load_initial_data=2,
-                epsilon1=ep1,
-                epsilon2=ep2,
+                epsilon1=0.0,
+                epsilon2=0.0,
                 export_vtk=False,
                 scalar_type=14,
                 use_visc_forcing=use_visc_forcing,
-                viscous_compensation=viscous_compensation
+                viscous_compensation=viscous_compensation,
+                require_forcing=1
             )
 
             case.write_to_json(case_name, save_json_folder)
@@ -831,6 +836,6 @@ if __name__ == "__main__":
     #initial_condition()
     #forcing_cases()
     #ep1_temporal_cases()
-    #test_viscous_compensation()
-    one_case()
+    test_viscous_compensation()
+    #one_case()
     pass
