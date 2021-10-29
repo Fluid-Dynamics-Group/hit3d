@@ -759,10 +759,11 @@ def test_viscous_compensation():
 
 # helpful function for runnning one-off cases
 def one_case():
-    batch_name = "100k_128N_scalars"
+    batch_name = "angle_validation_of_flow_256"
+    job_name = "single-case"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
-    size = 128
-    steps = 40_000
+    size = 256
+    steps = 80_000
 
     if IS_DISTRIBUTED:
         if IS_SINGULARITY: 
@@ -792,21 +793,22 @@ def one_case():
     case =  RunCase(
         skip_diffusion=1,
         size=size,
-        dt=0.0005,
+        dt=0.0001,
         steps=steps,
         restarts=0,
         reynolds_number=40,
         path=output_folder,
         load_initial_data=2,
         epsilon1=0.000000,
-        epsilon2=0.000000,
+        # delta2 is negative, this will decrease helicity
+        epsilon2=0.0001,
         export_vtk=True,
         scalar_type=14
     )
 
     if IS_DISTRIBUTED:
         print("createing files to run on distributed compute")
-        case.write_to_json("single-case", save_json_folder)
+        case.write_to_json(job_name, save_json_folder)
 
         copy_distribute_files(save_json_folder, batch_name)
     else:
