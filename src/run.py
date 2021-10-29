@@ -7,7 +7,7 @@ import json
 from glob import glob
 
 UNR = True 
-IS_DISTRIBUTED = False
+IS_DISTRIBUTED = True
 IS_SINGULARITY = False
 
 if UNR:
@@ -518,7 +518,7 @@ def forcing_cases():
     delta_2 = .002
 
     run_shell_command("make")
-    forcing_folder = f"physical_interpretation_256_fixed_scalars_cases"
+    forcing_folder = f"F_data_long_duration_128"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
 
     if not os.path.exists(save_json_folder):
@@ -527,11 +527,11 @@ def forcing_cases():
     for f in os.listdir(save_json_folder):
         os.remove(os.path.join(save_json_folder, f))
 
-    dt = 0.0001
-    size = 256
+    dt = 0.0005
+    size = 128
     re = 40
-    steps = 40_000
-    save_vtk = True
+    steps = 80_000
+    save_vtk = False
     batch_name = forcing_folder
 
     copy_init_files(size)
@@ -542,15 +542,15 @@ def forcing_cases():
         #[0., 0., "baseline"],
 
         #epsilon 1 cases
-        #[delta_1, 0., "ep1-pos"],
+        [delta_1, 0., "ep1-pos"],
         [-1*delta_1, 0., "ep1-neg"],
 
         # epsilon 2  cases
-        #[ 0., delta_2, "ep2-pos"],
-        #[ 0., -1*delta_2, "ep2-neg"],
+        [ 0., delta_2, "ep2-pos"],
+        [ 0., -1*delta_2, "ep2-neg"],
 
         # both ep1 and ep2 cases
-        [ delta_1, delta_2, "epboth-pos"],
+        #[ delta_1, delta_2, "epboth-pos"],
         #[ -1*delta_1, -1 * delta_2, "epboth-neg"],
     ]
 
@@ -593,6 +593,9 @@ def forcing_cases():
             case.write_to_json(f"{folder}_{diffusion_str}", save_json_folder)
 
     copy_distribute_files(save_json_folder, batch_name)
+
+    build = Build("master", "master")
+    build.to_json(save_json_folder)
 
 def ep1_temporal_cases():
     delta_1 = .01
@@ -759,7 +762,7 @@ def test_viscous_compensation():
 
 # helpful function for runnning one-off cases
 def one_case():
-    batch_name = "angle_validation_of_flow_256"
+    batch_name = "test_distributed"
     job_name = "single-case"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
     size = 128
@@ -811,6 +814,9 @@ def one_case():
         case.write_to_json(job_name, save_json_folder)
 
         copy_distribute_files(save_json_folder, batch_name)
+
+        build = Build("master", "master")
+        build.to_json(save_json_folder)
     else:
         print("running the case locally")
         copy_init_files(size)
