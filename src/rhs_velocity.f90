@@ -792,8 +792,8 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
                     !
                     ! these values are outside the if statement because we want to know F_1 and F_2
                     ! for all the time steps so that we can (sometimes) output them into the energy.csv file
-                    F_1 = F_1 + f_left
-                    F_2 = F_2 + f_right
+                    F_1 = F_1 + (f_left * wrk(i,j,k,3+n))
+                    F_2 = F_2 + (f_right * wrk(i,j,k,n))
 
                     if (viscous_compensation == 1) then
 

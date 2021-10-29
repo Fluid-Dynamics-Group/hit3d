@@ -7,7 +7,7 @@ import json
 from glob import glob
 
 UNR = True 
-IS_DISTRIBUTED = True
+IS_DISTRIBUTED = False
 IS_SINGULARITY = False
 
 if UNR:
@@ -762,8 +762,8 @@ def one_case():
     batch_name = "angle_validation_of_flow_256"
     job_name = "single-case"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
-    size = 256
-    steps = 80_000
+    size = 128
+    steps = 100
 
     if IS_DISTRIBUTED:
         if IS_SINGULARITY: 
@@ -825,6 +825,6 @@ if __name__ == "__main__":
     #initial_condition()
     #forcing_cases()
     #ep1_temporal_cases()
-    test_viscous_compensation()
-    #one_case()
+    #test_viscous_compensation()
+    one_case()
     pass
