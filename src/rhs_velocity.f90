@@ -1,3 +1,7 @@
+module forcing_vaues
+    real*8 F_1, F_2
+end module
+
 subroutine rhs_velocity
 
     use m_openmpi
@@ -23,20 +27,8 @@ subroutine rhs_velocity
 !!$  call xFFT3d(-1,2)
 !!$  call xFFT3d(-1,3)
 
-!--------------------------------------------------------------------------------
-! ===========================MGM-Forcing=====================
-!--------------------------------------------------------------------------------
-    ! right here the velicities in fields() are in fourier space
-    if (PERT .eq. 1) then
-        ! if we are doing forcing without viscous compensation
-        if (viscous_compensation == 0) then
-            call calculate_forcing(PERTamp1, PERTamp2)
-        end if
-    end if   ! end forcing
-    ! after this if statement going forward the velocities should be in x-space
-!-------------------------------------------------------------------------
+    ! right now the velocities should be in x space
 
-!-------------------------------------------------------------------------
     ! getting the Courant number (on the master process only)
     wrk(:, :, :, 4) = abs(wrk(:, :, :, 1)) + abs(wrk(:, :, :, 2)) + abs(wrk(:, :, :, 3))
     rtmp = maxval(wrk(1:nx, :, :, 4))
@@ -109,14 +101,10 @@ subroutine rhs_velocity
             end do
         end do
 
-        ! previously we have calculated the forcing according to epsilon 1/2
-        ! 
-        ! if the config says to do viscous compensation then we do it here
+        ! call a subroutine to handle both viscous compensation and regular compensation
+        ! if the viscous compensation parameter was not used
         if (PERT == 1) then
-            ! if we are using viscous compensation or we want the regular forcing then call the new subroutine
-            if (viscous_compensation == 1 .or. use_visc_forcing_anyway == 1) then
-                call update_forcing_viscous_compensation(PERTamp1, PERTamp2)
-            end if
+            call update_forcing_viscous_compensation(PERTamp1, PERTamp2)
         end if
 
         ! now take the actual fields from fields(:,:,:,:) and calculate the RHSs
@@ -682,11 +670,12 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     use m_work
     use m_fields
     use x_fftw
+    use forcing_vaues
 
     implicit none
 
     ! F_1, D_i and d/dt (Q_1)
-    real*8 :: F_1, D_1, F_2, D_2, dQ_1, dQ_2
+    real*8 :: D_1, D_2, dQ_1, dQ_2
     real*8 :: diffusion_x, diffusion_y, diffusion_z
     real*8 :: epsilon_1, epsilon_2
     real*8 :: new_epsilon_1, new_epsilon_2
@@ -798,11 +787,15 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
                     ! the total forcing
                     f_total = (f_left * epsilon_1) + (f_right * epsilon_2)
 
+                    ! integrate all the forcing components without the corresponding
+                    ! epsilons into each F term
+                    !
+                    ! these values are outside the if statement because we want to know F_1 and F_2
+                    ! for all the time steps so that we can (sometimes) output them into the energy.csv file
+                    F_1 = F_1 + f_left
+                    F_2 = F_2 + f_right
+
                     if (viscous_compensation == 1) then
-                        ! integrate all the forcing components without the corresponding
-                        ! epsilons into each F term
-                        F_1 = F_1 + f_left
-                        F_2 = F_2 + f_right
 
                         diffusion = tmp_wrk(i,j,k,n+3)
 
