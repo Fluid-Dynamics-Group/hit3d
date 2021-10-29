@@ -9,3 +9,4 @@ src/post/*
 **/*.pkg
 **/*.json
 **/fort.11
+**/current_results/

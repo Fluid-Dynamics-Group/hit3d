@@ -29,7 +29,14 @@ IC_WRK_NAME = "initial_condition_wrk.pkg"
 IC_JSON_NAME = "initial_condition_vars.json"
 
 class RunCase():
-    def __init__(self,skip_diffusion, size, dt, steps, restarts, reynolds_number,path, load_initial_data=0, nprocs=16, export_vtk=False, epsilon1=0.0, epsilon2=0.0, restart_time=1.0, skip_steps=0, scalar_type=0):
+    def __init__(self,
+            skip_diffusion, size, dt, 
+            steps, restarts, reynolds_number,
+            path, load_initial_data=0, nprocs=16, 
+            export_vtk=False, epsilon1=0.0, epsilon2=0.0, 
+            restart_time=1.0, skip_steps=0, scalar_type=0,
+            use_visc_forcing=0, viscous_compensation=0,
+            ):
         # if there are restarts, find the number of steps spent in that those restarts
         # and add them to the current number of steps
         simulation_time_restart = restarts * restart_time
@@ -51,6 +58,9 @@ class RunCase():
         self.restart_time      = restart_time
         self.skip_steps        = skip_steps
         self.scalar_type        = scalar_type
+        
+        self.use_visc_forcing = use_visc_forcing 
+        self.viscous_compensation = viscous_compensation
 
     def run(self, iteration):
         # automatically calculate a reasonable number of steps between io 
@@ -79,7 +89,9 @@ class RunCase():
             self.epsilon1,
             self.epsilon2,
             self.restart_time,
-            self.scalar_type
+            self.scalar_type,
+            self.use_visc_forcing,
+            self.viscous_compensation,
         )
 
     def __repr__(self):
@@ -108,11 +120,43 @@ class RunCase():
             "restart_time":      self.restart_time,
             "skip_steps":        self.skip_steps,
             "scalar_type":        self.scalar_type,
-            "job_name": job_name
+            "job_name": job_name,
+            "use_visc_forcing": self.use_visc_forcing,
+            "viscous_compensation": self.viscous_compensation
         }
 
         with open(file_name, "w", encoding="utf-8") as file:
             json.dump(json_data, file)
+
+# define some schema so that we can more dynamically build
+# the correct branches of code
+class Build():
+    def __init__(self, hit3d_branch, hit3d_utils_branch):
+
+        self.hit3d_branch = hit3d_branch
+        self.hit3d_utils_branch = hit3d_utils_branch
+
+    def to_json(self, output_folder):
+        json_data = {
+            "hit3d_branch": self.hit3d_branch,
+            "hit3d_utils_branch": self.hit3d_utils_branch
+        }
+
+        with open(output_folder + "/build.json", "w", encoding="utf-8") as file:
+            json.dump(json_data, file)
+
+    @staticmethod
+    def load_json(from_folder):
+        json_path = from_folder + "/build.json"
+        print("loading json from ", json_path)
+
+        with open(json_path, "r", encoding="utf-8") as file:
+            json_data = json.load(file)
+
+            hit3d_branch = json_data["hit3d_branch"]
+            hit3d_utils_branch = json_data["hit3d_utils_branch"]
+
+            return Build(hit3d_branch, hit3d_utils_branch)
 
 # skip diffusion - 0 / 1 - whether or not to skip the diffusion calculations in rhs_velocity
 # size param - the number of divisions in each dimension (size_param=64 means 64x64x64 slices)
@@ -126,7 +170,8 @@ def run_case(
     restarts, reynolds_number, load_initial_data, 
     nprocs, save_folder, iteration, 
     steps_between_io, export_vtk, epsilon1, epsilon2, 
-    restart_time, scalar_type):
+    restart_time, scalar_type,
+    use_visc_forcing, viscous_compensation):
 
     if IS_DISTRIBUTED:
         print("running in distributed mode - singularity: ", IS_SINGULARITY);
@@ -162,6 +207,8 @@ def run_case(
             --tscalar -0.1 \
             --nscalar 1 \
             --scalar-type {scalar_type} \
+            --use-visc-forcing {use_visc_forcing} \
+            --viscous-compensation {viscous_compensation} \
             input_file.in ")
 
     restart_time_slice = restarts * 1.
@@ -178,7 +225,7 @@ def run_case(
     postprocessing("output/", save_folder, restart_time_slice, steps, dt, export_vtk,size_param, epsilon1, epsilon2)
 
     if load_initial_data == 1:
-        organize_initial_condition(save_folder)
+        organize_initial_condition(save_folder, epsilon1, epsilon2)
 
 def run_hit3d(nprocs):
     # if we are not using singularity then we are responsible for cleaning
@@ -217,9 +264,6 @@ def organize_initial_condition(save_folder, epsilon_1, epsilon_2):
 
     if first==True:
         raise ValueError("there were no rows in the energy.csv outputted by the solver")
-
-    # fdot_u = (fdot_u_l * epsilon_1) + (fdot_u_r * epsilon_2)
-    # fdot_h = (fdot_h_l * epsilon_1) + (fdot_h_r * epsilon_2)
 
     fdot_u = fdot_u_l + fdot_u_r
     fdot_h = fdot_h_l + fdot_h_r
@@ -279,7 +323,12 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
 
     flowfield_files = [i for i in os.listdir(f"{solver_folder}/velocity_field") if i !=".gitignore"]
     scalar_files = [i for i in os.listdir(f"{solver_folder}/scalars") if i !=".gitignore"]
-    slice_files = [i for i in os.listdir(f"{solver_folder}/slice") if i !=".gitignore"]
+
+    # copy the fortran logging files
+    logs_dir = f"{output_folder}/logs/"
+    clean_and_create_folder(logs_dir)
+    for file in glob(f"{solver_folder}/d*.txt"):
+        shutil.move(file, logs_dir)
 
     print(flowfield_files)
 
@@ -329,12 +378,6 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     # move some of the important files to the save folder so they do not get purged
     shutil.move(f"{solver_folder}/es.gp", output_folder + '/es.gp')
     shutil.move(f"{solver_folder}/spectra.json", output_folder + '/spectra.json')
-
-    # copy the fortran logging files
-    logs_dir = f"{output_folder}/logs/"
-    clean_and_create_folder(logs_dir)
-    for file in glob(f"{solver_folder}/d*.txt"):
-        shutil.move(file, logs_dir)
 
 # parse csv files for flowfield output by fortran
 def parse_filename(filename):
@@ -608,6 +651,12 @@ def copy_distribute_files(target_folder, batch_name):
         build_location = "/home/brooks/github/fluids/hit3d-utils/build.py"
         run_py = "/home/brooks/github/fluids/hit3d/src/run.py"
 
+    # read in all the json config files (skip build.json)
+    files = [i for i in glob(f"{target_folder}/*.json") if not "build.json" in i]
+    files = " ".join(files)
+
+    print("files are \n",files)
+
     run_shell_command(f"hit3d-utils distribute-gen \
             --output-folder {target_folder} \
             --library {run_py} \
@@ -615,7 +664,7 @@ def copy_distribute_files(target_folder, batch_name):
             --batch-name {batch_name} \
             --required-files {IC_SPEC_NAME} \
             --required-files {IC_WRK_NAME} \
-            {target_folder}/*.json"
+            {files}"
     )
 
     shutil.copy(build_location, f"{target_folder}/build.py")
@@ -626,13 +675,94 @@ def copy_distribute_files(target_folder, batch_name):
     shutil.copy(f"{HIT3D_UTILS_BASE}/generic_run.py", target_folder)
     shutil.copy(f"{HIT3D_UTILS_BASE}/build.py", target_folder)
 
+def test_viscous_compensation():
+    batch_name = "viscous_compensation_shorter"
+    save_json_folder = f"{BASE_SAVE}/{batch_name}"
+    size = 128
+    steps = 1000
+
+    if IS_DISTRIBUTED:
+        if IS_SINGULARITY: 
+            # running distributed and in singularity
+            output_folder = f"/distribute_save/"
+        else:
+            # running distributed without singularity
+            output_folder = f"../../distribute_save/"
+    else:
+        raise ValueError("dont run viscous compensation test locally!")
+
+    # if the directory exists remove any older files from the dir 
+    if os.path.exists(save_json_folder):
+        for f in os.listdir(save_json_folder):
+            os.remove(os.path.join(save_json_folder, f))
+
+    os.makedirs(save_json_folder, exist_ok=True)
+
+    run_shell_command("make")
+    dt= 0.0005
+    restarts = 0
+    re = 40
+
+    delta_1 = .01
+    delta_2 = .02
+
+    epsilon_generator = EpsilonControl.load_json()
+
+    ep1 = epsilon_generator.epsilon_1(delta_1)
+    ep2 = epsilon_generator.epsilon_2(delta_2)
+
+    visc_params = [
+        # no viscous compensation, use MGM array
+        [0, 0, "mgm-forcing"],
+
+        # no viscous compensation, use new formulation
+        [0, 1, "brooks-forcing"],
+
+        # viscous compensation, there are no formulations so dont send 1-1
+        [1, 0, "visc-compensation"]
+    ]
+
+    for skip_diffusion in [0,1]:
+        if skip_diffusion == 0:
+            diffusion = "yes-diffusion"
+        else:
+            diffusion = "no-diffusion"
+
+        for viscous_compensation, use_visc_forcing, case_name in visc_params:
+            case_name = f"{case_name}_{diffusion}"
+
+            case =  RunCase(
+                skip_diffusion=skip_diffusion,
+                size=size,
+                dt=dt,
+                steps=steps,
+                restarts=restarts,
+                reynolds_number=re,
+                path=output_folder,
+                load_initial_data=2,
+                epsilon1=ep1,
+                epsilon2=ep2,
+                export_vtk=False,
+                scalar_type=14,
+                use_visc_forcing=use_visc_forcing,
+                viscous_compensation=viscous_compensation
+            )
+
+            case.write_to_json(case_name, save_json_folder)
+
+    copy_distribute_files(save_json_folder, batch_name)
+
+    # write a build.json file so that our code pulls the correct versions that we want
+
+    build = Build("visc-compensation", "visc-compensation")
+    build.to_json(save_json_folder)
 
 # helpful function for runnning one-off cases
 def one_case():
-    batch_name = "base64encode"
+    batch_name = "100k_128N_scalars"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
     size = 128
-    steps = 100
+    steps = 40_000
 
     if IS_DISTRIBUTED:
         if IS_SINGULARITY: 
@@ -648,6 +778,7 @@ def one_case():
             shutil.rmtree(output_folder)
         os.mkdir(output_folder)
 
+    copy_init_files(size)
 
     # if the directory exists remove any older files from the dir 
     if os.path.exists(save_json_folder):
@@ -692,5 +823,6 @@ if __name__ == "__main__":
     #initial_condition()
     #forcing_cases()
     #ep1_temporal_cases()
-    one_case()
+    test_viscous_compensation()
+    #one_case()
     pass

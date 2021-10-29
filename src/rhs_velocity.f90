@@ -26,60 +26,14 @@ subroutine rhs_velocity
 !--------------------------------------------------------------------------------
 ! ===========================MGM-Forcing=====================
 !--------------------------------------------------------------------------------
+    ! right here the velicities in fields() are in fourier space
     if (PERT .eq. 1) then
-        !write(*,*) "running mgm foring in rhs_velocity"
-
-        epsilon1 = PERTamp1
-        epsilon2 = PERTamp2
-        ! ******1. Compute vorticity
-        ! velocities in Fourier space
-        wrk(:, :, :, 1:3) = fields(:, :, :, 1:3)
-        ! Taking derivatives
-        call x_derivative(3, 'y', 6)
-        call x_derivative(3, 'x', 5)
-        call x_derivative(2, 'z', 4)
-        call x_derivative(2, 'x', 3)
-        call x_derivative(1, 'z', 2)
-        call x_derivative(1, 'y', 1)
-        ! getting vorticity
-        wrk(:, :, :, 3) = wrk(:, :, :, 3) - wrk(:, :, :, 1)  ! omega_3 = v_x - u_y
-        wrk(:, :, :, 2) = wrk(:, :, :, 2) - wrk(:, :, :, 5)  ! omega_2 = u_z - w_x
-        wrk(:, :, :, 1) = wrk(:, :, :, 6) - wrk(:, :, :, 4)  ! omega_1 = w_y - v_z
-        ! velocities
-        wrk(:, :, :, 4:6) = fields(:, :, :, 1:3)
-        ! convert to X-space
-        do n = 1, 6
-            call xFFT3d(-1, n)
-        end do
-
-        ! ******2. Compute forcing terms & take FFTs
-        ! u \cdot omg
-        fcomp(:, :, :, 0) = wrk(:, :, :, 1)*wrk(:, :, :, 4) + wrk(:, :, :, 2)*wrk(:, :, :, 5) + wrk(:, :, :, 3)*wrk(:, :, :, 6)
-        ! ||omg||^2
-        fcomp(:, :, :, 1) = wrk(:, :, :, 1)**2 + wrk(:, :, :, 2)**2 + wrk(:, :, :, 3)**2
-        ! ||u||^2
-        fcomp(:, :, :, 2) = wrk(:, :, :, 4)**2 + wrk(:, :, :, 5)**2 + wrk(:, :, :, 6)**2
-        ! u, v, w components of forcing term
-        do n = 1, 3
-            fcomp(:, :, :, 2 + n) = epsilon1*(fcomp(:, :, :, 0)*wrk(:, :, :, n) - fcomp(:, :, :, 1)*wrk(:, :, :, 3 + n)) + &
-                                    epsilon2*(fcomp(:, :, :, 0)*wrk(:, :, :, 3 + n) - fcomp(:, :, :, 2)*wrk(:, :, :, n))
-        end do
-        ! copy to work array to perform FFT
-        wrk(:, :, :, 1:3) = fcomp(:, :, :, 3:5)
-        ! converting the products to the Fourier space
-        do n = 1, 3
-            call xFFT3d(1, n)
-        end do
-
-        ! ******3. save to temp array
-        fcomp(:, :, :, 1:3) = wrk(:, :, :, 1:3)
-
-        ! converting velocities to the real space, similar to output of rhs_scalar
-        wrk(:, :, :, 1:3) = fields(:, :, :, 1:3)
-        do n = 1, 3
-            call xFFT3d(-1, n)
-        end do
+        ! if we are doing forcing without viscous compensation
+        if (viscous_compensation == 0) then
+            call calculate_forcing(PERTamp1, PERTamp2)
+        end if
     end if   ! end forcing
+    ! after this if statement going forward the velocities should be in x-space
 !-------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------
@@ -133,14 +87,13 @@ subroutine rhs_velocity
         end do
 
         ! Building the RHS.
-        ! First, put into wrk arrays the convectove terms (that will be multiplyed by "i"
+        ! First, put into wrk arrays the convective terms (that will be multiplyed by "i"
         ! later) and the factor that corresponds to the diffusion
 
         ! Do not forget that in Fourier space the indicies are (ix, iz, iy)
         do k = 1, nz
             do j = 1, ny
                 do i = 1, nx + 2
-
                     t1(1) = -(akx(i)*wrk(i, j, k, 1) + aky(k)*wrk(i, j, k, 2) + akz(j)*wrk(i, j, k, 3))
                     t1(2) = -(akx(i)*wrk(i, j, k, 2) + aky(k)*wrk(i, j, k, 4) + akz(j)*wrk(i, j, k, 5))
                     t1(3) = -(akx(i)*wrk(i, j, k, 3) + aky(k)*wrk(i, j, k, 5) + akz(j)*wrk(i, j, k, 6))
@@ -156,6 +109,16 @@ subroutine rhs_velocity
             end do
         end do
 
+        ! previously we have calculated the forcing according to epsilon 1/2
+        ! 
+        ! if the config says to do viscous compensation then we do it here
+        if (PERT == 1) then
+            ! if we are using viscous compensation or we want the regular forcing then call the new subroutine
+            if (viscous_compensation == 1 .or. use_visc_forcing_anyway == 1) then
+                call update_forcing_viscous_compensation(PERTamp1, PERTamp2)
+            end if
+        end if
+
         ! now take the actual fields from fields(:,:,:,:) and calculate the RHSs
 
         ! at this moment the contains of wrk(:,:,:,1:3) are the convective terms in the RHS
@@ -167,8 +130,7 @@ subroutine rhs_velocity
 
         do k = 1, nz
             do j = 1, ny
-                do i = 1, nx + 1, 2
-
+                do i = 1, nx+ 1, 2
                     ! If the dealiasing option is 2/3-rule (dealias=0) then we retain the modes
                     ! inside the cube described by $| k_i | \leq  k_{max}$, $i=1,2,3$.
                     ! The rest of the modes is purged
@@ -195,6 +157,11 @@ subroutine rhs_velocity
                                 ! ==========================================================
                                 ! BROOKS: original hit3d code with MGM forcing is here (with diffusion, i think)
                                 ! ==========================================================
+
+                                ! the diffusion terms from wrk(4) here have already been calculated in real space
+                                ! if there is viscous compensation - but it simplifies the code to not do anything
+                                ! about it here
+                                
 
                                 ! taking the convective term, multiply it by "i"
                                 ! (see how it's done in x_fftw.f90)
@@ -290,13 +257,10 @@ subroutine rhs_velocity
                     ! The rest of the modes is purged.
 
                     if (ialias(i, j, k) .gt. 1) then ! run for dealias = 1
-                        !write(*,*) "AVOIDING THE BROOKS CODE CODE"
                         ! setting the Fourier components to zero
                         wrk(i, j, k, 1:3) = zip
                         wrk(i + 1, j, k, 1:3) = zip
                     else ! run for dealias = 0
-                        !write(*,*) "RUNNING THE BROOKS CODE"
-
                         if (skip_diffusion == 1) then ! we _ARE NOT_ doing diffusion calculations
                             ! RHS for u, v and w
                             do n = 1, 3
@@ -627,3 +591,334 @@ subroutine test_rhs_velocity
     end if
     return
 end subroutine test_rhs_velocity
+
+! calculate f_u matrix
+! expects fields arrays to be in fourier space
+! (transitively the wrk arrays are also in fourier space)
+! returns arrays in x-space
+subroutine calculate_forcing(epsilon1, epsilon2)
+
+    use m_io
+    use m_parameters
+    use m_fields
+    use m_work
+    use x_fftw
+
+    implicit none
+
+    real*8 :: epsilon1, epsilon2
+    integer :: n
+
+    ! ******1. Compute vorticity
+    call calculate_vorticity()
+
+    ! velocities
+    wrk(:, :, :, 4:6) = fields(:, :, :, 1:3)
+    ! convert to X-space
+    do n = 1, 6
+        call xFFT3d(-1, n)
+    end do
+
+    ! ******2. Compute forcing terms & take FFTs
+    ! u \cdot omg
+    fcomp(:, :, :, 0) = wrk(:, :, :, 1)*wrk(:, :, :, 4) + wrk(:, :, :, 2)*wrk(:, :, :, 5) + wrk(:, :, :, 3)*wrk(:, :, :, 6)
+    ! ||omg||^2
+    fcomp(:, :, :, 1) = wrk(:, :, :, 1)**2 + wrk(:, :, :, 2)**2 + wrk(:, :, :, 3)**2
+    ! ||u||^2
+    fcomp(:, :, :, 2) = wrk(:, :, :, 4)**2 + wrk(:, :, :, 5)**2 + wrk(:, :, :, 6)**2
+    ! u, v, w components of forcing term
+    ! Brooks - I think this is all calculated in X-space (not fourier)
+    do n = 1, 3
+        fcomp(:, :, :, 2 + n) = epsilon1*(fcomp(:, :, :, 0)*wrk(:, :, :, n) - fcomp(:, :, :, 1)*wrk(:, :, :, 3 + n)) + &
+                                epsilon2*(fcomp(:, :, :, 0)*wrk(:, :, :, 3 + n) - fcomp(:, :, :, 2)*wrk(:, :, :, n))
+    end do
+    ! copy to work array to perform FFT
+    wrk(:, :, :, 1:3) = fcomp(:, :, :, 3:5)
+    ! converting the products to the Fourier space
+    do n = 1, 3
+        call xFFT3d(1, n)
+    end do
+
+    ! ******3. save to temp array
+    fcomp(:, :, :, 1:3) = wrk(:, :, :, 1:3)
+
+    ! converting velocities to the real space, similar to output of rhs_scalar
+    wrk(:, :, :, 1:3) = fields(:, :, :, 1:3)
+    do n = 1, 3
+        call xFFT3d(-1, n)
+    end do
+end 
+
+! calculates vorticity using fields (in fourier space) and sets wrk(:,:,:1-3) = omg x omgy omgz
+! WARNING: This function will overwrite any values currently in wrk
+subroutine calculate_vorticity()
+    use m_fields
+    use m_work
+    use x_fftw
+
+    implicit none
+
+    ! velocities in Fourier space
+    wrk(:, :, :, 1:3) = fields(:, :, :, 1:3)
+    ! Taking derivatives
+    call x_derivative(3, 'y', 6) ! derivative of (1) WRT (2) -> store it in (3)
+    call x_derivative(3, 'x', 5)
+    call x_derivative(2, 'z', 4)
+    call x_derivative(2, 'x', 3)
+    call x_derivative(1, 'z', 2)
+    call x_derivative(1, 'y', 1)
+    ! getting vorticity
+    wrk(:, :, :, 3) = wrk(:, :, :, 3) - wrk(:, :, :, 1)  ! omega_3 = v_x - u_y
+    wrk(:, :, :, 2) = wrk(:, :, :, 2) - wrk(:, :, :, 5)  ! omega_2 = u_z - w_x
+    wrk(:, :, :, 1) = wrk(:, :, :, 6) - wrk(:, :, :, 4)  ! omega_1 = w_y - v_z
+
+end
+
+! the input to this subroutine has the wrk array in fourier space
+! the output arrays should also be in fourier space
+! wrk(:,:,:,1-3) contains the convective terms
+! wrk(:,:,:,4) contains the diffusion term
+subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
+    use m_work
+    use m_fields
+    use x_fftw
+
+    implicit none
+
+    ! F_1, D_i and d/dt (Q_1)
+    real*8 :: F_1, D_1, F_2, D_2, dQ_1, dQ_2
+    real*8 :: diffusion_x, diffusion_y, diffusion_z
+    real*8 :: epsilon_1, epsilon_2
+    real*8 :: new_epsilon_1, new_epsilon_2
+    real*8 :: f_left, f_right, f_total, diffusion
+    integer :: i,j,k,n
+
+    if (ITIME == 1) then 
+        write(out, *) "calculating forcing components with visc compensation routine"
+    end if
+
+    F_1 = 0.
+    D_1 = 0.
+    dQ_1 = 0.
+
+    F_2 = 0.
+    D_2 = 0.
+    dQ_2 = 0.
+
+    ! copy the first 3 terms (used for derivatives or something) to the temp array 
+    ! so that we can use the first three indicies to store the results of the diffusion term
+    tmp_wrk(:,:,:,1:3) = wrk(:,:,:,1:3)
+
+    ! copy the diffusion term to the 7th slot
+    tmp_wrk(:,:,:,7) = wrk(:,:,:,4)
+
+    ! FIRST:
+    ! we evaluate the diffusion term from the RHS in fourier space
+    ! 
+    ! this code is replicated (read: Copied) from the for-loop that is directly AFTER this subroutine is called
+    ! copy all the old varaibles to tmp_work
+    if (viscous_compensation ==1) then
+        call calculate_diffusion_term()
+    end if
+
+    ! after calling calculate_diffusion_term the diffusion term WRT u,v,w is now populated in wrk(:,:,:,1-3)
+    ! so we can now use it to calculate whatever derivatives we may need. Swap the diffusion terms to X-space
+    ! so we can use them when calculating the forcing   
+
+    do n=1,3
+        call xFFT3d(-1, n)
+    end do
+
+    ! Lets copy these diffusion terms  
+    ! to tmp_wrk so that we can use all 6 values of wrk() when calculating vorticity
+
+    tmp_wrk(:,:,:,4:6) = wrk(:,:,:,1:3)
+
+    ! so now:
+    ! tmp_wrk(:,:,:,1) -> some fourier derivative term we need to return to wrk() in this position
+    ! tmp_wrk(:,:,:,2) -> some fourier derivative term we need to return to wrk() in this position
+    ! tmp_wrk(:,:,:,3) -> some fourier derivative term we need to return to wrk() in this position
+    ! tmp_wrk(:,:,:,4) -> diffusion WRT x (X-space)
+    ! tmp_wrk(:,:,:,5) -> diffusion WRT y (X-space)
+    ! tmp_wrk(:,:,:,6) -> diffusion WRT z (X-space)
+
+    ! now - we dont have anything useful in the wrk array so we can use wrk to calculate the vorticity
+    ! which requires 6 slots in wrk
+
+    call calculate_vorticity()
+
+    ! now:
+    ! wrk(:,:,:,1) -> omg x (fourier-space)
+    ! wrk(:,:,:,2) -> omg y (fourier-space)
+    ! wrk(:,:,:,3) -> omg z (fourier-space)
+
+    ! copy the velocities into wrk(:,:,:,4-6) so that we can shamelessly copy-paste more code from murali
+
+    wrk(:, :, :, 4:6) = fields(:, :, :, 1:3)
+
+    ! convert all wrk variables to X-space
+    do n = 1, 6
+        call xFFT3d(-1, n)
+    end do
+
+    ! now:
+    ! wrk(:,:,:,1) -> omg x (x-space)
+    ! wrk(:,:,:,2) -> omg y (x-space)
+    ! wrk(:,:,:,3) -> omg z (x-space)
+    ! wrk(:,:,:,4) -> u (x-space)
+    ! wrk(:,:,:,5) -> v (x-space)
+    ! wrk(:,:,:,6) -> w (x-space)
+
+    ! ******2. Compute forcing terms & take FFTs
+    ! u \cdot omg
+    fcomp(:, :, :, 0) = wrk(:, :, :, 1)*wrk(:, :, :, 4) + wrk(:, :, :, 2)*wrk(:, :, :, 5) + wrk(:, :, :, 3)*wrk(:, :, :, 6)
+    ! ||omg||^2
+    fcomp(:, :, :, 1) = wrk(:, :, :, 1)**2 + wrk(:, :, :, 2)**2 + wrk(:, :, :, 3)**2
+    ! ||u||^2
+    fcomp(:, :, :, 2) = wrk(:, :, :, 4)**2 + wrk(:, :, :, 5)**2 + wrk(:, :, :, 6)**2
+
+
+    ! Temporarily remove this section so that we can test indexing issues
+    ! TODO: The segfault error is in this block:
+    do i=1,nx
+        do j=1,ny
+            do k=1,nz
+
+                ! for each n direction
+                do n = 1,3
+                    !
+                    ! Calculate the forcing components for 1 and 2
+                    !
+
+                    ! u \cdot omg * omg_i - |omg|^2 * u_i
+                    f_left = fcomp(i,j,k,0) * wrk(i,j,k,n) - fcomp(i,j,k,1) * wrk(i,j,k,3+n)
+                    ! u \cdot omg * u_i - |u|^2 * omg_i
+                    f_right = fcomp(i,j,k,0) * wrk(i,j,k,3+n) - fcomp(i,j,k,2) * wrk(i,j,k,n)
+
+                    ! the total forcing
+                    f_total = (f_left * epsilon_1) + (f_right * epsilon_2)
+
+                    if (viscous_compensation == 1) then
+                        ! integrate all the forcing components without the corresponding
+                        ! epsilons into each F term
+                        F_1 = F_1 + f_left
+                        F_2 = F_2 + f_right
+
+                        diffusion = tmp_wrk(i,j,k,n+3)
+
+                        ! D_1 = u \cdot d_u
+                        D_1 = D_1 + wrk(i,j,k,n+3) * tmp_wrk(i,j,k,n+3)
+
+                        ! D_2 = \omega \cdot d_u
+                        D_2 = D_2 + wrk(i,j,k,n) * tmp_wrk(i,j,k,n+3)
+
+                        ! d/dt Q_1 = u \cdot (d_u + f_u)
+                        dQ_1 = dQ_1 +&
+                            wrk(i,j,k,n+3) * (diffusion + f_total)
+
+                        ! d/dt Q_2 = \omega \cdot (d_u + f_u)
+                        dQ_2 = dQ_2 +&
+                            wrk(i,j,k,n) * (diffusion + f_total) 
+                    else
+                        ! forcing results if no viscous compensation go in 3:5
+                        fcomp(i,j,k,n+2) = f_total
+                    end if
+                end do
+
+                ! end
+            end do
+        end do
+    end do
+
+    ! now we have evaluated the integral so we can set the forcing components to their true value
+    if (viscous_compensation == 1) then
+        write(out, *) "d1", D_1
+        write(out, *) "d2", D_2
+        write(out, *) "dQ_1", dQ_1
+        write(out, *) "dQ_2", dQ_2
+
+        write(out, *) "F_1", F_1
+        write(out, *) "F_2", F_2
+
+        new_epsilon_1 = epsilon_1 + ((D_1 - dQ_1)/F_1)
+        new_epsilon_2 = epsilon_2 + ((D_2 - dQ_2)/F_2)
+
+        write(out, *) "original ep1 was ", epsilon_1, "new ep1 is ", new_epsilon_1
+        write(out, *) "original ep2 was ", epsilon_2, "new ep2 is ", new_epsilon_2
+
+        ! recalculate the forcing components with the new values
+        do n = 1, 3
+            fcomp(:, :, :, 2 + n) = new_epsilon_1*(fcomp(:, :, :, 0)*wrk(:, :, :, n) - fcomp(:, :, :, 1)*wrk(:, :, :, 3 + n)) + &
+                                    new_epsilon_2*(fcomp(:, :, :, 0)*wrk(:, :, :, 3 + n) - fcomp(:, :, :, 2)*wrk(:, :, :, n))
+        end do
+    end if
+
+    ! copy either forcing result to the wrk array (we dont care about any of the data in it anymore)
+    ! so that we can go back to fourier space
+
+    wrk(:,:,:,1:3) = fcomp(:,:,:,3:5)
+
+    ! Do the IFFT over the 3 forcing components
+    do n = 1, 3
+        call xFFT3d(1, n)
+    end do
+
+    fcomp(:,:,:, 1:3) = wrk(:,:,:,1:3)
+    
+    ! copy back whatever fourier derivatives used to be at this position
+    wrk(:,:,:,1:3) = tmp_wrk(:,:,:,1:3)
+
+    ! copy back the original diffusion term (fourier space) and just recalculate diffusion components as normal
+    ! This is a missed optimization in the parent routine
+
+    wrk(:,:,:,4) = tmp_wrk(:,:,:,7)
+end
+
+
+! calculate and store the result of the diffusion term
+! in wrk(:,:,:,4)
+! in order to call this subroutine you must have ensured that the laplace 
+! operation has been evaluated in fourier space in the main rhs_velocity
+! initialization and that it is stored in wrk(:,:,:)
+subroutine calculate_diffusion_term()
+    use m_work      !wrk
+    use m_fields  ! fields
+    use x_fftw ! ialias
+
+    implicit none
+
+    integer :: k, j, i, n
+
+    do k = 1, nz
+        do j = 1, ny
+            do i = 1, nx + 1, 2
+
+                if (ialias(i, j, k) .gt. 0) then ! run for dealias=0
+                    ! setting the Fourier components to zero
+                    wrk(i, j, k, 1:3) = zip
+                    wrk(i + 1, j, k, 1:3) = zip
+
+                else 
+                    ! RHS for u, v and w
+                    do n = 1, 3
+                        ! for the inviscid case
+                        if (skip_diffusion == 1) then
+                            wrk(i + 1, j, k, n) = 0.
+                            wrk(i, j, k, n) =    0.
+                        ! for the viscouse case - we evaluate the diffusion term
+                        else
+                            ! the reason these indicies look like this is the convective term has
+                            ! a negative in front of it in the impt in the main rhs_velocity subroutine
+                            ! that we never fixed.
+                            wrk(i+1,j,k,n) =  wrk(i+1,j,k,4) *fields(i+1,j,k,n) + fcomp(i+1,j,k,n)
+                            wrk(i  ,j,k,n) =  wrk(i ,j,k,4)  *fields(i  ,j,k,n) + fcomp(i  ,j,k,n)
+                        end if
+                    end do
+
+                end if
+
+            end do
+        end do
+    end do
+    
+end 
