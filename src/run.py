@@ -35,7 +35,7 @@ class RunCase():
             path, load_initial_data=0, nprocs=16, 
             export_vtk=False, epsilon1=0.0, epsilon2=0.0, 
             restart_time=1.0, skip_steps=0, scalar_type=0,
-            use_visc_forcing=0, viscous_compensation=0,
+            validate_viscous_compensation=0, viscous_compensation=0,
             require_forcing=0
         ):
         # if there are restarts, find the number of steps spent in that those restarts
@@ -60,7 +60,7 @@ class RunCase():
         self.skip_steps        = skip_steps
         self.scalar_type        = scalar_type
         
-        self.use_visc_forcing = use_visc_forcing 
+        self.validate_viscous_compensation = validate_viscous_compensation
         self.viscous_compensation = viscous_compensation
 
         self.require_forcing = require_forcing
@@ -74,7 +74,6 @@ class RunCase():
         io_steps = int(self.steps * 300 / 80_000)
 
         io_steps = max(io_steps, 1)
-        io_steps = 10 
 
         run_case(
             self.skip_diffusion, 
@@ -93,7 +92,7 @@ class RunCase():
             self.epsilon2,
             self.restart_time,
             self.scalar_type,
-            self.use_visc_forcing,
+            self.validate_viscous_compensation,
             self.viscous_compensation,
             self.require_forcing
         )
@@ -125,8 +124,9 @@ class RunCase():
             "skip_steps":        self.skip_steps,
             "scalar_type":        self.scalar_type,
             "job_name": job_name,
-            "use_visc_forcing": self.use_visc_forcing,
-            "viscous_compensation": self.viscous_compensation
+            "validate_viscous_compensation": self.validate_viscous_compensation,
+            "viscous_compensation": self.viscous_compensation,
+            "require_forcing": self.require_forcing,
         }
 
         with open(file_name, "w", encoding="utf-8") as file:
@@ -175,7 +175,7 @@ def run_case(
     nprocs, save_folder, iteration, 
     steps_between_io, export_vtk, epsilon1, epsilon2, 
     restart_time, scalar_type,
-    use_visc_forcing, viscous_compensation,
+    viscous_compensation_validation, viscous_compensation,
     require_forcing
     ):
 
@@ -213,7 +213,7 @@ def run_case(
             --tscalar -0.1 \
             --nscalar 1 \
             --scalar-type {scalar_type} \
-            --use-visc-forcing {use_visc_forcing} \
+            --validate-viscous-compensation {viscous_compensation_validation} \
             --viscous-compensation {viscous_compensation} \
             --require-forcing {require_forcing} \
             input_file.in ")
@@ -337,6 +337,9 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     for file in glob(f"{solver_folder}/d*.txt"):
         shutil.move(file, logs_dir)
 
+    # plots from energy.csv
+    run_shell_command(f'python3 {HIT3D_UTILS_BASE}/plots/energy_helicity.py {solver_folder}/energy.csv {output_folder} "{restart_time_slice}" {epsilon_1} {epsilon_2}')
+
     print(flowfield_files)
 
     # if we are saving the vtk data then rip it from the csv files, and delete the csv file once donw
@@ -379,7 +382,6 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     # and for the spectra
     #
 
-    run_shell_command(f'python3 {HIT3D_UTILS_BASE}/plots/energy_helicity.py {solver_folder}/energy.csv {output_folder} "{restart_time_slice}" {epsilon_1} {epsilon_2}')
     run_shell_command(f'python3 {HIT3D_UTILS_BASE}/plots/spectra.py {solver_folder}/spectra.json {output_folder}')
 
     # move some of the important files to the save folder so they do not get purged
@@ -686,10 +688,10 @@ def copy_distribute_files(target_folder, batch_name):
     shutil.copy(f"{HIT3D_UTILS_BASE}/build.py", target_folder)
 
 def test_viscous_compensation():
-    batch_name = "viscous_compensation_shorter"
+    batch_name = "viscous_compensation_short_128_3"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
     size = 128
-    steps = 30_000
+    steps = 100
 
     if IS_DISTRIBUTED:
         if IS_SINGULARITY: 
@@ -713,20 +715,12 @@ def test_viscous_compensation():
     restarts = 0
     re = 40
 
-    delta_1 = .0001
-    delta_2 = .002
-
-    epsilon_generator = EpsilonControl.load_json()
-
-    ep1 = epsilon_generator.epsilon_1(delta_1)
-    ep2 = epsilon_generator.epsilon_2(delta_2)
-
     visc_params = [
         # no viscous compensation, use MGM array
-        [0, 0, "mgm-forcing"],
+        #[0, "mgm-forcing"],
 
         # use viscous compensation
-        [1, 0, "visc-compensation"]
+        [1, "visc-compensation"]
     ]
 
     for skip_diffusion in [0,1]:
@@ -735,7 +729,7 @@ def test_viscous_compensation():
         else:
             diffusion = "no-diffusion"
 
-        for viscous_compensation, use_visc_forcing, case_name in visc_params:
+        for viscous_compensation, case_name in visc_params:
             case_name = f"{case_name}_{diffusion}"
 
             case =  RunCase(
@@ -751,7 +745,7 @@ def test_viscous_compensation():
                 epsilon2=0.0,
                 export_vtk=False,
                 scalar_type=14,
-                use_visc_forcing=use_visc_forcing,
+                validate_viscous_compensation=1,
                 viscous_compensation=viscous_compensation,
                 require_forcing=1
             )
@@ -762,7 +756,7 @@ def test_viscous_compensation():
 
     # write a build.json file so that our code pulls the correct versions that we want
 
-    build = Build("visc-compensation", "visc-compensation")
+    build = Build("master", "master")
     build.to_json(save_json_folder)
 
 # helpful function for runnning one-off cases
@@ -822,6 +816,7 @@ def one_case():
 
         build = Build("master", "master")
         build.to_json(save_json_folder)
+
     else:
         print("running the case locally")
         copy_init_files(size)

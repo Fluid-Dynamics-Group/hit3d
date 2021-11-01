@@ -77,7 +77,7 @@ module m_parameters
     ! own array so that we can use it for viscous compensation calculation later
     ! = 1 -> use the if statement in the viscous compensation equation to calculate the forcing
     ! = 0 -> use the regular forcing formulation from MGM to calculate forcing
-    integer :: use_visc_forcing_anyway
+    integer :: viscous_compensation_validation
 
     ! whether or not to use viscous compensation
     ! if you are using viscous compensation calculate_diffusion_separate
@@ -442,8 +442,8 @@ contains
 
         ! check if we are using a separate array for the diffusion terms
 
-        read (in, *, err=9000) use_visc_forcing_anyway
-        write (out, *) "use_visc_forcing_anyway", use_visc_forcing_anyway
+        read (in, *, err=9000) viscous_compensation_validation
+        write (out, *) "viscous_compensation_validation", viscous_compensation_validation
 
         ! -------------------------------------------------------------
 
