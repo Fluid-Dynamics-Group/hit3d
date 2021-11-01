@@ -75,6 +75,10 @@ class RunCase():
 
         io_steps = max(io_steps, 1)
 
+        # TODO: remove this later
+        if self.validate_viscous_compensation == 1:
+            io_steps = max(30, io_steps)
+
         run_case(
             self.skip_diffusion, 
             self.size, 
@@ -688,7 +692,7 @@ def copy_distribute_files(target_folder, batch_name):
     shutil.copy(f"{HIT3D_UTILS_BASE}/build.py", target_folder)
 
 def test_viscous_compensation():
-    batch_name = "viscous_compensation_short_128_3"
+    batch_name = "viscous_compensation_short_128_4"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
     size = 128
     steps = 100
@@ -717,7 +721,7 @@ def test_viscous_compensation():
 
     visc_params = [
         # no viscous compensation, use MGM array
-        #[0, "mgm-forcing"],
+        [0, "mgm-forcing"],
 
         # use viscous compensation
         [1, "visc-compensation"]

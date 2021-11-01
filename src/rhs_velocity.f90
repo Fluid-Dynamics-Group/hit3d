@@ -769,9 +769,21 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
 
     ! now we have evaluated the integral so we can set the forcing components to their true value
     if (viscous_compensation == 1) then
+
+        F_1 = -1 * F_1
+        F_2 = -1 * F_2
+
         if (viscous_compensation_validation == 1) then
             dQ_1 = 0.0
             dQ_2 = 0.0
+        end if
+
+        ! if we are dealing with an inviscid case then just set the diffusion
+        ! term to zero. This really only happens when we carelessly select 
+        ! parameters in the run.py
+        if (skip_diffusion ==1) then 
+            D_1 = 0.0
+            D_2 = 0.0
         end if
 
         write(out, *) "d1", D_1
