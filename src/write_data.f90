@@ -218,7 +218,7 @@ subroutine init_write_energy
         open (filenumber, file="output/energy.csv")
         write (filenumber, "('current_time,', 'energy,', 'solver_energy,', 'helicity,', 'solver_helicity,', &
               'fdot_u_1,', 'fdot_u_2,', 'fdot_omega_1,', 'fdot_omega_2,', 'f_rate_e,', 'f_rate_h,', &
-              're_lambda,', 'F_1,', 'F_2' &
+              're_lambda,', 'F_1,', 'F_2,', 'D_1,', 'D_2' &
           )")
     end if
 
@@ -418,6 +418,9 @@ subroutine write_energy(current_time)
     F_1 = F_1 * frac
     F_2 = F_2 * frac
 
+    D_1 = D_1 * frac
+    D_2 = D_2 * frac
+
     !
     ! check that all of the variables are not NAN
     !
@@ -438,6 +441,8 @@ subroutine write_energy(current_time)
     call error_on_nan(F_1, "F_1")
     call error_on_nan(F_2, "F_2")
 
+    call error_on_nan(D_1, "D_1")
+    call error_on_nan(D_2, "D_2")
 
     !
     ! sum the values through mpi
@@ -460,6 +465,9 @@ subroutine write_energy(current_time)
     call add_through_mpi(F_1)
     call add_through_mpi(F_2)
 
+    call add_through_mpi(D_1)
+    call add_through_mpi(D_2)
+
     ! calculate Re_lambda (taylor reynolds number) according to MGM's 
     ! formulation in m_stats.f90 subroutine stat_velocity
 
@@ -480,11 +488,12 @@ subroutine write_energy(current_time)
         open (filenumber, file="output/energy.csv")
         write (filenumber, "(E16.10, ',', E16.10, ',', E16.10, ',', &
   &            E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',' E16.10, ',', E16.10, ',' &
-               E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',' E16.10 &
+               E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',' E16.10, ',', E16.10, ',' &
+               E16.10 &
               )") &
             current_time, energy, solver_energy, helicity, solver_helicity, fcomp_u_left, &
             fcomp_u_right, fcomp_omega_left, fcomp_omega_right, f_rate_e, f_rate_h, re_lambda, &
-            F_1, F_2
+            F_1, F_2, D_1, D_2
 
         flush (filenumber)
     end if

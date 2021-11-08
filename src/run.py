@@ -7,7 +7,7 @@ import json
 from glob import glob
 
 UNR = True 
-IS_DISTRIBUTED = True
+IS_DISTRIBUTED = False
 IS_SINGULARITY = False
 
 if UNR:
@@ -73,7 +73,7 @@ class RunCase():
         # higher number = more steps saved
         io_steps = int(self.steps * 300 / 80_000)
 
-        io_steps = max(io_steps, 1)
+        io_steps = max(io_steps, 50)
 
         # TODO: remove this later
         if self.validate_viscous_compensation == 1:
@@ -692,10 +692,10 @@ def copy_distribute_files(target_folder, batch_name):
     shutil.copy(f"{HIT3D_UTILS_BASE}/build.py", target_folder)
 
 def test_viscous_compensation():
-    batch_name = "viscous_compensation_short_128_4"
+    batch_name = "viscous_compensation_short_128_6"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
     size = 128
-    steps = 100
+    steps = 1000
 
     if IS_DISTRIBUTED:
         if IS_SINGULARITY: 
@@ -769,7 +769,7 @@ def one_case():
     job_name = "single-case"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
     size = 128
-    steps = 100
+    steps = 400
 
     if IS_DISTRIBUTED:
         if IS_SINGULARITY: 
@@ -797,9 +797,9 @@ def one_case():
     run_shell_command("make")
 
     case =  RunCase(
-        skip_diffusion=1,
+        skip_diffusion=0,
         size=size,
-        dt=0.0001,
+        dt=0.0005,
         steps=steps,
         restarts=0,
         reynolds_number=40,
@@ -807,13 +807,16 @@ def one_case():
         load_initial_data=2,
         epsilon1=0.000000,
         # delta2 is negative, this will decrease helicity
-        epsilon2=0.0001,
+        epsilon2=0.000000,
         export_vtk=True,
-        scalar_type=14
+        scalar_type=14,
+        require_forcing=1,
+        viscous_compensation=1,
+        validate_viscous_compensation=1
     )
 
     if IS_DISTRIBUTED:
-        print("createing files to run on distributed compute")
+        print("creating files to run on distributed compute")
         case.write_to_json(job_name, save_json_folder)
 
         copy_distribute_files(save_json_folder, batch_name)
@@ -835,6 +838,6 @@ if __name__ == "__main__":
     #initial_condition()
     #forcing_cases()
     #ep1_temporal_cases()
-    test_viscous_compensation()
-    #one_case()
+    #test_viscous_compensation()
+    one_case()
     pass

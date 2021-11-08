@@ -1,5 +1,6 @@
 module forcing_vaues
     real*8 F_1, F_2
+    real*8 D_1, D_2
 end module
 
 subroutine rhs_velocity
@@ -154,10 +155,8 @@ subroutine rhs_velocity
                                 ! taking the convective term, multiply it by "i"
                                 ! (see how it's done in x_fftw.f90)
                                 ! and adding the diffusion term
-                                rtmp =           - wrk(i+1,j,k,n) + wrk(i  ,j,k,4) * fields(i  ,j,k,n) &
-                                + fcomp(i  ,j,k,n)
-                                wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) + wrk(i+1,j,k,4) * fields(i+1,j,k,n) &
-                                + fcomp(i+1,j,k,n)
+                                rtmp =           - wrk(i+1,j,k,n) + wrk(i  ,j,k,4) * fields(i  ,j,k,n) + fcomp(i  ,j,k,n)
+                                wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) + wrk(i+1,j,k,4) * fields(i+1,j,k,n) + fcomp(i+1,j,k,n)
                                 wrk(i, j, k, n) = rtmp
 
                                 ! dot this wrk variable with u - can try doing truncation here based on rtmp
@@ -619,14 +618,14 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     implicit none
 
     ! F_1, D_i and d/dt (Q_1)
-    real*8 :: D_1, D_2, dQ_1, dQ_2
+    real*8 :: dQ_1, dQ_2
     real*8 :: diffusion_x, diffusion_y, diffusion_z
     real*8 :: epsilon_1, epsilon_2
     real*8 :: new_epsilon_1, new_epsilon_2
     real*8 :: f_left, f_right, f_total, diffusion
     integer :: i,j,k,n
 
-    if (ITIME == 1) then 
+    if (ITIME == 1) then
         write(out, *) "calculating forcing components with visc compensation routine"
     end if
 
@@ -711,8 +710,6 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     fcomp(:, :, :, 2) = wrk(:, :, :, 4)**2 + wrk(:, :, :, 5)**2 + wrk(:, :, :, 6)**2
 
 
-    ! Temporarily remove this section so that we can test indexing issues
-    ! TODO: The segfault error is in this block:
     do i=1,nx
         do j=1,ny
             do k=1,nz
@@ -739,16 +736,15 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
                     F_1 = F_1 + (f_left * wrk(i,j,k,3+n))
                     F_2 = F_2 + (f_right * wrk(i,j,k,n))
 
+                    diffusion = tmp_wrk(i,j,k,n+3)
+
+                    ! D_1 = u \cdot d_u
+                    D_1 = D_1 + wrk(i,j,k,n+3) * diffusion
+
+                    ! D_2 = \omega \cdot d_u
+                    D_2 = D_2 + wrk(i,j,k,n) * diffusion
+
                     if (viscous_compensation == 1) then
-
-                        diffusion = tmp_wrk(i,j,k,n+3)
-
-                        ! D_1 = u \cdot d_u
-                        D_1 = D_1 + wrk(i,j,k,n+3) * tmp_wrk(i,j,k,n+3)
-
-                        ! D_2 = \omega \cdot d_u
-                        D_2 = D_2 + wrk(i,j,k,n) * tmp_wrk(i,j,k,n+3)
-
                         ! d/dt Q_1 = u \cdot (d_u + f_u)
                         dQ_1 = dQ_1 +&
                             wrk(i,j,k,n+3) * (diffusion + f_total)
@@ -781,24 +777,13 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
         ! if we are dealing with an inviscid case then just set the diffusion
         ! term to zero. This really only happens when we carelessly select 
         ! parameters in the run.py
-        if (skip_diffusion ==1) then 
+        if (skip_diffusion ==1) then
             D_1 = 0.0
             D_2 = 0.0
         end if
 
-        write(out, *) "d1", D_1
-        write(out, *) "d2", D_2
-        write(out, *) "dQ_1", dQ_1
-        write(out, *) "dQ_2", dQ_2
-
-        write(out, *) "F_1", F_1
-        write(out, *) "F_2", F_2
-
         new_epsilon_1 = epsilon_1 + ((D_1 - dQ_1)/F_1)
         new_epsilon_2 = epsilon_2 + ((D_2 - dQ_2)/F_2)
-
-        write(out, *) "original ep1 was ", epsilon_1, "new ep1 is ", new_epsilon_1
-        write(out, *) "original ep2 was ", epsilon_2, "new ep2 is ", new_epsilon_2
 
         ! recalculate the forcing components with the new values
         do n = 1, 3
@@ -834,6 +819,8 @@ end
 ! in order to call this subroutine you must have ensured that the laplace 
 ! operation has been evaluated in fourier space in the main rhs_velocity
 ! initialization and that it is stored in wrk(:,:,:)
+!
+! This subroutine does _NOT_ take care of any forcing
 subroutine calculate_diffusion_term()
     use m_work      !wrk
     use m_fields  ! fields
@@ -861,11 +848,14 @@ subroutine calculate_diffusion_term()
                             wrk(i, j, k, n) =    0.
                         ! for the viscouse case - we evaluate the diffusion term
                         else
+                            !write(*,*) "calculating diffusion terms"
                             ! the reason these indicies look like this is the convective term has
                             ! a negative in front of it in the impt in the main rhs_velocity subroutine
                             ! that we never fixed.
-                            wrk(i+1,j,k,n) =  wrk(i+1,j,k,4) *fields(i+1,j,k,n) + fcomp(i+1,j,k,n)
-                            wrk(i  ,j,k,n) =  wrk(i ,j,k,4)  *fields(i  ,j,k,n) + fcomp(i  ,j,k,n)
+                            !wrk(i+1,j,k,n)  =   wrk(i  ,j,k,n) + wrk(i+1,j,k,4) * fields(i+1,j,k,n)
+                            !wrk(i, j, k, n) =- wrk(i+1,j,k,n)  + wrk(i  ,j,k,4) * fields(i  ,j,k,n)
+                            wrk(i+1,j,k,n)  = wrk(i+1,j,k,4) * fields(i+1,j,k,n)
+                            wrk(i, j, k, n) = wrk(i  ,j,k,4) * fields(i  ,j,k,n)
                         end if
                     end do
 
