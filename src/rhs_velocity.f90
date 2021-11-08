@@ -764,7 +764,7 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     end do
 
     ! now we have evaluated the integral so we can set the forcing components to their true value
-    if (viscous_compensation == 1) then
+    if (viscous_compensation == 1 .and. skip_diffusion == 0) then
 
         F_1 = -1 * F_1
         F_2 = -1 * F_2
