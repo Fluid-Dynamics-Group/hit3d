@@ -601,7 +601,6 @@ subroutine calculate_vorticity()
     wrk(:, :, :, 3) = wrk(:, :, :, 3) - wrk(:, :, :, 1)  ! omega_3 = v_x - u_y
     wrk(:, :, :, 2) = wrk(:, :, :, 2) - wrk(:, :, :, 5)  ! omega_2 = u_z - w_x
     wrk(:, :, :, 1) = wrk(:, :, :, 6) - wrk(:, :, :, 4)  ! omega_1 = w_y - v_z
-
 end
 
 ! the input to this subroutine has the wrk array in fourier space
@@ -745,6 +744,7 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
                     D_2 = D_2 + wrk(i,j,k,n) * diffusion
 
                     if (viscous_compensation == 1) then
+
                         ! d/dt Q_1 = u \cdot (d_u + f_u)
                         dQ_1 = dQ_1 +&
                             wrk(i,j,k,n+3) * (diffusion + f_total)
@@ -764,7 +764,7 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     end do
 
     ! now we have evaluated the integral so we can set the forcing components to their true value
-    if (viscous_compensation == 1) then
+    if (viscous_compensation == 1 .and. skip_diffusion == 0) then
 
         F_1 = -1 * F_1
         F_2 = -1 * F_2
@@ -772,14 +772,6 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
         if (viscous_compensation_validation == 1) then
             dQ_1 = 0.0
             dQ_2 = 0.0
-        end if
-
-        ! if we are dealing with an inviscid case then just set the diffusion
-        ! term to zero. This really only happens when we carelessly select 
-        ! parameters in the run.py
-        if (skip_diffusion ==1) then
-            D_1 = 0.0
-            D_2 = 0.0
         end if
 
         new_epsilon_1 = epsilon_1 + ((D_1 - dQ_1)/F_1)

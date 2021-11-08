@@ -7,7 +7,7 @@ import json
 from glob import glob
 
 UNR = True 
-IS_DISTRIBUTED = False
+IS_DISTRIBUTED = True 
 IS_SINGULARITY = False
 
 if UNR:
@@ -64,6 +64,10 @@ class RunCase():
         self.viscous_compensation = viscous_compensation
 
         self.require_forcing = require_forcing
+
+    def validate_params(self):
+        if (self.viscous_compensation == 1 or self.validate_viscous_compensation== 1) and self.skip_diffusion == 1:
+            raise ValueError("cant have viscous compensation for the inviscid flow")
 
     def run(self, iteration):
         # automatically calculate a reasonable number of steps between io 
@@ -692,10 +696,10 @@ def copy_distribute_files(target_folder, batch_name):
     shutil.copy(f"{HIT3D_UTILS_BASE}/build.py", target_folder)
 
 def test_viscous_compensation():
-    batch_name = "viscous_compensation_short_128_6"
+    batch_name = "viscous_compensation_short_128_10"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
     size = 128
-    steps = 1000
+    steps = 500
 
     if IS_DISTRIBUTED:
         if IS_SINGULARITY: 
@@ -736,6 +740,11 @@ def test_viscous_compensation():
         for viscous_compensation, case_name in visc_params:
             case_name = f"{case_name}_{diffusion}"
 
+            # if the flow is inviscid then dont include
+            # any viscous compensation
+            if skip_diffusion == 1:
+                viscous_compensation = 0
+
             case =  RunCase(
                 skip_diffusion=skip_diffusion,
                 size=size,
@@ -749,7 +758,7 @@ def test_viscous_compensation():
                 epsilon2=0.0,
                 export_vtk=False,
                 scalar_type=14,
-                validate_viscous_compensation=1,
+                validate_viscous_compensation=viscous_compensation,
                 viscous_compensation=viscous_compensation,
                 require_forcing=1
             )
@@ -838,6 +847,6 @@ if __name__ == "__main__":
     #initial_condition()
     #forcing_cases()
     #ep1_temporal_cases()
-    #test_viscous_compensation()
-    one_case()
+    test_viscous_compensation()
+    #one_case()
     pass
