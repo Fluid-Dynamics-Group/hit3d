@@ -696,7 +696,7 @@ def copy_distribute_files(target_folder, batch_name):
     shutil.copy(f"{HIT3D_UTILS_BASE}/build.py", target_folder)
 
 def test_viscous_compensation():
-    batch_name = "viscous_compensation_short_128_10"
+    batch_name = "viscous_compensation_short_128_final_validation"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
     size = 128
     steps = 500
