@@ -36,7 +36,8 @@ class RunCase():
             export_vtk=False, epsilon1=0.0, epsilon2=0.0, 
             restart_time=1.0, skip_steps=0, scalar_type=0,
             validate_viscous_compensation=0, viscous_compensation=0,
-            require_forcing=0
+            require_forcing=0,
+            io_steps = None
         ):
         # if there are restarts, find the number of steps spent in that those restarts
         # and add them to the current number of steps
@@ -64,6 +65,7 @@ class RunCase():
         self.viscous_compensation = viscous_compensation
 
         self.require_forcing = require_forcing
+        self.io_steps = io_steps
 
     def validate_params(self):
         if (self.viscous_compensation == 1 or self.validate_viscous_compensation== 1) and self.skip_diffusion == 1:
@@ -75,7 +77,10 @@ class RunCase():
 
         # keep the amount of data produced constant 
         # higher number = more steps saved
-        io_steps = int(self.steps * 300 / 80_000)
+        if self.io_steps is None:
+            io_steps = int(self.steps * 300 / 80_000)
+        else:
+            io_steps = self.io_steps
 
         run_case(
             self.skip_diffusion, 
@@ -129,6 +134,7 @@ class RunCase():
             "validate_viscous_compensation": self.validate_viscous_compensation,
             "viscous_compensation": self.viscous_compensation,
             "require_forcing": self.require_forcing,
+            "io_steps": self.io_steps,
         }
 
         with open(file_name, "w", encoding="utf-8") as file:
@@ -779,11 +785,12 @@ def proposal_figures():
     build.to_json(save_json_folder)
 
 def test_viscous_compensation():
-    batch_name = "viscous_compensation_short_128_final_validation_5"
+    batch_name = "viscous_compensation_short_128_final_validation_8"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
     size = 128
-    steps = 500
-    extra_caps = ["lab2-3"]
+    steps = 100
+    extra_caps = ["lab3"]
+    io_steps = int(steps/10)
 
     if IS_DISTRIBUTED:
         if IS_SINGULARITY: 
@@ -839,10 +846,40 @@ def test_viscous_compensation():
                 scalar_type=14,
                 validate_viscous_compensation=viscous_compensation,
                 viscous_compensation=viscous_compensation,
-                require_forcing=1
+                require_forcing=1,
+                io_steps=io_steps,
             )
 
             case.write_to_json(case_name, save_json_folder)
+
+    base_name = "unforced"
+
+    for skip_diffusion in [0,1]:
+        if skip_diffusion == 0:
+            diffusion = "yes-diffusion"
+        else:
+            diffusion = "no-diffusion"
+
+        case_name = f"{base_name}_{diffusion}"
+
+        case =  RunCase(
+            skip_diffusion=skip_diffusion,
+            size=size,
+            dt=dt,
+            steps=steps,
+            restarts=restarts,
+            reynolds_number=re,
+            path=output_folder,
+            load_initial_data=2,
+            epsilon1=0.0,
+            epsilon2=0.0,
+            export_vtk=False,
+            scalar_type=14,
+            require_forcing=0,
+            io_steps=io_steps,
+        )
+
+        case.write_to_json(case_name, save_json_folder)
 
     copy_distribute_files(save_json_folder, batch_name, extra_caps)
 
@@ -927,7 +964,7 @@ if __name__ == "__main__":
     #initial_condition()
     #forcing_cases()
     #ep1_temporal_cases()
-    #test_viscous_compensation()
+    test_viscous_compensation()
     #one_case()
-    proposal_figures()
+    #proposal_figures()
     pass
