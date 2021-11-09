@@ -77,12 +77,6 @@ class RunCase():
         # higher number = more steps saved
         io_steps = int(self.steps * 300 / 80_000)
 
-        io_steps = max(io_steps, 50)
-
-        # TODO: remove this later
-        if self.validate_viscous_compensation == 1:
-            io_steps = max(30, io_steps)
-
         run_case(
             self.skip_diffusion, 
             self.size, 
@@ -663,7 +657,7 @@ def ep1_temporal_cases():
 
     copy_distribute_files(save_json_folder,forcing_folder)
 
-def copy_distribute_files(target_folder, batch_name):
+def copy_distribute_files(target_folder, batch_name, extra_caps):
     if UNR:
         build_location= "/home/brooks/github/hit3d-utils/build.py"
         run_py = "/home/brooks/github/hit3d/src/run.py"
@@ -675,6 +669,20 @@ def copy_distribute_files(target_folder, batch_name):
     files = [i for i in glob(f"{target_folder}/*.json") if not "build.json" in i]
     files = " ".join(files)
 
+    # format the capabilities to a string
+    caps_str = ""
+    first_cap = True
+    for cap in extra_caps:
+        if first_cap:
+            first_cap = False
+        else:
+            caps_str+=","
+
+        caps_str += cap
+
+    if len(extra_caps) == 0:
+        caps_str = ","
+
     print("files are \n",files)
 
     run_shell_command(f"hit3d-utils distribute-gen \
@@ -682,6 +690,7 @@ def copy_distribute_files(target_folder, batch_name):
             --library {run_py} \
             --library-save-name hit3d_helpers.py \
             --batch-name {batch_name} \
+            --extra-caps {caps_str} \
             --required-files {IC_SPEC_NAME} \
             --required-files {IC_WRK_NAME} \
             {files}"
@@ -695,11 +704,86 @@ def copy_distribute_files(target_folder, batch_name):
     shutil.copy(f"{HIT3D_UTILS_BASE}/generic_run.py", target_folder)
     shutil.copy(f"{HIT3D_UTILS_BASE}/build.py", target_folder)
 
+def proposal_figures():
+    delta_1 = .0001
+    delta_2 = .002
+
+    run_shell_command("make")
+    forcing_folder = f"proposal_figures"
+    save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
+    extra_caps = ["lab1-2"]
+
+    if not os.path.exists(save_json_folder):
+        os.mkdir(save_json_folder)
+
+    for f in os.listdir(save_json_folder):
+        os.remove(os.path.join(save_json_folder, f))
+
+    dt = 0.0001
+    size = 256
+    re = 40
+    steps = 99_000
+    save_vtk = True
+    batch_name = forcing_folder
+
+    copy_init_files(size)
+
+    epsilon_generator = EpsilonControl.load_json()
+
+    cases = [
+        [-1*delta_1, 0., "ep1-neg"],
+        [ 0., -1*delta_2, "ep2-neg"],
+    ]
+
+    if IS_SINGULARITY and IS_DISTRIBUTED:
+        output_folder = f"/distribute_save/"
+    else:
+        output_folder = f"../../distribute_save/"
+
+    for skip_diffusion in [0,1]:
+
+        # TODO: remove this after generating 
+        if skip_diffusion == 0:
+            continue
+
+        for delta_1, delta_2, folder in cases:
+            diffusion_str = skip_diffusion_to_str(skip_diffusion)
+            epsilon1 = epsilon_generator.epsilon_1(delta_1)
+            epsilon2 = epsilon_generator.epsilon_2(delta_2)
+
+            if epsilon1 == -0.0:
+                epsilon1 = 0.0
+            if epsilon2 == -0.0:
+                epsilon2 = 0.0
+
+            case =  RunCase(skip_diffusion=skip_diffusion, 
+                size=size,
+                dt=dt,
+                steps=steps,
+                restarts=0,
+                restart_time=1.,
+                reynolds_number=re,
+                path= output_folder,
+                load_initial_data=0,
+                epsilon1=epsilon1,
+                epsilon2=epsilon2,
+                export_vtk=save_vtk,
+                scalar_type=14
+            )
+
+            case.write_to_json(f"{folder}_{diffusion_str}", save_json_folder)
+
+    copy_distribute_files(save_json_folder, batch_name, extra_caps)
+
+    build = Build("master", "master")
+    build.to_json(save_json_folder)
+
 def test_viscous_compensation():
-    batch_name = "viscous_compensation_short_128_final_validation_2"
+    batch_name = "viscous_compensation_short_128_final_validation_5"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
     size = 128
     steps = 500
+    extra_caps = ["lab2-3"]
 
     if IS_DISTRIBUTED:
         if IS_SINGULARITY: 
@@ -760,7 +844,7 @@ def test_viscous_compensation():
 
             case.write_to_json(case_name, save_json_folder)
 
-    copy_distribute_files(save_json_folder, batch_name)
+    copy_distribute_files(save_json_folder, batch_name, extra_caps)
 
     # write a build.json file so that our code pulls the correct versions that we want
 
@@ -774,6 +858,7 @@ def one_case():
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
     size = 128
     steps = 400
+    extra_caps = []
 
     if IS_DISTRIBUTED:
         if IS_SINGULARITY: 
@@ -823,7 +908,7 @@ def one_case():
         print("creating files to run on distributed compute")
         case.write_to_json(job_name, save_json_folder)
 
-        copy_distribute_files(save_json_folder, batch_name)
+        copy_distribute_files(save_json_folder, batch_name, extra_caps)
 
         build = Build("master", "master")
         build.to_json(save_json_folder)
@@ -842,6 +927,7 @@ if __name__ == "__main__":
     #initial_condition()
     #forcing_cases()
     #ep1_temporal_cases()
-    test_viscous_compensation()
+    #test_viscous_compensation()
     #one_case()
+    proposal_figures()
     pass

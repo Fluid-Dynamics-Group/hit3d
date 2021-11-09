@@ -774,6 +774,11 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
             dQ_2 = 0.0
         end if
 
+        if (skip_diffusion == 1) then
+            D_1 = 0.0
+            D_2 = 0.0
+        end if
+
         new_epsilon_1 = epsilon_1 + ((D_1 - dQ_1)/F_1)
         new_epsilon_2 = epsilon_2 + ((D_2 - dQ_2)/F_2)
 
