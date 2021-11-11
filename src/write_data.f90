@@ -10,7 +10,7 @@ module m_data
     real*8, dimension(:,:,:,:), allocatable :: wrk_global
 
     ! io variables
-    real*8 :: energy, helicity, solver_energy, solver_helicity, udotw, umag, wmag
+    real*8 :: energy, helicity, solver_energy, solver_helicity, udotw, umag, wmag, helicity1
     real*8 :: fcomp_u_left, fcomp_u_right
     real*8 :: fcomp_omega_left, fcomp_omega_right
 end module m_data
@@ -218,7 +218,7 @@ subroutine init_write_energy
         open (filenumber, file="output/energy.csv")
         write (filenumber, "('current_time,', 'energy,', 'solver_energy,', 'helicity,', 'solver_helicity,', &
               'fdot_u_1,', 'fdot_u_2,', 'fdot_omega_1,', 'fdot_omega_2,', 'f_rate_e,', 'f_rate_h,', &
-              're_lambda,', 'F_1,', 'F_2,', 'D_1,', 'D_2' &
+              're_lambda,', 'F_1,', 'F_2,', 'D_1,', 'D_2,', 'helicity1' &
           )")
     end if
 
@@ -278,7 +278,6 @@ subroutine write_energy(current_time)
     real*8 :: epsilon_1, epsilon_2
     real*8 :: tmp_val, frac
     real*8 :: re_lambda
-
 
     ! ifft the RHS variables so we are in x-space
     call ifft_rhs
@@ -363,6 +362,8 @@ subroutine write_energy(current_time)
                 helicity = helicity + udotw
                 solver_helicity = solver_helicity + ((u_rhs*omg_x) + (v_rhs*omg_y) + (w_rhs*omg_z))
 
+                helicity1 = helicity1 + (udotw**2)
+
                 energy = energy + umag
                 solver_energy = solver_energy + (u_rhs*u + v_rhs*v + w_rhs*w)
 
@@ -421,6 +422,8 @@ subroutine write_energy(current_time)
     D_1 = D_1 * frac
     D_2 = D_2 * frac
 
+    helicity1 = helicity1 * frac
+
     !
     ! check that all of the variables are not NAN
     !
@@ -443,6 +446,8 @@ subroutine write_energy(current_time)
 
     call error_on_nan(D_1, "D_1")
     call error_on_nan(D_2, "D_2")
+
+    call error_on_nan(helicity1, "helicity1")
 
     !
     ! sum the values through mpi
@@ -468,6 +473,8 @@ subroutine write_energy(current_time)
     call add_through_mpi(D_1)
     call add_through_mpi(D_2)
 
+    call add_through_mpi(helicity1)
+
     ! calculate Re_lambda (taylor reynolds number) according to MGM's 
     ! formulation in m_stats.f90 subroutine stat_velocity
 
@@ -489,11 +496,11 @@ subroutine write_energy(current_time)
         write (filenumber, "(E16.10, ',', E16.10, ',', E16.10, ',', &
   &            E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',' E16.10, ',', E16.10, ',' &
                E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',' E16.10, ',', E16.10, ',' &
-               E16.10 &
+               E16.10, ',', E16.10 &
               )") &
             current_time, energy, solver_energy, helicity, solver_helicity, fcomp_u_left, &
             fcomp_u_right, fcomp_omega_left, fcomp_omega_right, f_rate_e, f_rate_h, re_lambda, &
-            F_1, F_2, D_1, D_2
+            F_1, F_2, D_1, D_2, helicity1
 
         flush (filenumber)
     end if
