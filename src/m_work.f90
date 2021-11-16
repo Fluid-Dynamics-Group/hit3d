@@ -109,8 +109,8 @@ contains
         ! array that is needed for output (nx,ny,nz)
         allocate (tmp4(nx, ny, nz), stat=i); ierr = ierr + i; 
         ! main working array, needed for FFT etc, so (nx+2,ny,nz)
-        allocate (wrk(nx + 2, ny, nz, 0:number), stat=i); ierr = ierr + i
-        allocate (tmp_wrk(nx + 2, ny, nz, 0:number+1), stat=i); ierr = ierr + i
+        allocate (wrk(nx + 2, ny, nz, 0:number), stat=i); ierr = ierr + i ! Brooks: +3 here since we need to sometimes copy the
+        allocate (tmp_wrk(nx + 2, ny, nz, 0:number+3), stat=i); ierr = ierr + i
 
         !------------------------------------------------------------
         ! ================MGM-Forcing=====================
@@ -134,7 +134,7 @@ contains
 
         if (allocated(wrk)) write (out, "('allocated wrk(nx+2,ny,nz,0:',i3,')')") number
         if (allocated(rhs_old)) write (out, "('allocated rhs_old(nx+2,ny,nz,1:',i3,')')") 3 + n_scalars + n_les
-        if (allocated(tmp_wrk)) write (out, "('allocated tmp_wrk(nx+2,ny,nz,1:',i3,')')") number+1
+        if (allocated(tmp_wrk)) write (out, "('allocated tmp_wrk(nx+2,ny,nz,1:',i3,')')") number+3
         call flush (out)
 
         tmp4 = 0.0
