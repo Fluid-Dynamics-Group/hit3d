@@ -530,10 +530,24 @@ end subroutine
 
 subroutine calculate_re_lambda(re_lambda_us)
     use m_stats
+    use m_work
+    use x_fftw
 
     implicit none
 
     real * 8 :: re_lambda_us
+    integer :: n
+
+    ! make sure to take the inverse FFT of the forcing field
+    tmp_wrk(:,:,:, 1:3) = wrk(:,:,:,1:3)
+    wrk(:,:,:,1:3) = fcomp(:,:,:, 1:3)
+
+    do n=1,3
+        call xFFT3d(-1, n)
+    end do
+
+    fcomp(:,:,:, 1:3) = wrk(:,:,:,1:3) 
+    wrk(:,:,:,1:3) = tmp_wrk(:,:,:, 1:3) 
 
     call stat_velocity
 
@@ -682,7 +696,6 @@ subroutine write_slice(current_timestep)
                 write (filenumber, "(E16.10, ',', E16.10, ',', E16.10 ',', E16.10, ',' E16.10)") &
                     u, v, w, omg_mag, fcomp_total
 
-                
             end do
         end do
 

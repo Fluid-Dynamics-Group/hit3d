@@ -419,63 +419,63 @@ contains
         ! normalization  factor
         fac = one/real(nx*ny*nz_all, 8)
 
-        do i = 1, 3
-            wrk(:, :, :, i) = fields(:, :, :, i)
-        end do
+        !do i = 1, 3
+        !    wrk(:, :, :, i) = fields(:, :, :, i)
+        !end do
 
-        ! Taking derivatives
+        !! Taking derivatives
 
-        call x_derivative(3, 'y', 6)
-        call x_derivative(3, 'x', 5)
+        !call x_derivative(3, 'y', 6)
+        !call x_derivative(3, 'x', 5)
 
-        call x_derivative(2, 'z', 4)
-        call x_derivative(2, 'x', 3)
+        !call x_derivative(2, 'z', 4)
+        !call x_derivative(2, 'x', 3)
 
-        call x_derivative(1, 'z', 2)
-        call x_derivative(1, 'y', 1)
+        !call x_derivative(1, 'z', 2)
+        !call x_derivative(1, 'y', 1)
 
-        !------------------------------------------------------------
-        !   getting vorticity and helicity
-        !------------------------------------------------------------
-        wrk(:, :, :, 3) = wrk(:, :, :, 3) - wrk(:, :, :, 1)  ! omega_3 = v_x - u_y
-        wrk(:, :, :, 2) = wrk(:, :, :, 2) - wrk(:, :, :, 5)  ! omega_2 = u_z - w_x
-        wrk(:, :, :, 1) = wrk(:, :, :, 6) - wrk(:, :, :, 4)  ! omega_1 = w_y - v_z
-        ! velocities
-        wrk(:, :, :, 4:6) = fields(:, :, :, 1:3)
-        ! convert to X-space
-        do i = 1, 6
-            call xFFT3d(-1, i)
-        end do
+        !!------------------------------------------------------------
+        !!   getting vorticity and helicity
+        !!------------------------------------------------------------
+        !wrk(:, :, :, 3) = wrk(:, :, :, 3) - wrk(:, :, :, 1)  ! omega_3 = v_x - u_y
+        !wrk(:, :, :, 2) = wrk(:, :, :, 2) - wrk(:, :, :, 5)  ! omega_2 = u_z - w_x
+        !wrk(:, :, :, 1) = wrk(:, :, :, 6) - wrk(:, :, :, 4)  ! omega_1 = w_y - v_z
+        !! velocities
+        !wrk(:, :, :, 4:6) = fields(:, :, :, 1:3)
+        !! convert to X-space
+        !do i = 1, 6
+        !    call xFFT3d(-1, i)
+        !end do
 
-        ! ******2. Compute forcing terms & take FFTs
-        ! u \cdot omg
-        fcomp(:, :, :, 0) = wrk(:, :, :, 1)*wrk(:, :, :, 4) + wrk(:, :, :, 2)*wrk(:, :, :, 5) + wrk(:, :, :, 3)*wrk(:, :, :, 6)
-        ! ||omg||^2
-        fcomp(:, :, :, 1) = wrk(:, :, :, 1)**2 + wrk(:, :, :, 2)**2 + wrk(:, :, :, 3)**2
-        ! ||u||^2
-        fcomp(:, :, :, 2) = wrk(:, :, :, 4)**2 + wrk(:, :, :, 5)**2 + wrk(:, :, :, 6)**2
-        ! components of (u . f)
-        fcomp(:, :, :, 3) = 0.0
-        fcomp(:, :, :, 4) = 0.0
-        do i = 1, 3
-            fcomp(:, :, :, 3) = fcomp(:, :, :, 3) + &
-                          (wrk(:, :, :, 3 + i)*epsilon1*(fcomp(:, :, :, 0)*wrk(:, :, :, i) - fcomp(:, :, :, 1)*wrk(:, :, :, 3 + i)))
-            !                 velocity_i * epsilon _1 * ( fcomp_0 * omega_i - fcomp_1 * velocity_i)
-            !                 velocity_i * epsilon _1 * ( [u \cdot omg] * omega_i - [||omg||^2] * velocity_i )
-            fcomp(:, :, :, 4) = fcomp(:, :, :, 4) + &
-                          (wrk(:, :, :, 3 + i)*epsilon2*(fcomp(:, :, :, 0)*wrk(:, :, :, 3 + i) - fcomp(:, :, :, 2)*wrk(:, :, :, i)))
-            !                 velocity_i * epsilon_2 * ( fcomp_0 * velocity_i - fcomp_2 * omega_i)
-            !                 velocity_i * epsilon_2 * ( [u \cdot omg] * velocity_i - [||u||^2] * omega_i)
-        end do
-        ! components of (omega . f)
-        fcomp(:, :, :, 5) = 0.0
-        fcomp(:, :, :, 6) = 0.0
-        do i = 1, 3
-            fcomp(:, :, :, 5) = fcomp(:, :, :, 5) + &
-                              (wrk(:, :, :, i)*epsilon1*(fcomp(:, :, :, 0)*wrk(:, :, :, i) - fcomp(:, :, :, 1)*wrk(:, :, :, 3 + i)))
-            fcomp(:, :, :, 6) = fcomp(:, :, :, 6) + &
-                              (wrk(:, :, :, i)*epsilon2*(fcomp(:, :, :, 0)*wrk(:, :, :, 3 + i) - fcomp(:, :, :, 2)*wrk(:, :, :, i)))
-        end do
+        !! ******2. Compute forcing terms & take FFTs
+        !! u \cdot omg
+        !fcomp(:, :, :, 0) = wrk(:, :, :, 1)*wrk(:, :, :, 4) + wrk(:, :, :, 2)*wrk(:, :, :, 5) + wrk(:, :, :, 3)*wrk(:, :, :, 6)
+        !! ||omg||^2
+        !fcomp(:, :, :, 1) = wrk(:, :, :, 1)**2 + wrk(:, :, :, 2)**2 + wrk(:, :, :, 3)**2
+        !! ||u||^2
+        !fcomp(:, :, :, 2) = wrk(:, :, :, 4)**2 + wrk(:, :, :, 5)**2 + wrk(:, :, :, 6)**2
+        !! components of (u . f)
+        !fcomp(:, :, :, 3) = 0.0
+        !fcomp(:, :, :, 4) = 0.0
+        !do i = 1, 3
+        !    fcomp(:, :, :, 3) = fcomp(:, :, :, 3) + &
+        !                  (wrk(:, :, :, 3 + i)*epsilon1*(fcomp(:, :, :, 0)*wrk(:, :, :, i) - fcomp(:, :, :, 1)*wrk(:, :, :, 3 + i)))
+        !    !                 velocity_i * epsilon _1 * ( fcomp_0 * omega_i - fcomp_1 * velocity_i)
+        !    !                 velocity_i * epsilon _1 * ( [u \cdot omg] * omega_i - [||omg||^2] * velocity_i )
+        !    fcomp(:, :, :, 4) = fcomp(:, :, :, 4) + &
+        !                  (wrk(:, :, :, 3 + i)*epsilon2*(fcomp(:, :, :, 0)*wrk(:, :, :, 3 + i) - fcomp(:, :, :, 2)*wrk(:, :, :, i)))
+        !    !                 velocity_i * epsilon_2 * ( fcomp_0 * velocity_i - fcomp_2 * omega_i)
+        !    !                 velocity_i * epsilon_2 * ( [u \cdot omg] * velocity_i - [||u||^2] * omega_i)
+        !end do
+        !! components of (omega . f)
+        !fcomp(:, :, :, 5) = 0.0
+        !fcomp(:, :, :, 6) = 0.0
+        !do i = 1, 3
+        !    fcomp(:, :, :, 5) = fcomp(:, :, :, 5) + &
+        !                      (wrk(:, :, :, i)*epsilon1*(fcomp(:, :, :, 0)*wrk(:, :, :, i) - fcomp(:, :, :, 1)*wrk(:, :, :, 3 + i)))
+        !    fcomp(:, :, :, 6) = fcomp(:, :, :, 6) + &
+        !                      (wrk(:, :, :, i)*epsilon2*(fcomp(:, :, :, 0)*wrk(:, :, :, 3 + i) - fcomp(:, :, :, 2)*wrk(:, :, :, i)))
+        !end do
 
         ! getting sum
         sctmp = sum(fcomp(1:nx, :, :, 3))*fac

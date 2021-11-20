@@ -78,7 +78,7 @@ class RunCase():
         # keep the amount of data produced constant 
         # higher number = more steps saved
         if self.io_steps is None:
-            io_steps = int(self.steps * 300 / 80_000)
+            io_steps = int(self.steps * 600 / 80_000)
         else:
             io_steps = self.io_steps
 
@@ -531,11 +531,11 @@ def initial_condition():
 
 # in order to calculate forcing cases we need to have an initial condition file
 def forcing_cases():
-    delta_1 = .0001
-    delta_2 = .002
+    delta_1 = .1
+    delta_2 = .1
 
     run_shell_command("make")
-    forcing_folder = f"F_data_long_duration_128"
+    forcing_folder = f"proposal_figures_short_with_vtk"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
 
     if not os.path.exists(save_json_folder):
@@ -544,12 +544,13 @@ def forcing_cases():
     for f in os.listdir(save_json_folder):
         os.remove(os.path.join(save_json_folder, f))
 
-    dt = 0.0005
-    size = 128
+    dt = 0.0001
+    size = 256
     re = 40
-    steps = 80_000
-    save_vtk = False
+    steps = 20_000
+    save_vtk = True
     batch_name = forcing_folder
+    extra_caps = ["lab1-2"]
 
     copy_init_files(size)
 
@@ -559,11 +560,11 @@ def forcing_cases():
         #[0., 0., "baseline"],
 
         #epsilon 1 cases
-        [delta_1, 0., "ep1-pos"],
+        #[delta_1, 0., "ep1-pos"],
         [-1*delta_1, 0., "ep1-neg"],
 
         # epsilon 2  cases
-        [ 0., delta_2, "ep2-pos"],
+        #[ 0., delta_2, "ep2-pos"],
         [ 0., -1*delta_2, "ep2-neg"],
 
         # both ep1 and ep2 cases
@@ -609,7 +610,7 @@ def forcing_cases():
 
             case.write_to_json(f"{folder}_{diffusion_str}", save_json_folder)
 
-    copy_distribute_files(save_json_folder, batch_name)
+    copy_distribute_files(save_json_folder, batch_name, extra_caps)
 
     build = Build("master", "master")
     build.to_json(save_json_folder)
@@ -896,7 +897,7 @@ def one_case():
     size = 128
     steps = 100
     extra_caps = ["lab3"]
-    io_steps = 10 
+    io_steps = 10
 
     if IS_DISTRIBUTED:
         if IS_SINGULARITY: 
@@ -932,9 +933,9 @@ def one_case():
         reynolds_number=40,
         path=output_folder,
         load_initial_data=2,
-        epsilon1=0.000000,
+        epsilon1=0.1,
         # delta2 is negative, this will decrease helicity
-        epsilon2=0.000000,
+        epsilon2=0.1,
         export_vtk=True,
         scalar_type=14,
         require_forcing=1,
