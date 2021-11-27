@@ -6,7 +6,7 @@ import csv
 import json
 from glob import glob
 
-UNR = True 
+UNR = False
 IS_DISTRIBUTED = False
 IS_SINGULARITY = False
 
@@ -894,10 +894,11 @@ def one_case():
     batch_name = "new_vtk_test"
     job_name = "single-case"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
-    size = 128
-    steps = 100
+    size = 64
+    steps = 10
     extra_caps = ["lab3"]
     io_steps = 10
+    load_initial_data = 2
 
     if IS_DISTRIBUTED:
         if IS_SINGULARITY: 
@@ -913,7 +914,8 @@ def one_case():
             shutil.rmtree(output_folder)
         os.mkdir(output_folder)
 
-    copy_init_files(size)
+    if not( load_initial_data == 2):
+        copy_init_files(size)
 
     # if the directory exists remove any older files from the dir 
     if os.path.exists(save_json_folder):
@@ -932,7 +934,7 @@ def one_case():
         restarts=0,
         reynolds_number=40,
         path=output_folder,
-        load_initial_data=2,
+        load_initial_data=load_initial_data,
         epsilon1=0.1,
         # delta2 is negative, this will decrease helicity
         epsilon2=0.1,
@@ -941,7 +943,8 @@ def one_case():
         require_forcing=1,
         viscous_compensation=0,
         validate_viscous_compensation=0,
-        io_steps = io_steps
+        io_steps = io_steps,
+        nprocs=4
     )
 
     if IS_DISTRIBUTED:
@@ -955,7 +958,7 @@ def one_case():
 
     else:
         print("running the case locally")
-        copy_init_files(size)
+        # init files have already been copied above
         case.run(1)
 
 def remove_restart_files():

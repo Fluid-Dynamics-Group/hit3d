@@ -591,12 +591,14 @@ subroutine calculate_vorticity()
     ! velocities in Fourier space
     wrk(:, :, :, 1:3) = fields(:, :, :, 1:3)
     ! Taking derivatives
-    call x_derivative(3, 'y', 6) ! derivative of (1) WRT (2) -> store it in (3)
-    call x_derivative(3, 'x', 5)
-    call x_derivative(2, 'z', 4)
-    call x_derivative(2, 'x', 3)
-    call x_derivative(1, 'z', 2)
-    call x_derivative(1, 'y', 1)
+    ! derivative of (1) WRT (2) -> store it in (3)
+    call x_derivative(3, 'y', 6) ! dw/dy -> 6
+    call x_derivative(3, 'x', 5) ! dw/dx -> 5
+    call x_derivative(2, 'z', 4) ! dv/dz -> 4
+    call x_derivative(2, 'x', 3) ! dv/dx -> 3
+    call x_derivative(1, 'z', 2) ! du/dz -> 2
+    call x_derivative(1, 'y', 1) ! du/dy -> 1
+
     ! getting vorticity
     wrk(:, :, :, 3) = wrk(:, :, :, 3) - wrk(:, :, :, 1)  ! omega_3 = v_x - u_y
     wrk(:, :, :, 2) = wrk(:, :, :, 2) - wrk(:, :, :, 5)  ! omega_2 = u_z - w_x

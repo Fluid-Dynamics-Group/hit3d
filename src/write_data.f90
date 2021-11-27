@@ -10,7 +10,7 @@ module m_data
     real*8, dimension(:,:,:,:), allocatable :: wrk_global
 
     ! io variables
-    real*8 :: energy, helicity, solver_energy, solver_helicity, udotw, umag, wmag, helicity1
+    real*8 :: energy, helicity, solver_energy, solver_helicity, udotw, umag2, wmag2, helicity1
     real*8 :: fcomp_u_left, fcomp_u_right
     real*8 :: fcomp_omega_left, fcomp_omega_right
 end module m_data
@@ -133,11 +133,11 @@ subroutine write_velocity_field(current_timestep)
     if (myid == master) then 
         write (filename, "('output/velocity_field/', i5.5, '.csv')") current_timestep
         open (filenumber, file=filename, status="new")
-        write (filenumber, "('u,v,w,omega_mag,forcing,fu1,fu2,fu3')") 
+        write (filenumber, "('u,v,w,forcing,fu1,fu2,fu3,omgx,omgy,omgz')") 
 
-        do k = 1, nz_all
+        do i = 1, nx
             do j = 1, ny
-                do i = 1, nx
+                do k = 1, nz_all
                     u = wrk_global(i, j, k, 1)
                     v = wrk_global(i, j, k, 2)
                     w = wrk_global(i, j, k, 3)
@@ -150,25 +150,25 @@ subroutine write_velocity_field(current_timestep)
                     fu2 = wrk_global(i, j, k, 8)
                     fu3 = wrk_global(i, j, k, 9)
 
-                    omg_mag = omgx_**2 + omgy_**2 + omgz_**2
+                    omg_mag = sqrt(omgx_**2 + omgy_**2 + omgz_**2)
 
                     udotw = (u*omgx_) + (v*omgy_) + (w*omgz_)
-                    umag = u**2 + v**2 + w**2
-                    wmag = omgx_**2 + omgy_**2 + omgz_**2
+                    umag2 = u**2 + v**2 + w**2
+                    wmag2 = omgx_**2 + omgy_**2 + omgz_**2
 
-                    fcomp_left = epsilon_1*(udotw*omgx_ - wmag*u) + &
-                              epsilon_1*(udotw*omgy_ - wmag*v) + &
-                              epsilon_1*(udotw*omgz_ - wmag*w)
+                    fcomp_left = epsilon_1*(udotw*omgx_ - wmag2*u) + &
+                              epsilon_1*(udotw*omgy_ - wmag2*v) + &
+                              epsilon_1*(udotw*omgz_ - wmag2*w)
 
-                    fcomp_right = epsilon_2*(udotw*u - umag*omgx_) + &
-                              epsilon_2*(udotw*v - umag*omgy_) + &
-                              epsilon_2*(udotw*w - umag*omgz_)
+                    fcomp_right = epsilon_2*(udotw*u - umag2*omgx_) + &
+                              epsilon_2*(udotw*v - umag2*omgy_) + &
+                              epsilon_2*(udotw*w - umag2*omgz_)
 
                     fcomp_total = fcomp_left + fcomp_right
 
-                    write (filenumber, "(E16.10, ',', E16.10, ',', E16.10 ',', E16.10, ',' E16.10, ',' &
-                        E16.10, ',', E16.10, ',', E16.10 )") &
-                        u, v, w, omg_mag, fcomp_total, fu1, fu2, fu3
+                    write (filenumber, "(E16.10, ',', E16.10 ',', E16.10, ',' E16.10, ',' &
+                        E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',', E16.10)") &
+                        u, v, w, fcomp_total, fu1, fu2, fu3, omgx_, omgy_, omgz_
                 end do
             end do
         end do
@@ -303,38 +303,21 @@ subroutine write_energy(current_time)
     ! ifft the RHS variables so we are in x-space
     call ifft_rhs
 
-    ! load variables from fields into wrk
-    ! wrk(1:nx,1:ny,1:nz,1) = fields(1:nx,1:ny,1:nz,1)
-    ! wrk(1:nx,1:ny,1:nz,2) = fields(1:nx,1:ny,1:nz,2)
-    ! wrk(1:nx,1:ny,1:nz,3) = fields(1:nx,1:ny,1:nz,3)
+    ! this subroutine consumes all the wrk arrays and stores
+    ! wrk(:,:,:,1)  - omgx
+    ! wrk(:,:,:,2)  - omgy
+    ! wrk(:,:,:,3)  - omgz
+    wrk(:, :, :, 1:3) = fields(:, :, :, 1:3)
+    call calculate_vorticity()
 
-    wrk(:, :, :, 1) = fields(:, :, :, 1)
-    wrk(:, :, :, 2) = fields(:, :, :, 2)
-    wrk(:, :, :, 3) = fields(:, :, :, 3)
+    wrk(:,:,:,4:6) = wrk(:,:,:,1:3)
 
-    ! copy the velocity data into wrk (1,2,3)
-    tmp_wrk(:, :, :, 1:3) = wrk(:, :, :, 1:3)
-
-    !
-    ! calculate derivatives of wrk varaibles to get omegas
-    ! into (4,5,6)
-    !
-
-    call x_derivative(3, 'y', 6) ! dw/dy
-    call x_derivative(3, 'x', 5) ! dw/dx
-
-    call x_derivative(2, 'z', 4) ! dv/dz
-    call x_derivative(2, 'x', 3) ! dv/dx
-
-    call x_derivative(1, 'z', 2) ! du/dz
-    call x_derivative(1, 'y', 1) ! du/dy
-
-    wrk(:, :, :, 4) = wrk(:, :, :, 6) - wrk(:, :, :, 4)  ! omega_1 = w_y - v_z
-    wrk(:, :, :, 5) = wrk(:, :, :, 2) - wrk(:, :, :, 5)  ! omega_2 = u_z - w_x
-    wrk(:, :, :, 6) = wrk(:, :, :, 3) - wrk(:, :, :, 1)  ! omega_3 = v_x - u_y
+    ! wrk(:, :, :, 4) - omgx
+    ! wrk(:, :, :, 5) - omgy
+    ! wrk(:, :, :, 6) - omgz
 
     ! copy velocities back into wrk (1,2,3)
-    wrk(:, :, :, 1:3) = tmp_wrk(:, :, :, 1:3)
+    wrk(:, :, :, 1:3) = fields(:, :, :, 1:3)
 
     ! truncate and convert data to x-space
     do i = 1, 6
@@ -342,8 +325,8 @@ subroutine write_energy(current_time)
         call xFFT3d(-1,i)
     end do
 
-    ! wrk( 1-3) contains velocity information
-    ! wrk( 4-6) contains omega information
+    ! wrk( 1-3) contains velocity information (x-space)
+    ! wrk( 4-6) contains omega information (x-space)
 
     !
     ! Main calculation loop - perform required integrals
@@ -375,8 +358,8 @@ subroutine write_energy(current_time)
 
                 ! define some common variables through the calculations
                 udotw = (u*omg_x) + (v*omg_y) + (w*omg_z)
-                umag = u**2 + v**2 + w**2
-                wmag = omg_x**2 + omg_y**2 + omg_z**2
+                umag2 = u**2 + v**2 + w**2
+                wmag2 = omg_x**2 + omg_y**2 + omg_z**2
 
                 ! start calculating variables that are ouput to IO
 
@@ -385,29 +368,29 @@ subroutine write_energy(current_time)
 
                 helicity1 = helicity1 + (udotw**2)
 
-                energy = energy + umag
+                energy = energy + umag2
                 solver_energy = solver_energy + (u_rhs*u + v_rhs*v + w_rhs*w)
 
                 ! calculate forcing stuff
                 fcomp_u_left = fcomp_u_left + &
-                               u*(udotw*omg_x - wmag*u) + &
-                               v*(udotw*omg_y - wmag*v) + &
-                               w*(udotw*omg_z - wmag*w)
+                               u*(udotw*omg_x - wmag2*u) + &
+                               v*(udotw*omg_y - wmag2*v) + &
+                               w*(udotw*omg_z - wmag2*w)
 
                 fcomp_u_right = fcomp_u_right + &
-                                u*(udotw*u - umag*omg_x) + &
-                                v*(udotw*v - umag*omg_y) + &
-                                w*(udotw*w - umag*omg_z)
+                                u*(udotw*u - umag2*omg_x) + &
+                                v*(udotw*v - umag2*omg_y) + &
+                                w*(udotw*w - umag2*omg_z)
 
                 fcomp_omega_left = fcomp_omega_left + &
-                                   omg_x*(udotw*omg_x - wmag*u) + &
-                                   omg_y*(udotw*omg_y - wmag*v) + &
-                                   omg_z*(udotw*omg_z - wmag*w)
+                                   omg_x*(udotw*omg_x - wmag2*u) + &
+                                   omg_y*(udotw*omg_y - wmag2*v) + &
+                                   omg_z*(udotw*omg_z - wmag2*w)
 
                 fcomp_omega_right = fcomp_omega_right + &
-                                    omg_x*(udotw*u - umag*omg_x) + &
-                                    omg_y*(udotw*v - umag*omg_y) + &
-                                    omg_z*(udotw*w - umag*omg_z)
+                                    omg_x*(udotw*u - umag2*omg_x) + &
+                                    omg_y*(udotw*v - umag2*omg_y) + &
+                                    omg_z*(udotw*w - umag2*omg_z)
 
                 f_rate = f_rate + &
                     (v *omg_z - w *omg_y)**2 + &
