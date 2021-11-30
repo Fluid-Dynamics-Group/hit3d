@@ -6,7 +6,7 @@ import csv
 import json
 from glob import glob
 
-UNR = False
+UNR = True
 IS_DISTRIBUTED = False
 IS_SINGULARITY = False
 
@@ -894,8 +894,9 @@ def one_case():
     batch_name = "new_vtk_test"
     job_name = "single-case"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
-    size = 64
-    steps = 10
+    size = 4
+    steps = 2
+    nprocs = 1
     extra_caps = ["lab3"]
     io_steps = 10
     load_initial_data = 2
@@ -944,7 +945,7 @@ def one_case():
         viscous_compensation=0,
         validate_viscous_compensation=0,
         io_steps = io_steps,
-        nprocs=4
+        nprocs=nprocs
     )
 
     if IS_DISTRIBUTED:

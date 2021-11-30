@@ -585,8 +585,11 @@ subroutine calculate_vorticity()
     use m_fields
     use m_work
     use x_fftw
+    use m_parameters ! dx
 
     implicit none
+
+    integer :: i,j,k
 
     ! velocities in Fourier space
     wrk(:, :, :, 1:3) = fields(:, :, :, 1:3)
@@ -603,7 +606,103 @@ subroutine calculate_vorticity()
     wrk(:, :, :, 3) = wrk(:, :, :, 3) - wrk(:, :, :, 1)  ! omega_3 = v_x - u_y
     wrk(:, :, :, 2) = wrk(:, :, :, 2) - wrk(:, :, :, 5)  ! omega_2 = u_z - w_x
     wrk(:, :, :, 1) = wrk(:, :, :, 6) - wrk(:, :, :, 4)  ! omega_1 = w_y - v_z
+    
+    ! wrk(:, :, :, 1:3) = fields(:, :, :, 1:3)
+    ! 
+    ! ! invert to physical space
+    ! do i = 1,3
+    !     call xFFT3d(-1, i)
+    ! end do
+
+    ! call gradient3D(nx, ny, nz, &
+    !     wrk(1:nx, 1:ny, 1:nz, 3), & ! WRT W
+    !     dx, dx, dx, &    ! step sizes in each direction
+    !     wrk(1:nx, 1:ny, 1:nz, 5), & ! dW / dx -> 5
+    !     wrk(1:nx, 1:ny, 1:nz, 6), & ! dW / dy -> 6
+    !     wrk(1:nx, 1:ny, 1:nz, 0)  & ! 
+    ! )
+
+    ! call gradient3D(nx, ny, nz, &
+    !     wrk(1:nx, 1:ny, 1:nz, 2), & ! WRT V
+    !     dx, dx, dx, &    ! step sizes in each direction
+    !     wrk(1:nx, 1:ny, 1:nz, 3), & ! dV / dx -> 3
+    !     wrk(1:nx, 1:ny, 1:nz, 0), & ! 
+    !     wrk(1:nx, 1:ny, 1:nz, 4)  & ! dV / dz -> 4
+    ! )
+
+    ! call gradient3D(nx, ny, nz, &
+    !     wrk(1:nx, 1:ny, 1:nz, 1), & ! WRT U
+    !     dx, dx, dx, &    ! step sizes in each direction
+    !     tmp_wrk(1:nx, 1:ny, 1:nz, 8), & ! this is calculated before the next section so this is actually ok
+    !     tmp_wrk(1:nx, 1:ny, 1:nz, 9), & ! dU / dy -> 1
+    !     wrk(1:nx, 1:ny, 1:nz, 2)  & ! dU / dZ -> 2
+    ! )
+
+    ! write(*,*) "DU / DY"
+    ! do k = 1,nz
+    !     write(*,*) "k = ", k -1
+    !     do j = 1,ny
+    !         do i = 1,nx
+    !             write(*,*) "i = ", i-1, "j = ", j-1, "velocity x: ", tmp_wrk(i,j,k,9)
+    !         end do
+    !     end do
+    ! end do
+
+    ! wrk(1:nx, 1:ny, 1:nz, 3) = wrk(1:nx, 1:ny, 1:nz, 3) - tmp_wrk(1:nx, 1:ny, 1:nz, 9)  ! omega_3 = v_x - u_y
+    ! wrk(1:nx, 1:ny, 1:nz, 2) = wrk(1:nx, 1:ny, 1:nz, 2) - wrk(1:nx, 1:ny, 1:nz, 5)  ! omega_2 = u_z - w_x
+    ! wrk(1:nx, 1:ny, 1:nz, 1) = wrk(1:nx, 1:ny, 1:nz, 6) - wrk(1:nx, 1:ny, 1:nz, 4)  ! omega_1 = w_y - v_z
+
+    ! ! transform to fourier space since thats what the rest of the code expects
+    ! do i = 1,3
+    !     call xFFT3d(1, i)
+    ! end do
 end
+
+SUBROUTINE gradient3D(m, n, o, f, hx, hy, hz, dfdx, dfdy, dfdz)
+    INTEGER, INTENT(IN) :: m, n, o
+    REAL*8, DIMENSION(m, n, o), INTENT(IN) :: f
+    REAL*8, INTENT(IN) :: hx, hy, hz
+    REAL*8, DIMENSION(m, n, o), INTENT(OUT) :: dfdx, dfdy, dfdz
+    INTEGER :: i, j, k
+
+    dfdx = 0.0; dfdy = 0.0; dfdz = 0.0; 
+    !dfdx
+    do k = 1, o
+        do j = 1, n
+    !        forward difference at start point
+            dfdx(1, j, k) = (f(2, j, k) - f(1, j, k))/hx; 
+    !        central difference at middle region
+            dfdx(2:m - 1, j, k) = (f(3:m, j, k) - f(1:m - 2, j, k))/(2.*hx); 
+    !        backward difference at end point
+            dfdx(m, j, k) = (f(m, j, k) - f(m - 1, j, k))/hx; 
+        end do
+    end do
+
+    !dfdy
+    do k = 1, o
+        do i = 1, m
+    !        forward difference at start point
+            dfdy(i, 1, k) = (f(i, 2, k) - f(i, 1, k))/hy; 
+    !        central difference at middle region
+            dfdy(i, 2:n - 1, k) = (f(i, 3:n, k) - f(i, 1:n - 2, k))/(2.*hy); 
+    !        backward difference at end point
+            dfdy(i, n, k) = (f(i, n, k) - f(i, n - 1, k))/hy; 
+        end do
+    end do
+
+    !dfdz
+    do j = 1, n
+        do i = 1, m
+!        forward difference at start point
+            dfdz(i, j, 1) = (f(i, j, 2) - f(i, j, 1))/hz; 
+!        central difference at middle region
+            dfdz(i, j, 2:o - 1) = (f(i, j, 3:o) - f(i, j, 1:o - 2))/(2.*hz); 
+!        backward difference at end point
+            dfdz(i, j, o) = (f(i, j, o) - f(i, j, o - 1))/hz; 
+        end do
+    end do
+
+END SUBROUTINE gradient3D
 
 ! the input to this subroutine has the wrk array in fourier space
 ! the output arrays should also be in fourier space
@@ -709,7 +808,6 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     fcomp(:, :, :, 1) = wrk(:, :, :, 1)**2 + wrk(:, :, :, 2)**2 + wrk(:, :, :, 3)**2
     ! ||u||^2
     fcomp(:, :, :, 2) = wrk(:, :, :, 4)**2 + wrk(:, :, :, 5)**2 + wrk(:, :, :, 6)**2
-
 
     do i=1,nx
         do j=1,ny

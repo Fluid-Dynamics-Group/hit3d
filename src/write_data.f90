@@ -97,6 +97,7 @@ subroutine write_velocity_field(current_timestep)
     use m_work ! wrk()
     use m_data
     use m_parameters ! nx, ny, nz, pertamp1, pertamp2
+    use x_fftw
 
     implicit none
 
@@ -172,6 +173,7 @@ subroutine write_velocity_field(current_timestep)
                 end do
             end do
         end do
+
 
         flush (filenumber)
 
