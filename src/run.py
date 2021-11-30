@@ -37,7 +37,7 @@ class RunCase():
             restart_time=1.0, skip_steps=0, scalar_type=0,
             validate_viscous_compensation=0, viscous_compensation=0,
             require_forcing=0,
-            io_steps = None
+            io_steps = None, export_divergence = 0
         ):
         # if there are restarts, find the number of steps spent in that those restarts
         # and add them to the current number of steps
@@ -60,6 +60,7 @@ class RunCase():
         self.restart_time      = restart_time
         self.skip_steps        = skip_steps
         self.scalar_type        = scalar_type
+        self.export_divergence = export_divergence
         
         self.validate_viscous_compensation = validate_viscous_compensation
         self.viscous_compensation = viscous_compensation
@@ -101,7 +102,8 @@ class RunCase():
             self.scalar_type,
             self.validate_viscous_compensation,
             self.viscous_compensation,
-            self.require_forcing
+            self.require_forcing,
+            self.export_divergence
         )
 
     def __repr__(self):
@@ -135,6 +137,7 @@ class RunCase():
             "viscous_compensation": self.viscous_compensation,
             "require_forcing": self.require_forcing,
             "io_steps": self.io_steps,
+            "export_divergence": self.export_divergence
         }
 
         with open(file_name, "w", encoding="utf-8") as file:
@@ -184,7 +187,7 @@ def run_case(
     steps_between_io, export_vtk, epsilon1, epsilon2, 
     restart_time, scalar_type,
     viscous_compensation_validation, viscous_compensation,
-    require_forcing
+    require_forcing, export_divergence
     ):
 
     if IS_DISTRIBUTED:
@@ -224,6 +227,7 @@ def run_case(
             --validate-viscous-compensation {viscous_compensation_validation} \
             --viscous-compensation {viscous_compensation} \
             --require-forcing {require_forcing} \
+            --export-divergence {export_divergence} \
             input_file.in ")
 
     restart_time_slice = restarts * 1.
@@ -237,7 +241,7 @@ def run_case(
     except Exception as e:
         print("exception running hit3d: {}\n ----> calling postprocessessing anyway".format(e))
 
-    postprocessing("output/", save_folder, restart_time_slice, steps, dt, export_vtk,size_param, epsilon1, epsilon2)
+    postprocessing("output/", save_folder, restart_time_slice, steps, dt, export_vtk,size_param, epsilon1, epsilon2, export_divergence)
 
     if load_initial_data == 1:
         organize_initial_condition(save_folder, epsilon1, epsilon2)
@@ -328,13 +332,21 @@ class EpsilonControl():
     def epsilon_2(self,delta):
         return delta * self.helicity/ self.fdot_h
 
-def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, save_vtk, size, epsilon_1, epsilon_2):
+def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, save_vtk, size, epsilon_1, epsilon_2, export_divergence):
     shutil.move("input_file.in", output_folder + "/input_file.in")
     shutil.copy(f"{solver_folder}/energy.csv", output_folder + '/energy.csv')
 
     os.mkdir(output_folder + '/flowfield')
     clean_and_create_folder(f"{output_folder}/scalars")
     clean_and_create_folder(f"{output_folder}/fortran_slice_data")
+
+    if export_divergence == 1:
+        clean_and_create_folder(f"{output_folder}/divergences")
+        div_files = [i for i in os.listdir(f"{solver_folder}/divergences") if i !=".gitignore"]
+
+        for filename in div_files:
+            timestep = parse_filename(filename)
+            run_shell_command(f"hit3d-utils vtk-div {solver_folder}/divergences/{filename} {size} {output_folder}/divergences/div_{timestep:05}.vtr")
 
     flowfield_files = [i for i in os.listdir(f"{solver_folder}/velocity_field") if i !=".gitignore"]
     scalar_files = [i for i in os.listdir(f"{solver_folder}/scalars") if i !=".gitignore"]
@@ -397,6 +409,7 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     shutil.move(f"{solver_folder}/spectra.json", output_folder + '/spectra.json')
 
 # parse csv files for flowfield output by fortran
+# should be the same for both flowfield files and divergence files
 def parse_filename(filename):
     timestep = filename[0:5]
     return int(timestep)
@@ -418,6 +431,7 @@ def clean_output_dir():
     os.mkdir("output/velocity")
     os.mkdir("output/energy")
     os.mkdir("output/velocity_field")
+    os.mkdir("output/divergences")
     os.mkdir("output/slice")
     os.mkdir("output/scalars")
 
@@ -426,6 +440,7 @@ def clean_output_dir():
     create_file("output/velocity_field/.gitignore")
     create_file("output/energy/.gitignore")
     create_file("output/slice/.gitignore")
+    create_file("output/divergences/.gitignore")
 
 def create_file(path):
     with open(path,'w') as _:
@@ -894,12 +909,13 @@ def one_case():
     batch_name = "new_vtk_test"
     job_name = "single-case"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
-    size = 4
-    steps = 2
+    size = 64
+    steps = 100
     nprocs = 1
     extra_caps = ["lab3"]
     io_steps = 10
     load_initial_data = 2
+    export_divergence = 1
 
     if IS_DISTRIBUTED:
         if IS_SINGULARITY: 
@@ -945,7 +961,8 @@ def one_case():
         viscous_compensation=0,
         validate_viscous_compensation=0,
         io_steps = io_steps,
-        nprocs=nprocs
+        nprocs=nprocs,
+        export_divergence=export_divergence
     )
 
     if IS_DISTRIBUTED:

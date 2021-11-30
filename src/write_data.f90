@@ -686,3 +686,108 @@ subroutine write_slice(current_timestep)
 
     end if
 end subroutine write_slice
+
+! export the gradients used to calculate the divergences at different time steps
+subroutine write_derivatives(current_timestep)
+    use m_work ! wrk()
+    use m_parameters ! nx, ny, nz, pertamp1, pertamp2
+    use x_fftw
+
+    implicit none
+    integer :: filenumber, i, j, k, current_timestep
+    real*8 :: dudx, dudy, dudz
+    real*8 :: dvdx, dvdy, dvdz
+    real*8 :: dwdx, dwdy, dwdz
+    real*8 divergence
+    character(len=80) :: filename
+
+    filenumber = 623
+
+    !
+    ! dU/d( )
+    !
+
+    wrk(:,:,:,1:3) = fields(:,:,:,1:3)
+    call x_derivative(1, 'x', 4)
+    call x_derivative(1, 'y', 5)
+    call x_derivative(1, 'z', 6)
+
+    ! invert to physical space
+    do i=4,6
+        call xFFT3d(-1, i)
+    end do
+
+    tmp_wrk(:,:,:,1) = wrk(:,:,:,4)
+    tmp_wrk(:,:,:,2) = wrk(:,:,:,5)
+    tmp_wrk(:,:,:,3) = wrk(:,:,:,6)
+
+    !
+    ! dV/d( )
+    !
+
+    call x_derivative(2, 'x', 4)
+    call x_derivative(2, 'y', 5)
+    call x_derivative(2, 'z', 6)
+
+    ! invert to physical space
+    do i=4,6
+        call xFFT3d(-1, i)
+    end do
+
+    tmp_wrk(:,:,:,4) = wrk(:,:,:,4)
+    tmp_wrk(:,:,:,5) = wrk(:,:,:,5)
+    tmp_wrk(:,:,:,6) = wrk(:,:,:,6)
+
+    !
+    ! dW/d( )
+    !
+    call x_derivative(3, 'x', 4)
+    call x_derivative(3, 'y', 5)
+    call x_derivative(3, 'z', 6)
+
+    ! invert to physical space
+    do i=4,6
+        call xFFT3d(-1, i)
+    end do
+
+    ! tmp_wrk(:,:,:,1:3) - du/d( )
+    ! tmp_wrk(:,:,:,4:6) - dv/d( )
+    ! wrk(:,:,:,4:6) - dw/d( )
+
+    if (myid == master) then 
+        write (filename, "('output/divergences/', i5.5, '.csv')") current_timestep
+        open (filenumber, file=filename, status="new")
+        write (filenumber, "('dudx,dudy,dudz,dvdx,dvdy,dvdz,dwdx,dwdy,dwdz,divergence')") 
+
+        do i = 1, nx
+            do j = 1, ny
+                do k = 1, nz
+                    dudx = tmp_wrk(i,j,k,1)
+                    dudy = tmp_wrk(i,j,k,2)
+                    dudz = tmp_wrk(i,j,k,3)
+
+                    dvdx = tmp_wrk(i,j,k,4)
+                    dvdy = tmp_wrk(i,j,k,5)
+                    dvdz = tmp_wrk(i,j,k,6)
+
+                    dwdx = wrk(i,j,k,4)
+                    dwdy = wrk(i,j,k,5)
+                    dwdz = wrk(i,j,k,6)
+
+                    divergence = dudx + dvdy + dwdz
+
+                    write (filenumber, "( &
+                        E16.10, ',', E16.10 ',', E16.10, ',', &
+                        E16.10, ',', E16.10 ',', E16.10, ',', &
+                        E16.10, ',', E16.10 ',', E16.10, ',', &
+                        E16.10)") &
+                        dudx, dudy, dudz, &
+                        dvdx, dvdy, dvdz, &
+                        dwdx, dwdy, dwdz, &
+                        divergence
+                end do
+            end do
+        end do
+        flush (filenumber)
+    end if
+end subroutine

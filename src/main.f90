@@ -287,6 +287,10 @@ program x_code
             call write_slice(int(itime))
             call write_scalars(int(itime))
 
+            if (export_divergence == 1) then
+                call write_derivatives(int(itime));
+            end if
+
             ! we only write vtk files once every *8 time steps because the post processessing
             ! is very slow
             ! also only write them after the restarts are done

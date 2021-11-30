@@ -86,6 +86,11 @@ module m_parameters
     ! = 0 -> do not use viscous compensation formulation
     integer :: viscous_compensation
 
+    ! whether or to export the divergence terms
+    ! = 1 -> export to csv
+    ! = 0 -> do not export them
+    integer :: export_divergence
+
     ! number of particles assigned to the processor
     ! and the total number of particles
     integer(kind=MPI_INTEGER_KIND) :: np, np1, nptot
@@ -451,6 +456,9 @@ contains
 
         read (in, *, err=9000) viscous_compensation
         write (out, *) "viscous_compensation", viscous_compensation
+
+        read (in, *, err=9000) export_divergence 
+        write (out, *) "export_divergence", export_divergence
 
 
         read (in, *) ! skips the --- line
