@@ -7,7 +7,7 @@ import json
 from glob import glob
 
 UNR = True
-IS_DISTRIBUTED = False
+IS_DISTRIBUTED = True
 IS_SINGULARITY = False
 
 if UNR:
@@ -906,16 +906,18 @@ def test_viscous_compensation():
 
 # helpful function for runnning one-off cases
 def one_case():
-    batch_name = "new_vtk_test"
+    TIME_END = 3
+    batch_name = "pipeline_generation_1"
     job_name = "single-case"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
-    size = 64
-    steps = 100
-    nprocs = 1
-    extra_caps = ["lab3"]
-    io_steps = 10
-    load_initial_data = 2
-    export_divergence = 1
+    size = 128
+    dt = 0.0005
+    steps = int(TIME_END / dt)
+    nprocs = 16
+    extra_caps = ["lab2"]
+    io_steps = None
+    load_initial_data = 0
+    export_divergence = 0
 
     if IS_DISTRIBUTED:
         if IS_SINGULARITY: 
@@ -946,7 +948,7 @@ def one_case():
     case =  RunCase(
         skip_diffusion=0,
         size=size,
-        dt=0.0005,
+        dt=dt,
         steps=steps,
         restarts=0,
         reynolds_number=40,

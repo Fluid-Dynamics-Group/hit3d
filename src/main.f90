@@ -18,6 +18,7 @@ program x_code
 
     integer :: n
     integer :: itemp, jtemp, ktemp
+    integer :: filenumber_temp
     real* 8 :: expectedtemp
     character :: sym
     logical :: finished_restarts
@@ -85,38 +86,6 @@ program x_code
     ! need to dealias the fields at the beginning
     if (task .eq. 'hydro') call dealias_all
 
-
-    !
-    ! FEEDING DERIVATIVES INTO X_DERIVATIVE
-    !
-
-    ! write(*,*) "testing x derivative values"
-
-    ! do itemp = 1,nx
-    !     do jtemp = 1,ny
-    !         do ktemp = 1,nz
-    !             wrk(itemp,jtemp,ktemp,1) = SIN(2 * PI * itemp / NX)
-    !         end do
-    !     end do
-    ! end do
-
-    ! call xFFT3d(1, 1)
-
-    ! call x_derivative(1, 'x', 2)
-
-    ! call xFFT3d(-1, 2)
-
-    !if (iammaster) then
-    !    do itemp = 1,16
-    !        do jtemp = 1,16
-    !            do ktemp = 1,8
-    !                expectedtemp =  COS(2 * PI * itemp / NX) * 2 * PI / NX
-    !                write(*, *) "expected at ", itemp, jtemp, ktemp, "value is", expectedtemp, "actual is ", &
-    !                    wrk(itemp,jtemp,ktemp,2)
-    !            end do
-    !        end do
-    !    end do 
-    !end if
 
 !********************************************************************************
 !  call benchmark
@@ -287,9 +256,6 @@ program x_code
             call write_slice(int(itime))
             call write_scalars(int(itime))
 
-            if (export_divergence == 1) then
-                call write_derivatives(int(itime));
-            end if
 
             ! we only write vtk files once every *8 time steps because the post processessing
             ! is very slow
@@ -302,6 +268,10 @@ program x_code
                 ) then
                 write(out, *) "writing flowfield at itime ", itime
                 call write_velocity_field(int(itime))
+            end if
+
+            if (export_divergence == 1) then
+                call write_derivatives(int(itime));
             end if
         end if
 
