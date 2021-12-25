@@ -406,7 +406,7 @@ def postprocessing(
     effective_steps = steps - steps_for_restarts
     # how many actual values from es.gp are available after restarts are complete
     # TODO: this value can change depending on how often write_data is called in main.f90
-    datapoints = int(effective_steps / (io_steps * 80) ) 
+    datapoints = int(effective_steps / (io_steps * 4) ) 
 
     stepby = max(int(datapoints / NUM_DATAPOINTS) - 5,1)
 
@@ -424,11 +424,14 @@ def postprocessing(
     shutil.move(f"{solver_folder}/spectra.json", output_folder + '/spectra.json')
 
     # now animate the VTK files together
-    animation_dir = f"{output_folder}/animation/"
-    os.mkdir(animation_dir)
-    run_shell_command(f"ip addr | grep '\\.'")
-    run_shell_command(f"which pvpython")
-    run_shell_command(f"pvpython {HIT3D_UTILS_BASE}/paraview/main.py velocity {output_folder}/flowfield {animation_dir}")
+    if save_vtk:
+        animation_dir = f"{output_folder}/animation/"
+        rendering_dir = f"{output_folder}/renders/"
+        os.mkdir(animation_dir)
+        os.mkdir(rendering_dir)
+        run_shell_command(f"ip addr | grep '\\.'")
+        run_shell_command(f"which pvpython")
+        run_shell_command(f"pvpython {HIT3D_UTILS_BASE}/paraview/main.py velocity {output_folder}/flowfield {animation_dir} {rendering_dir}")
 
 # parse csv files for flowfield output by fortran
 # should be the same for both flowfield files and divergence files
@@ -908,6 +911,6 @@ if __name__ == "__main__":
     #one_case()
     #proposal_figures()
     #forcing_sweep()
-    #forcing_cases()
-    full_system_test()
+    forcing_cases()
+    #full_system_test()
     pass

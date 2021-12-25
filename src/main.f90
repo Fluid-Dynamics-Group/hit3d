@@ -262,7 +262,7 @@ program x_code
             ! also only write them after the restarts are done
             if ( &
                 ( &
-                    finished_restarts .AND. mod(itime, iwrite4*8) .eq. 0) &
+                    finished_restarts .AND. mod(itime, iwrite4*4) .eq. 0) &
                     .or. &
                     itime == ITMIN + 1 &
                 ) then
