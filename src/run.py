@@ -6,18 +6,23 @@ import csv
 import json
 from glob import glob
 
-UNR = True
+UNR = False
 IS_DISTRIBUTED = True
 IS_SINGULARITY = False
 
 if UNR:
     BASE_SAVE = "/home/brooks/sync/hit3d"
+    INITIAL_COND_FOLDER = "/home/brooks/distribute-server/results/hit3d"
 else:
     BASE_SAVE = "/home/brooks/lab/hit3d-cases"
+    INITIAL_COND_FOLDER = "/home/brooks/lab/sync/initial_conditions"
 
 if IS_DISTRIBUTED:
     HIT3D_UTILS_BASE = "../../hit3d-utils"
-    BASE_SAVE = "/home/brooks/distribute-cases"
+    if UNR:
+        BASE_SAVE = "/home/brooks/distribute-cases"
+    else:
+        BASE_SAVE = "/home/brooks/lab/distribute-cases"
 else:
     if UNR:
         HIT3D_UTILS_BASE = "/home/brooks/github/hit3d-utils"
@@ -39,6 +44,10 @@ class RunCase():
             require_forcing=0,
             io_steps = None, export_divergence = 0
         ):
+
+        if steps >= 100_000:
+            raise ValueError("steps cannot currently be a number with more than 5 digits due to how data is outputted")
+
         # if there are restarts, find the number of steps spent in that those restarts
         # and add them to the current number of steps
         simulation_time_restart = restarts * restart_time
@@ -241,7 +250,7 @@ def run_case(
     except Exception as e:
         print("exception running hit3d: {}\n ----> calling postprocessessing anyway".format(e))
 
-    postprocessing("output/", save_folder, restart_time_slice, steps, dt, export_vtk,size_param, epsilon1, epsilon2, export_divergence)
+    postprocessing("output/", save_folder, restart_time_slice, steps, dt, export_vtk,size_param, epsilon1, epsilon2, export_divergence, steps_between_io)
 
     if load_initial_data == 1:
         organize_initial_condition(save_folder, epsilon1, epsilon2)
@@ -332,7 +341,12 @@ class EpsilonControl():
     def epsilon_2(self,delta):
         return delta * self.helicity/ self.fdot_h
 
-def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, save_vtk, size, epsilon_1, epsilon_2, export_divergence):
+def postprocessing(
+    solver_folder, output_folder, restart_time_slice, 
+    steps, dt, save_vtk, 
+    size, epsilon_1, epsilon_2, 
+    export_divergence, io_steps
+    ):
     shutil.move("input_file.in", output_folder + "/input_file.in")
     shutil.copy(f"{solver_folder}/energy.csv", output_folder + '/energy.csv')
 
@@ -391,7 +405,8 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     steps_for_restarts = int(restart_time_slice / dt) + 1
     effective_steps = steps - steps_for_restarts
     # how many actual values from es.gp are available after restarts are complete
-    datapoints = int(effective_steps / 10)
+    # TODO: this value can change depending on how often write_data is called in main.f90
+    datapoints = int(effective_steps / (io_steps * 80) ) 
 
     stepby = max(int(datapoints / NUM_DATAPOINTS) - 5,1)
 
@@ -407,6 +422,11 @@ def postprocessing(solver_folder, output_folder, restart_time_slice, steps, dt, 
     # move some of the important files to the save folder so they do not get purged
     shutil.move(f"{solver_folder}/es.gp", output_folder + '/es.gp')
     shutil.move(f"{solver_folder}/spectra.json", output_folder + '/spectra.json')
+
+    # now animate the VTK files together
+    animation_dir = f"{output_folder}/animation/"
+    os.mkdir(animation_dir)
+    run_shell_command(f"pvpython {HIT3D_UTILS_BASE}/paraview/main.py velocity {output_folder}/flowfield {animation_dir}")
 
 # parse csv files for flowfield output by fortran
 # should be the same for both flowfield files and divergence files
@@ -498,137 +518,47 @@ def wrap_error_case(case, filepath):
                 f.write(f"failed for case {case} {case.path}\ntraceback:\n{traceback_str}")
 
 def copy_init_files(size):
-    if size == 128:
-        prefix = "/home/brooks/distribute-server/results/hit3d/initial_condition_5k_steps128/initial_condition_5k_steps128"
-    elif size == 256:
-        prefix = "/home/brooks/distribute-server/results/hit3d/initial_condition_25k_steps256/initial_condition_25k_steps256"
-    elif size == 64:
-        prefix = "/home/brooks/distribute-server/results/hit3d/initial_condition_5k_steps64/initial_condition_5k_steps64"
+    if UNR:
+        if size == 128:
+            prefix = INITIAL_COND_FOLDER + "/initial_condition_5k_steps128/initial_condition_5k_steps128"
+        elif size == 256:
+            prefix = INITIAL_COND_FOLDER + "/initial_condition_25k_steps256/initial_condition_25k_steps256"
+        elif size == 64:
+            prefix = INITIAL_COND_FOLDER + "/initial_condition_5k_steps64/initial_condition_5k_steps64"
+        else:
+            raise ValueError("unknown initial condition file formats")
     else:
-        raise ValueError("unknown initial condition file formats")
+        if size == 128:
+            prefix = INITIAL_COND_FOLDER + "/5ksteps/128"
+        elif size == 256:
+            prefix = INITIAL_COND_FOLDER + "/5ksteps/256"
+        elif size == 64:
+            prefix = INITIAL_COND_FOLDER + "/5ksteps/64"
+        else:
+            raise ValueError("unknown initial condition file formats")
 
     shutil.copy(prefix + "/" + IC_JSON_NAME, IC_JSON_NAME)
     shutil.copy(prefix + "/" + IC_SPEC_NAME, IC_SPEC_NAME)
     shutil.copy(prefix + "/" + IC_WRK_NAME, IC_WRK_NAME)
 
-def initial_condition():
-    dt = 0.0005
-    size = 64
-    IC_STEPS = 5_000
-    re = 40
-
-    forcing_folder = f"initial_condition_5k_steps{size}"
-    save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
-    output_folder = f"../../distribute_save"
-    batch_name = forcing_folder
-
-    if not os.path.exists(save_json_folder):
-        os.mkdir(save_json_folder)
-
-    for f in os.listdir(save_json_folder):
-        os.remove(os.path.join(save_json_folder, f))
-
-    case =  RunCase(
-        skip_diffusion=0, 
-        size=size, 
-        dt=dt, 
-        steps=IC_STEPS, 
-        restarts=0, 
-        reynolds_number=re, 
-        path=output_folder,
-        load_initial_data=1, 
-        restart_time=1.
-    )
-
-    case.write_to_json(batch_name, save_json_folder)
-
-    copy_distribute_files(save_json_folder, batch_name)
-
-# in order to calculate forcing cases we need to have an initial condition file
-def forcing_cases():
-    delta_1 = .1
-    delta_2 = .1
-
-    run_shell_command("make")
-    forcing_folder = f"proposal_figures_short_with_vtk"
-    save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
-
-    if not os.path.exists(save_json_folder):
-        os.mkdir(save_json_folder)
-
-    for f in os.listdir(save_json_folder):
-        os.remove(os.path.join(save_json_folder, f))
-
-    dt = 0.0001
-    size = 256
-    re = 40
-    steps = 20_000
-    save_vtk = True
-    batch_name = forcing_folder
-    extra_caps = ["lab1-2"]
-
-    copy_init_files(size)
-
-    epsilon_generator = EpsilonControl.load_json()
-
-    cases = [
-        #[0., 0., "baseline"],
-
-        #epsilon 1 cases
-        #[delta_1, 0., "ep1-pos"],
-        [-1*delta_1, 0., "ep1-neg"],
-
-        # epsilon 2  cases
-        #[ 0., delta_2, "ep2-pos"],
-        [ 0., -1*delta_2, "ep2-neg"],
-
-        # both ep1 and ep2 cases
-        #[ delta_1, delta_2, "epboth-pos"],
-        #[ -1*delta_1, -1 * delta_2, "epboth-neg"],
-    ]
-
-    if IS_SINGULARITY and IS_DISTRIBUTED:
-        output_folder = f"/distribute_save/"
+def define_output_folder(error_on_local = False):
+    if IS_DISTRIBUTED:
+        if IS_SINGULARITY:
+            return f"/distribute_save/"
+        else:
+            return "../../distribute_save/"
     else:
-        output_folder = f"../../distribute_save/"
 
-    for skip_diffusion in [0,1]:
+        if error_on_local:
+            raise ValueError("Cant run this set of cases locally")
+        else:
+            folder = "./current_results"
 
-        # TODO: remove this after generating 
-        if skip_diffusion == 0:
-            continue
+            if os.path.exists(folder):
+                shutil.rmtree(folder)
+            os.mkdir(folder)
 
-        for delta_1, delta_2, folder in cases:
-            diffusion_str = skip_diffusion_to_str(skip_diffusion)
-            epsilon1 = epsilon_generator.epsilon_1(delta_1)
-            epsilon2 = epsilon_generator.epsilon_2(delta_2)
-
-            if epsilon1 == -0.0:
-                epsilon1 = 0.0
-            if epsilon2 == -0.0:
-                epsilon2 = 0.0
-
-            case =  RunCase(skip_diffusion=skip_diffusion, 
-                size=size,
-                dt=dt,
-                steps=steps,
-                restarts=0,
-                restart_time=1.,
-                reynolds_number=re,
-                path= output_folder,
-                load_initial_data=0,
-                epsilon1=epsilon1,
-                epsilon2=epsilon2,
-                export_vtk=save_vtk,
-                scalar_type=14
-            )
-
-            case.write_to_json(f"{folder}_{diffusion_str}", save_json_folder)
-
-    copy_distribute_files(save_json_folder, batch_name, extra_caps)
-
-    build = Build("master", "master")
-    build.to_json(save_json_folder)
+            return folder
 
 def ep1_temporal_cases():
     delta_1 = .01
@@ -757,10 +687,7 @@ def proposal_figures():
         [ 0., -1*delta_2, "ep2-neg"],
     ]
 
-    if IS_SINGULARITY and IS_DISTRIBUTED:
-        output_folder = f"/distribute_save/"
-    else:
-        output_folder = f"../../distribute_save/"
+    output_folder = define_output_folder()
 
     for skip_diffusion in [0,1]:
 
@@ -808,15 +735,7 @@ def test_viscous_compensation():
     extra_caps = ["lab3"]
     io_steps = int(steps/10)
 
-    if IS_DISTRIBUTED:
-        if IS_SINGULARITY: 
-            # running distributed and in singularity
-            output_folder = f"/distribute_save/"
-        else:
-            # running distributed without singularity
-            output_folder = f"../../distribute_save/"
-    else:
-        raise ValueError("dont run viscous compensation test locally!")
+    output_folder = define_output_folder(error_on_local=True)
 
     # if the directory exists remove any older files from the dir 
     if os.path.exists(save_json_folder):
@@ -906,32 +825,25 @@ def test_viscous_compensation():
 
 # helpful function for runnning one-off cases
 def one_case():
-    TIME_END = 3
-    batch_name = "pipeline_generation_1"
+    TIME_END = 10
+    batch_name = "viscous_baseline_2"
     job_name = "single-case"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
     size = 128
     dt = 0.0005
     steps = int(TIME_END / dt)
     nprocs = 16
-    extra_caps = ["lab2"]
+    extra_caps = []
     io_steps = None
     load_initial_data = 0
     export_divergence = 0
 
-    if IS_DISTRIBUTED:
-        if IS_SINGULARITY: 
-            # running distributed and in singularity
-            output_folder = f"/distribute_save/"
-        else:
-            # running distributed without singularity
-            output_folder = f"../../distribute_save/"
-    else:
-        # running locally
-        output_folder = "./current_results"
-        if os.path.exists(output_folder):
-            shutil.rmtree(output_folder)
-        os.mkdir(output_folder)
+    ep1 = 0.0
+    ep2 = 0.0
+
+    skip_diffusion = 0
+
+    output_folder = define_output_folder()
 
     if not( load_initial_data == 2):
         copy_init_files(size)
@@ -946,7 +858,7 @@ def one_case():
     run_shell_command("make")
 
     case =  RunCase(
-        skip_diffusion=0,
+        skip_diffusion=skip_diffusion,
         size=size,
         dt=dt,
         steps=steps,
@@ -954,9 +866,9 @@ def one_case():
         reynolds_number=40,
         path=output_folder,
         load_initial_data=load_initial_data,
-        epsilon1=0.1,
+        epsilon1=ep1,
         # delta2 is negative, this will decrease helicity
-        epsilon2=0.1,
+        epsilon2=ep2,
         export_vtk=True,
         scalar_type=14,
         require_forcing=1,
@@ -987,10 +899,13 @@ def remove_restart_files():
             os.remove(i) 
 
 if __name__ == "__main__":
-    #initial_condition()
+    from cases import forcing_sweep
+    from cases import forcing_cases
+    from cases import full_system_test
     #forcing_cases()
-    #ep1_temporal_cases()
-    #test_viscous_compensation()
-    one_case()
+    #one_case()
     #proposal_figures()
+    #forcing_sweep()
+    #forcing_cases()
+    full_system_test()
     pass
