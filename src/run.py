@@ -426,6 +426,8 @@ def postprocessing(
     # now animate the VTK files together
     animation_dir = f"{output_folder}/animation/"
     os.mkdir(animation_dir)
+    run_shell_command(f"ip addr | grep '\\.'")
+    run_shell_command(f"which pvpython")
     run_shell_command(f"pvpython {HIT3D_UTILS_BASE}/paraview/main.py velocity {output_folder}/flowfield {animation_dir}")
 
 # parse csv files for flowfield output by fortran
