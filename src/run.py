@@ -42,7 +42,7 @@ class RunCase():
             restart_time=1.0, skip_steps=0, scalar_type=0,
             validate_viscous_compensation=0, viscous_compensation=0,
             require_forcing=0,
-            io_steps = None, export_divergence = 0
+            io_steps = None, export_divergence = 0, nscalar = 0
         ):
 
         if steps >= 100_000:
@@ -76,6 +76,7 @@ class RunCase():
 
         self.require_forcing = require_forcing
         self.io_steps = io_steps
+        self.nscalar = nscalar
 
     def validate_params(self):
         if (self.viscous_compensation == 1 or self.validate_viscous_compensation== 1) and self.skip_diffusion == 1:
@@ -112,7 +113,8 @@ class RunCase():
             self.validate_viscous_compensation,
             self.viscous_compensation,
             self.require_forcing,
-            self.export_divergence
+            self.export_divergence,
+            self.nscalar
         )
 
     def __repr__(self):
@@ -140,13 +142,14 @@ class RunCase():
             "epsilon2":          self.epsilon2,
             "restart_time":      self.restart_time,
             "skip_steps":        self.skip_steps,
-            "scalar_type":        self.scalar_type,
+            "scalar_type":       self.scalar_type,
             "job_name": job_name,
             "validate_viscous_compensation": self.validate_viscous_compensation,
             "viscous_compensation": self.viscous_compensation,
             "require_forcing": self.require_forcing,
             "io_steps": self.io_steps,
-            "export_divergence": self.export_divergence
+            "export_divergence": self.export_divergence,
+            "nscalar": self.nscalar
         }
 
         with open(file_name, "w", encoding="utf-8") as file:
@@ -196,7 +199,7 @@ def run_case(
     steps_between_io, export_vtk, epsilon1, epsilon2, 
     restart_time, scalar_type,
     viscous_compensation_validation, viscous_compensation,
-    require_forcing, export_divergence
+    require_forcing, export_divergence, nscalar
     ):
 
     if IS_DISTRIBUTED:
@@ -231,7 +234,7 @@ def run_case(
             --epsilon2 {epsilon2} \
             --restart-time {restart_time} \
             --tscalar -0.1 \
-            --nscalar 1 \
+            --nscalar {nscalar} \
             --scalar-type {scalar_type} \
             --validate-viscous-compensation {viscous_compensation_validation} \
             --viscous-compensation {viscous_compensation} \
