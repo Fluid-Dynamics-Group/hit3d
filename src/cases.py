@@ -139,7 +139,7 @@ def forcing_cases():
     delta_2 = .1
 
     run_shell_command("make")
-    batch_name = f"forcing_viscous_3"
+    batch_name = f"forcing_viscous_5"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
 
     if not os.path.exists(save_json_folder):
@@ -163,7 +163,7 @@ def forcing_cases():
     epsilon_generator = EpsilonControl.load_json()
 
     cases = [
-        [0., 0., "baseline"],
+        #[0., 0., "baseline"],
         [-1*delta_1, 0., "ep1-neg"],
         [ 0., -1*delta_2, "ep2-neg"],
     ]
@@ -216,7 +216,7 @@ def full_system_test():
     delta_2 = .1
 
     run_shell_command("make")
-    batch_name = f"system_test_8"
+    batch_name = f"system_test_14"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
 
     if not os.path.exists(save_json_folder):
@@ -239,7 +239,7 @@ def full_system_test():
     epsilon_generator = EpsilonControl.load_json()
 
     cases = [
-        [0., 0., "baseline"],
+        #[0., 0., "baseline"],
         [-1*delta_1, 0., "ep1-neg"],
         [ 0., -1*delta_2, "ep2-neg"],
     ]

@@ -428,13 +428,25 @@ def postprocessing(
 
     # now animate the VTK files together
     if save_vtk:
-        animation_dir = f"{output_folder}/animation/"
+        animation_dir = f"{solver_folder}/animation/"
         rendering_dir = f"{output_folder}/renders/"
         os.mkdir(animation_dir)
         os.mkdir(rendering_dir)
+
+        q_criterion_colored_velocity = f"{rendering_dir}/q_criterion/colored_velocity_mag"
+        q_criterion_colored_forcing= f"{rendering_dir}/q_criterion/colored_forcing_mag"
+        q_criterion_colored_strain = f"{rendering_dir}/q_criterion/colored_strain_mag"
+
+        os.makedirs(q_criterion_colored_velocity)
+        os.makedirs(q_criterion_colored_forcing)
+        os.makedirs(q_criterion_colored_strain)
+
         run_shell_command(f"ip addr | grep '\\.'")
         run_shell_command(f"which pvpython")
-        run_shell_command(f"pvpython {HIT3D_UTILS_BASE}/paraview/main.py velocity {output_folder}/flowfield {animation_dir} {rendering_dir}")
+
+        run_shell_command(f"pvpython {HIT3D_UTILS_BASE}/paraview/main.py velocity {output_folder}/flowfield {animation_dir} {q_criterion_colored_velocity}")
+        run_shell_command(f"pvpython {HIT3D_UTILS_BASE}/paraview/main.py forcing {output_folder}/flowfield {animation_dir} {q_criterion_colored_forcing}")
+        run_shell_command(f"pvpython {HIT3D_UTILS_BASE}/paraview/main.py strain {output_folder}/flowfield {animation_dir} {q_criterion_colored_strain}")
 
 # parse csv files for flowfield output by fortran
 # should be the same for both flowfield files and divergence files
@@ -914,6 +926,6 @@ if __name__ == "__main__":
     #one_case()
     #proposal_figures()
     #forcing_sweep()
-    forcing_cases()
-    #full_system_test()
+    #forcing_cases()
+    full_system_test()
     pass
