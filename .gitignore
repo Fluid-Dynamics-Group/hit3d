@@ -10,3 +10,4 @@ src/post/*
 **/*.json
 **/fort.11
 **/current_results/
+src/__pycache__
