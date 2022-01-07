@@ -938,6 +938,6 @@ if __name__ == "__main__":
     #proposal_figures()
     #forcing_sweep()
     #forcing_cases()
-    #full_system_test()
-    figure2()
+    full_system_test()
+    #figure2()
     pass

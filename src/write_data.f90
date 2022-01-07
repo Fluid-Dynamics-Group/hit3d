@@ -138,8 +138,8 @@ subroutine write_velocity_field(current_timestep)
         open (filenumber, file=filename, status="new")
 
         write (filenumber, "('u,v,w,forcing,fu1,fu2,fu3,omgx,omgy,omgz,fu_left1,fu_left2,fu_left3,&
-            fu_right1,fu_right2,fu_right3 &
-            ')") 
+            fu_right1,fu_right2,fu_right3' &
+            )") 
 
         do i = 1, nx
             do j = 1, ny
@@ -181,7 +181,7 @@ subroutine write_velocity_field(current_timestep)
                     fcomp_total = fcomp_left + fcomp_right
 
                     write (filenumber, "(E16.10, ',', E16.10 ',', E16.10, ',' E16.10, ',' &
-                        E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',', E16.10, &
+                        E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',' &
                         E16.10, ',', E16.10, ',', E16.10, ',', &
                         E16.10, ',', E16.10, ',', E16.10 &
                         )") &

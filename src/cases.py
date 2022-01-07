@@ -215,8 +215,9 @@ def full_system_test():
     delta_1 = .1
     delta_2 = .1
 
+    n = 19
     run_shell_command("make")
-    batch_name = f"system_test_16"
+    batch_name = f"system_test_{n}"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
 
     if not os.path.exists(save_json_folder):
