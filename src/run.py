@@ -3,10 +3,10 @@ import shutil
 import os
 import traceback
 import csv
-import json
+import json 
 from glob import glob
 
-UNR = False
+UNR = True
 IS_DISTRIBUTED = True
 IS_SINGULARITY = False
 
@@ -339,10 +339,10 @@ class EpsilonControl():
         return EpsilonControl()
 
     def epsilon_1(self,delta):
-        return delta * self.energy / self.fdot_u
+        return adjust_negative_epsilon(delta * self.energy / self.fdot_u)
 
     def epsilon_2(self,delta):
-        return delta * self.helicity/ self.fdot_h
+        return adjust_negative_epsilon(delta * self.helicity/ self.fdot_h)
 
 def postprocessing(
     solver_folder, output_folder, restart_time_slice, 
@@ -436,10 +436,12 @@ def postprocessing(
         q_criterion_colored_velocity = f"{rendering_dir}/q_criterion/colored_velocity_mag"
         q_criterion_colored_forcing= f"{rendering_dir}/q_criterion/colored_forcing_mag"
         q_criterion_colored_strain = f"{rendering_dir}/q_criterion/colored_strain_mag"
+        q_criterion_colored_omega = f"{rendering_dir}/q_criterion/colored_omega_mag"
 
         os.makedirs(q_criterion_colored_velocity)
         os.makedirs(q_criterion_colored_forcing)
         os.makedirs(q_criterion_colored_strain)
+        os.makedirs(q_criterion_colored_omega)
 
         run_shell_command(f"ip addr | grep '\\.'")
         run_shell_command(f"which pvpython")
@@ -447,6 +449,7 @@ def postprocessing(
         run_shell_command(f"pvpython {HIT3D_UTILS_BASE}/paraview/main.py velocity {output_folder}/flowfield {animation_dir} {q_criterion_colored_velocity}")
         run_shell_command(f"pvpython {HIT3D_UTILS_BASE}/paraview/main.py forcing {output_folder}/flowfield {animation_dir} {q_criterion_colored_forcing}")
         run_shell_command(f"pvpython {HIT3D_UTILS_BASE}/paraview/main.py strain {output_folder}/flowfield {animation_dir} {q_criterion_colored_strain}")
+        run_shell_command(f"pvpython {HIT3D_UTILS_BASE}/paraview/main.py omega {output_folder}/flowfield {animation_dir} {q_criterion_colored_omega}")
 
 # parse csv files for flowfield output by fortran
 # should be the same for both flowfield files and divergence files
@@ -720,10 +723,9 @@ def proposal_figures():
             epsilon1 = epsilon_generator.epsilon_1(delta_1)
             epsilon2 = epsilon_generator.epsilon_2(delta_2)
 
-            if epsilon1 == -0.0:
-                epsilon1 = 0.0
-            if epsilon2 == -0.0:
-                epsilon2 = 0.0
+            # normalize for -0.0
+            epsilon1 = adjust_negative_epsilon(epsilon1)
+            epsilon2 = adjust_negative_epsilon(epsilon2)
 
             case =  RunCase(skip_diffusion=skip_diffusion, 
                 size=size,
@@ -746,6 +748,14 @@ def proposal_figures():
 
     build = Build("master", "master")
     build.to_json(save_json_folder)
+
+# remaps a -0.0 value for epsilon to 0.0; otherwise just return the original epsilon value
+def adjust_negative_epsilon(epsilon_value: float) -> float:
+    if epsilon_value == -0.0:
+        return  0.0
+    else:
+        return epsilon_value
+
 
 def test_viscous_compensation():
     batch_name = "viscous_compensation_short_128_final_validation_8"
@@ -922,10 +932,12 @@ if __name__ == "__main__":
     from cases import forcing_sweep
     from cases import forcing_cases
     from cases import full_system_test
+    from cases import figure2 
     #forcing_cases()
     #one_case()
     #proposal_figures()
     #forcing_sweep()
     #forcing_cases()
-    full_system_test()
+    #full_system_test()
+    figure2()
     pass

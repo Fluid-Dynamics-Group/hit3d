@@ -13,6 +13,11 @@ from run import RunCase
 from run import Build
 
 def forcing_sweep():
+    # Conclusion:
+    # for viscous cases, the max I values are
+    # ep1 : 1 -> 10^(i-2) -> 0.1
+    # ep2 : 3 -> 10^(i-2) -> 10
+
     run_shell_command("make")
     forcing_folder = f"epsilon_parameter_sweep_4"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
@@ -139,7 +144,7 @@ def forcing_cases():
     delta_2 = .1
 
     run_shell_command("make")
-    batch_name = f"forcing_viscous_5"
+    batch_name = f"forcing_viscous_7"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
 
     if not os.path.exists(save_json_folder):
@@ -163,7 +168,7 @@ def forcing_cases():
     epsilon_generator = EpsilonControl.load_json()
 
     cases = [
-        #[0., 0., "baseline"],
+        [0., 0., "baseline"],
         [-1*delta_1, 0., "ep1-neg"],
         [ 0., -1*delta_2, "ep2-neg"],
     ]
@@ -180,11 +185,6 @@ def forcing_cases():
             diffusion_str = skip_diffusion_to_str(skip_diffusion)
             epsilon1 = epsilon_generator.epsilon_1(delta_1)
             epsilon2 = epsilon_generator.epsilon_2(delta_2)
-
-            if epsilon1 == -0.0:
-                epsilon1 = 0.0
-            if epsilon2 == -0.0:
-                epsilon2 = 0.0
 
             case =  RunCase(skip_diffusion=skip_diffusion, 
                 size=size,
@@ -216,7 +216,7 @@ def full_system_test():
     delta_2 = .1
 
     run_shell_command("make")
-    batch_name = f"system_test_14"
+    batch_name = f"system_test_16"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
 
     if not os.path.exists(save_json_folder):
@@ -252,11 +252,6 @@ def full_system_test():
         epsilon1 = epsilon_generator.epsilon_1(delta_1)
         epsilon2 = epsilon_generator.epsilon_2(delta_2)
 
-        if epsilon1 == -0.0:
-            epsilon1 = 0.0
-        if epsilon2 == -0.0:
-            epsilon2 = 0.0
-
         case =  RunCase(skip_diffusion=0, 
             size=size,
             dt=dt,
@@ -274,6 +269,80 @@ def full_system_test():
         )
 
         case.write_to_json(f"{folder}_{diffusion_str}", save_json_folder)
+
+    copy_distribute_files(save_json_folder, batch_name, extra_caps)
+
+    build = Build("master", "master")
+    build.to_json(save_json_folder)
+
+# plots and data specifically for generating figure 2 of aditya's paper
+def figure2():
+    delta_1 = .1
+    # n=1..7 had delta_2 as .1
+    # n= 8..9 had delta_2 as 10.0
+    # n= 10 had delta=1
+    delta_2 = 1
+
+    run_shell_command("make")
+    n = 10
+    batch_name = f"figure2_{n}"
+    save_json_folder = f"{BASE_SAVE}/{batch_name}"
+
+    if not os.path.exists(save_json_folder):
+        os.mkdir(save_json_folder)
+
+    for f in os.listdir(save_json_folder):
+        os.remove(os.path.join(save_json_folder, f))
+
+    END_TIME = 5
+    dt = 0.0005
+    size = 128
+    re = 40
+    steps = int(END_TIME / dt)
+    save_vtk = True
+    extra_caps = []
+
+    io_steps = 38
+
+    copy_init_files(size)
+
+    epsilon_generator = EpsilonControl.load_json()
+
+    cases = [
+        # n=7 has baseline
+        #[0., 0., "baseline_viscous", 0],
+        #[-1*delta_1, 0., "energy_modification_viscous", 0],
+        [ 0., -1*delta_2, "helicity_modification_viscous", 0],
+        [-1*delta_1, -1*delta_2, "both_modification_viscous", 0],
+        #[-1*delta_1, 0., "energy_modification_inviscid", 1],
+        #[ 0., -1*delta_2, "helicity_modification_inviscid", 1],
+        #[-1*delta_1, -1*delta_2, "both_modification_inviscid", 1],
+    ]
+
+    output_folder = define_output_folder()
+
+    for delta_1, delta_2, folder, skip_diffusion in cases:
+        epsilon1 = epsilon_generator.epsilon_1(delta_1)
+        epsilon2 = epsilon_generator.epsilon_2(delta_2)
+
+        case =  RunCase(skip_diffusion=skip_diffusion, 
+            size=size,
+            dt=dt,
+            steps=steps,
+            restarts=0,
+            restart_time=1.,
+            reynolds_number=re,
+            path= output_folder,
+            load_initial_data=0,
+            epsilon1=epsilon1,
+            epsilon2=epsilon2,
+            export_vtk=save_vtk,
+            #scalar_type=14,
+            scalar_type=0,
+            io_steps=io_steps
+        )
+
+        case.write_to_json(folder, save_json_folder)
 
     copy_distribute_files(save_json_folder, batch_name, extra_caps)
 

@@ -106,6 +106,8 @@ subroutine write_velocity_field(current_timestep)
     real*8 :: u, v, w, omgx_, omgy_, omgz_, omg_mag
     real*8 :: fcomp_left, fcomp_right, fcomp_total, epsilon_1, epsilon_2
     real*8 :: fu1, fu2, fu3
+    real*8 :: fu_left1, fu_left2, fu_left3
+    real*8 :: fu_right1, fu_right2, fu_right3
 
     character(len=60) :: filename, sizefile
 
@@ -134,7 +136,10 @@ subroutine write_velocity_field(current_timestep)
     if (myid == master) then 
         write (filename, "('output/velocity_field/', i5.5, '.csv')") current_timestep
         open (filenumber, file=filename, status="new")
-        write (filenumber, "('u,v,w,forcing,fu1,fu2,fu3,omgx,omgy,omgz')") 
+
+        write (filenumber, "('u,v,w,forcing,fu1,fu2,fu3,omgx,omgy,omgz,fu_left1,fu_left2,fu_left3,&
+            fu_right1,fu_right2,fu_right3 &
+            ')") 
 
         do i = 1, nx
             do j = 1, ny
@@ -150,6 +155,14 @@ subroutine write_velocity_field(current_timestep)
                     fu1 = wrk_global(i, j, k, 7)
                     fu2 = wrk_global(i, j, k, 8)
                     fu3 = wrk_global(i, j, k, 9)
+
+                    fu_left1 = wrk_global(i, j, k, 10)
+                    fu_left2 = wrk_global(i, j, k, 11)
+                    fu_left3 = wrk_global(i, j, k, 12)
+
+                    fu_right1 = wrk_global(i, j, k, 13)
+                    fu_right2 = wrk_global(i, j, k, 14)
+                    fu_right3 = wrk_global(i, j, k, 15)
 
                     omg_mag = sqrt(omgx_**2 + omgy_**2 + omgz_**2)
 
@@ -168,8 +181,13 @@ subroutine write_velocity_field(current_timestep)
                     fcomp_total = fcomp_left + fcomp_right
 
                     write (filenumber, "(E16.10, ',', E16.10 ',', E16.10, ',' E16.10, ',' &
-                        E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',', E16.10)") &
-                        u, v, w, fcomp_total, fu1, fu2, fu3, omgx_, omgy_, omgz_
+                        E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',', E16.10, &
+                        E16.10, ',', E16.10, ',', E16.10, ',', &
+                        E16.10, ',', E16.10, ',', E16.10 &
+                        )") &
+                        u, v, w, fcomp_total, fu1, fu2, fu3, omgx_, omgy_, omgz_, &
+                        fu_left1, fu_left2, fu_left3, &
+                        fu_right1, fu_right2, fu_right3
                 end do
             end do
         end do
@@ -196,7 +214,11 @@ subroutine send_wrk_global
 
     implicit none
 
-    count = nx * ny * nz * 9
+    integer num_send_vals
+
+    num_send_vals = 15
+
+    count = nx * ny * nz * num_send_vals
 
     if (myid .ne. master) then
         id_to = master
@@ -204,8 +226,9 @@ subroutine send_wrk_global
 
         tmp_wrk(1:nx, 1:ny, 1:nz, 1:6) = wrk(1:nx, 1:ny, 1:nz, 1:6)
         tmp_wrk(1:nx, 1:ny, 1:nz, 7:9) = fcomp(1:nx, 1:ny, 1:nz, 1:3)
+        tmp_wrk(1:nx, 1:ny, 1:nz, 10:15) = fcomp_individual(1:nx, 1:ny, 1:nz, 1:6)
 
-        call MPI_SEND(tmp_wrk(1:nx, 1:ny, 1:nz, 1:9), count, MPI_REAL8, master, tag, MPI_COMM_TASK, mpi_err)
+        call MPI_SEND(tmp_wrk(1:nx, 1:ny, 1:nz, 1:num_send_vals), count, MPI_REAL8, master, tag, MPI_COMM_TASK, mpi_err)
     else
         ! allocate a global array - since we cant run any of the other modes at the same time as a write-mode
         ! we can be sure that this array has not already been allocated
@@ -213,12 +236,14 @@ subroutine send_wrk_global
         ! copy the master proc's wrk array in
         wrk_global(1:nx, 1:ny, 1:nz, 1:6) = wrk(1:nx, 1:ny, 1:nz, 1:6)
         wrk_global(1:nx, 1:ny, 1:nz, 7:9) = fcomp(1:nx, 1:ny, 1:nz, 1:3)
+        wrk_global(1:nx, 1:ny, 1:nz, 10:15) = fcomp_individual(1:nx, 1:ny, 1:nz, 1:6)
 
         do id_from = 1, numprocs - 1
             tag = id_from
-            call MPI_RECV(tmp_wrk(1:nx, 1:ny, 1:nz, 1:9), count, MPI_REAL8, id_from, tag, MPI_COMM_TASK, mpi_status, mpi_err)
+            call MPI_RECV(tmp_wrk(1:nx, 1:ny, 1:nz, 1:num_send_vals), count, &
+                MPI_REAL8, id_from, tag, MPI_COMM_TASK, mpi_status, mpi_err)
 
-            wrk_global(1:nx, 1:ny, id_from*nz + 1:(id_from + 1)*nz, 1:9) = tmp_wrk(1:nx, 1:ny, 1:nz, 1:9)
+            wrk_global(1:nx, 1:ny, id_from*nz + 1:(id_from + 1)*nz, 1:num_send_vals) = tmp_wrk(1:nx, 1:ny, 1:nz, 1:num_send_vals)
         end do
 
     end if
@@ -268,7 +293,13 @@ subroutine init_write_energy
 
     ! for writing scalar stuff
     allocate (scalars_global(nx, ny, nz_all))
-    allocate (wrk_global(nx, ny, nz_all, 9))
+    ! for wrk_global
+    ! 1-3 : velocity
+    ! 4-6 : vorticity
+    ! 7-9 : forcing f_u
+    ! 10-12: forcing_1 (energy forcing components)
+    ! 13-15: forcing_2 (helicity forcing components)
+    allocate (wrk_global(nx, ny, nz_all, 9 + 6))
 end subroutine init_write_energy
 
 ! initalize the name of the file that we are writing to with E(t) and h(t) values

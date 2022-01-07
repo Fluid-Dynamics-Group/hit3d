@@ -19,6 +19,7 @@ module m_work
     ! ================MGM-Forcing=====================
     ! temporary array to copy rhs of velocity & computing forcing components
     real*8, allocatable :: fcomp(:, :, :, :)
+    real*8, allocatable :: fcomp_individual(:, :, :, :)
 
     real*8, allocatable :: wrkp(:, :)
 
@@ -110,12 +111,24 @@ contains
         allocate (tmp4(nx, ny, nz), stat=i); ierr = ierr + i; 
         ! main working array, needed for FFT etc, so (nx+2,ny,nz)
         allocate (wrk(nx + 2, ny, nz, 0:number), stat=i); ierr = ierr + i
-        allocate (tmp_wrk(nx + 2, ny, nz, 0:number+3), stat=i); ierr = ierr + i
+
+        ! we need 15 because of how we send the data in write_data when we are writing full flowfields
+        ! there might be a nicer workaround for this, but im not sure
+        allocate (tmp_wrk(nx + 2, ny, nz, 0:15), stat=i); ierr = ierr + i
 
         !------------------------------------------------------------
         ! ================MGM-Forcing=====================
         ! temporary working array for forcing
         allocate (fcomp(nx + 2, ny, nz, 0:6), stat=i); ierr = ierr + i
+        ! this is an additional working array for storing 
+        ! f_u_1x
+        ! f_u_1y
+        ! f_u_1z
+        ! f_u_2x
+        ! f_u_2y
+        ! f_u_2z
+        ! so they can be output in write_data.f90
+        allocate (fcomp_individual(nx, ny, nz, 0:6), stat=i); ierr = ierr + i
         !------------------------------------------------------------
 
         ! array for the spare RHS for Adams-Bashforth time-stepping scheme methods

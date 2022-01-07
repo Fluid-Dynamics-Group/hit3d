@@ -1,4 +1,4 @@
-module forcing_vaues
+module forcing_vaues 
     real*8 F_1, F_2
     real*8 D_1, D_2
 end module
@@ -823,6 +823,12 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
                     f_left = fcomp(i,j,k,0) * wrk(i,j,k,n) - fcomp(i,j,k,1) * wrk(i,j,k,3+n)
                     ! u \cdot omg * u_i - |u|^2 * omg_i
                     f_right = fcomp(i,j,k,0) * wrk(i,j,k,3+n) - fcomp(i,j,k,2) * wrk(i,j,k,n)
+
+                    ! store fcomp left and right so they can be exported to a VTK file later
+                    ! in a 3D flowfield
+                    
+                    fcomp_individual(i,j,k,n) = f_left
+                    fcomp_individual(i,j,k,n+3) = f_right
 
                     ! the total forcing
                     f_total = (f_left * epsilon_1) + (f_right * epsilon_2)
