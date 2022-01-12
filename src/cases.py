@@ -13,6 +13,7 @@ from run import EpsilonControl
 from run import RunCase
 from run import Build
 
+
 def forcing_sweep():
     # Conclusion:
     # for viscous cases, the max I values are
@@ -28,8 +29,8 @@ def forcing_sweep():
         os.mkdir(save_json_folder)
 
     for _ in os.listdir(save_json_folder):
-        raise ValueError("directory is not empty") 
-        #os.remove(os.path.join(save_json_folder, f))
+        raise ValueError("directory is not empty")
+        # os.remove(os.path.join(save_json_folder, f))
 
     END_TIME = 10
     dt = 0.0005
@@ -50,14 +51,14 @@ def forcing_sweep():
 
     delta_1_max = 0.5
     delta_1_min = 0.01
-    delta_1_inc = (delta_1_max - delta_1_min) / (NUM_CASES -1)
+    delta_1_inc = (delta_1_max - delta_1_min) / (NUM_CASES - 1)
 
     delta_2_max = 100
     delta_2_min = 0.1
     delta_2_inc = (delta_2_max - delta_2_min) / (NUM_CASES - 1)
 
-    for epsilon_value in [1,2]:
-        for i in range(0,NUM_CASES):
+    for epsilon_value in [1, 2]:
+        for i in range(0, NUM_CASES):
 
             if epsilon_value == 1:
                 delta = delta_1_min + (delta_1_inc * i)
@@ -88,9 +89,9 @@ def forcing_sweep():
     else:
         output_folder = f"../../distribute_save/"
 
-    for skip_diffusion in [0,1]:
+    for skip_diffusion in [0, 1]:
 
-        # TODO: remove this after generating 
+        # TODO: remove this after generating
         if skip_diffusion == 1:
             continue
 
@@ -106,14 +107,15 @@ def forcing_sweep():
 
             print("ep1: {:.5E} ep2: {:.5E}".format(epsilon1, epsilon2))
 
-            case =  RunCase(skip_diffusion=skip_diffusion, 
+            case = RunCase(
+                skip_diffusion=skip_diffusion,
                 size=size,
                 dt=dt,
                 steps=steps,
                 restarts=0,
-                restart_time=1.,
+                restart_time=1.0,
                 reynolds_number=re,
-                path= output_folder,
+                path=output_folder,
                 load_initial_data=0,
                 epsilon1=epsilon1,
                 epsilon2=epsilon2,
@@ -127,6 +129,7 @@ def forcing_sweep():
 
     build = Build("master", "master")
     build.to_json(save_json_folder)
+
 
 def initial_condition():
     re = 40
@@ -143,16 +146,16 @@ def initial_condition():
     ]
 
     for dt, size, steps in input_cases:
-        case =  RunCase(
-            skip_diffusion=0, 
-            size=size, 
-            dt=dt, 
-            steps=steps, 
-            restarts=0, 
-            reynolds_number=re, 
+        case = RunCase(
+            skip_diffusion=0,
+            size=size,
+            dt=dt,
+            steps=steps,
+            restarts=0,
+            reynolds_number=re,
             path=output_folder,
-            load_initial_data=1, 
-            restart_time=1.
+            load_initial_data=1,
+            restart_time=1.0,
         )
 
         case.write_to_json(batch_name, save_json_folder)
@@ -165,10 +168,11 @@ def initial_condition():
 
     copy_distribute_files(save_json_folder, batch_name, extra_caps)
 
+
 # in order to calculate forcing cases we need to have an initial condition file
 def forcing_cases():
-    delta_1 = .1
-    delta_2 = .1
+    delta_1 = 0.1
+    delta_2 = 0.1
 
     run_shell_command("make")
     batch_name = f"forcing_viscous_7"
@@ -195,16 +199,16 @@ def forcing_cases():
     epsilon_generator = EpsilonControl.load_json()
 
     cases = [
-        [0., 0., "baseline"],
-        [-1*delta_1, 0., "ep1-neg"],
-        [ 0., -1*delta_2, "ep2-neg"],
+        [0.0, 0.0, "baseline"],
+        [-1 * delta_1, 0.0, "ep1-neg"],
+        [0.0, -1 * delta_2, "ep2-neg"],
     ]
 
     output_folder = define_output_folder()
 
-    for skip_diffusion in [0,1]:
+    for skip_diffusion in [0, 1]:
 
-        # TODO: remove this after generating 
+        # TODO: remove this after generating
         if skip_diffusion == 1:
             continue
 
@@ -213,21 +217,22 @@ def forcing_cases():
             epsilon1 = epsilon_generator.epsilon_1(delta_1)
             epsilon2 = epsilon_generator.epsilon_2(delta_2)
 
-            case =  RunCase(skip_diffusion=skip_diffusion, 
+            case = RunCase(
+                skip_diffusion=skip_diffusion,
                 size=size,
                 dt=dt,
                 steps=steps,
                 restarts=0,
-                restart_time=1.,
+                restart_time=1.0,
                 reynolds_number=re,
-                path= output_folder,
+                path=output_folder,
                 load_initial_data=0,
                 epsilon1=epsilon1,
                 epsilon2=epsilon2,
                 export_vtk=save_vtk,
-                #scalar_type=14,
+                # scalar_type=14,
                 scalar_type=0,
-                io_steps=io_steps
+                io_steps=io_steps,
             )
 
             case.write_to_json(f"{folder}_{diffusion_str}", save_json_folder)
@@ -237,10 +242,11 @@ def forcing_cases():
     build = Build("master", "master")
     build.to_json(save_json_folder)
 
+
 # designed to easily tell if the full codebase is functioning as it should be
 def full_system_test():
-    delta_1 = .1
-    delta_2 = .1
+    delta_1 = 0.1
+    delta_2 = 0.1
 
     n = 20
     run_shell_command("make")
@@ -267,9 +273,9 @@ def full_system_test():
     epsilon_generator = EpsilonControl.load_json()
 
     cases = [
-        #[0., 0., "baseline"],
-        [-1*delta_1, 0., "ep1-neg"],
-        [ 0., -1*delta_2, "ep2-neg"],
+        # [0., 0., "baseline"],
+        [-1 * delta_1, 0.0, "ep1-neg"],
+        [0.0, -1 * delta_2, "ep2-neg"],
     ]
 
     output_folder = define_output_folder()
@@ -280,7 +286,8 @@ def full_system_test():
         epsilon1 = epsilon_generator.epsilon_1(delta_1)
         epsilon2 = epsilon_generator.epsilon_2(delta_2)
 
-        case =  RunCase(skip_diffusion=0, 
+        case = RunCase(
+            skip_diffusion=0,
             size=size,
             dt=dt,
             steps=steps,
@@ -292,8 +299,8 @@ def full_system_test():
             epsilon2=epsilon2,
             export_vtk=save_vtk,
             scalar_type=14,
-            #scalar_type=0,
-            io_steps=io_steps
+            # scalar_type=0,
+            io_steps=io_steps,
         )
 
         case.write_to_json(f"{folder}_{diffusion_str}", save_json_folder)
@@ -303,13 +310,14 @@ def full_system_test():
     build = Build("master", "master")
     build.to_json(save_json_folder)
 
+
 # plots and data specifically for generating figure 2 of aditya's paper
 def figure2():
     # n=1..7 had delta_2 as .1     : delta_1 = 0.1
     # n= 8..9 had delta_2 as 10.0  : delta_1 = 0.1
     # n= 10 had delta_2=1          : delta_1 = 0.1
     # n= 11..17 had delta_2=0.7          : delta_1 = 0.05
-    delta_1 = .05
+    delta_1 = 0.05
     delta_2 = 0.7
 
     run_shell_command("make")
@@ -323,7 +331,7 @@ def figure2():
     for f in os.listdir(save_json_folder):
         os.remove(os.path.join(save_json_folder, f))
 
-    END_TIME = .5
+    END_TIME = 0.5
     dt = 0.0005
     size = 128
     re = 40
@@ -340,17 +348,15 @@ def figure2():
     cases = [
         # baseline
         # n=7 has baseline
-        [0., 0., "baseline_viscous", 0],
-
+        [0.0, 0.0, "baseline_viscous", 0],
         # viscous stuff
-        [-1*delta_1, 0., "energy_modification_viscous", 0],
-        [ 0., -1*delta_2, "helicity_modification_viscous", 0],
-        [-1*delta_1, -1*delta_2, "both_modification_viscous", 0],
-
+        [-1 * delta_1, 0.0, "energy_modification_viscous", 0],
+        [0.0, -1 * delta_2, "helicity_modification_viscous", 0],
+        [-1 * delta_1, -1 * delta_2, "both_modification_viscous", 0],
         # inviscid stuff
-        #[-1*delta_1, 0., "energy_modification_inviscid", 1],
-        #[ 0., -1*delta_2, "helicity_modification_inviscid", 1],
-        #[-1*delta_1, -1*delta_2, "both_modification_inviscid", 1],
+        # [-1*delta_1, 0., "energy_modification_inviscid", 1],
+        # [ 0., -1*delta_2, "helicity_modification_inviscid", 1],
+        # [-1*delta_1, -1*delta_2, "both_modification_inviscid", 1],
     ]
 
     output_folder = define_output_folder()
@@ -359,21 +365,22 @@ def figure2():
         epsilon1 = epsilon_generator.epsilon_1(delta_1)
         epsilon2 = epsilon_generator.epsilon_2(delta_2)
 
-        case =  RunCase(skip_diffusion=skip_diffusion, 
+        case = RunCase(
+            skip_diffusion=skip_diffusion,
             size=size,
             dt=dt,
             steps=steps,
             restarts=0,
-            restart_time=1.,
+            restart_time=1.0,
             reynolds_number=re,
-            path= output_folder,
+            path=output_folder,
             load_initial_data=0,
             epsilon1=epsilon1,
             epsilon2=epsilon2,
             export_vtk=save_vtk,
-            #scalar_type=14,
+            # scalar_type=14,
             scalar_type=0,
-            io_steps=io_steps
+            io_steps=io_steps,
         )
 
         case.write_to_json(folder, save_json_folder)
@@ -382,6 +389,7 @@ def figure2():
 
     build = Build("master", "master")
     build.to_json(save_json_folder)
+
 
 # helpful function for runnning one-off cases
 def one_case():
@@ -405,10 +413,10 @@ def one_case():
 
     output_folder = define_output_folder()
 
-    if not( load_initial_data == 2):
+    if not (load_initial_data == 2):
         copy_init_files(size)
 
-    # if the directory exists remove any older files from the dir 
+    # if the directory exists remove any older files from the dir
     if os.path.exists(save_json_folder):
         for f in os.listdir(save_json_folder):
             os.remove(os.path.join(save_json_folder, f))
@@ -417,7 +425,7 @@ def one_case():
 
     run_shell_command("make")
 
-    case =  RunCase(
+    case = RunCase(
         skip_diffusion=skip_diffusion,
         size=size,
         dt=dt,
@@ -434,9 +442,9 @@ def one_case():
         require_forcing=1,
         viscous_compensation=0,
         validate_viscous_compensation=0,
-        io_steps = io_steps,
+        io_steps=io_steps,
         nprocs=nprocs,
-        export_divergence=export_divergence
+        export_divergence=export_divergence,
     )
 
     if IS_DISTRIBUTED:
