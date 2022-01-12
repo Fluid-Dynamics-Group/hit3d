@@ -1,4 +1,5 @@
 import os
+from pprint import pprint
 from run import run_shell_command
 from run import define_output_folder
 from run import BASE_SAVE
@@ -19,7 +20,8 @@ def forcing_sweep():
     # ep2 : 3 -> 10^(i-2) -> 10
 
     run_shell_command("make")
-    forcing_folder = f"epsilon_parameter_sweep_4"
+    n = 5
+    forcing_folder = f"epsilon_parameter_sweep_{n}"
     save_json_folder = f"{BASE_SAVE}/{forcing_folder}"
 
     if not os.path.exists(save_json_folder):
@@ -44,17 +46,42 @@ def forcing_sweep():
 
     cases = []
 
+    NUM_CASES = 10
+
+    delta_1_max = 0.5
+    delta_1_min = 0.01
+    delta_1_inc = (delta_1_max - delta_1_min) / (NUM_CASES -1)
+
+    delta_2_max = 100
+    delta_2_min = 0.1
+    delta_2_inc = (delta_2_max - delta_2_min) / (NUM_CASES - 1)
+
     for epsilon_value in [1,2]:
-        for i in range(0,7):
+        for i in range(0,NUM_CASES):
 
             if epsilon_value == 1:
-                epsilon = pow(10, i-2)
-                newcase = [epsilon, 0, f"ep1-{i}"]
+                delta = delta_1_min + (delta_1_inc * i)
+                newcase = [delta, 0, f"ep1-{i}"]
             else:
-                epsilon = pow(10, i-2)
-                newcase = [0, epsilon, f"ep2-{i}"]
+                delta = delta_2_min + (delta_2_inc * i)
+                newcase = [0, delta, f"ep2-{i}"]
 
             cases.append(newcase)
+
+    delta_1_cases = [i for i, _, _ in cases[0:NUM_CASES]]
+    epsilon_1_cases = [epsilon_generator.epsilon_1(i) for i in delta_1_cases]
+    z1 = list(zip(delta_1_cases, epsilon_1_cases))
+
+    delta_2_cases = [i for _, i, _ in cases[NUM_CASES:]]
+    epsilon_2_cases = [epsilon_generator.epsilon_2(i) for i in delta_2_cases]
+    z2 = list(zip(delta_2_cases, epsilon_2_cases))
+
+    print("asdf")
+
+    print(f"forced energy cases:")
+    pprint(z1)
+    print(f"forced helicity cases:")
+    pprint(z2)
 
     if IS_SINGULARITY and IS_DISTRIBUTED:
         output_folder = f"/distribute_save/"
@@ -215,7 +242,7 @@ def full_system_test():
     delta_1 = .1
     delta_2 = .1
 
-    n = 19
+    n = 20
     run_shell_command("make")
     batch_name = f"system_test_{n}"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
@@ -278,14 +305,15 @@ def full_system_test():
 
 # plots and data specifically for generating figure 2 of aditya's paper
 def figure2():
-    delta_1 = .1
-    # n=1..7 had delta_2 as .1
-    # n= 8..9 had delta_2 as 10.0
-    # n= 10 had delta=1
-    delta_2 = 1
+    # n=1..7 had delta_2 as .1     : delta_1 = 0.1
+    # n= 8..9 had delta_2 as 10.0  : delta_1 = 0.1
+    # n= 10 had delta_2=1          : delta_1 = 0.1
+    # n= 11..17 had delta_2=0.7          : delta_1 = 0.05
+    delta_1 = .05
+    delta_2 = 0.7
 
     run_shell_command("make")
-    n = 10
+    n = 18
     batch_name = f"figure2_{n}"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
 
@@ -295,7 +323,7 @@ def figure2():
     for f in os.listdir(save_json_folder):
         os.remove(os.path.join(save_json_folder, f))
 
-    END_TIME = 5
+    END_TIME = .5
     dt = 0.0005
     size = 128
     re = 40
@@ -310,11 +338,16 @@ def figure2():
     epsilon_generator = EpsilonControl.load_json()
 
     cases = [
+        # baseline
         # n=7 has baseline
-        #[0., 0., "baseline_viscous", 0],
-        #[-1*delta_1, 0., "energy_modification_viscous", 0],
+        [0., 0., "baseline_viscous", 0],
+
+        # viscous stuff
+        [-1*delta_1, 0., "energy_modification_viscous", 0],
         [ 0., -1*delta_2, "helicity_modification_viscous", 0],
         [-1*delta_1, -1*delta_2, "both_modification_viscous", 0],
+
+        # inviscid stuff
         #[-1*delta_1, 0., "energy_modification_inviscid", 1],
         #[ 0., -1*delta_2, "helicity_modification_inviscid", 1],
         #[-1*delta_1, -1*delta_2, "both_modification_inviscid", 1],
@@ -349,3 +382,73 @@ def figure2():
 
     build = Build("master", "master")
     build.to_json(save_json_folder)
+
+# helpful function for runnning one-off cases
+def one_case():
+    TIME_END = 0.5
+    batch_name = "viscous_baseline_2"
+    job_name = "single-case"
+    save_json_folder = f"{BASE_SAVE}/{batch_name}"
+    size = 128
+    dt = 0.0005
+    steps = int(TIME_END / dt)
+    nprocs = 16
+    extra_caps = []
+    io_steps = None
+    load_initial_data = 0
+    export_divergence = 0
+
+    ep1 = 0.0
+    ep2 = 0.0
+
+    skip_diffusion = 0
+
+    output_folder = define_output_folder()
+
+    if not( load_initial_data == 2):
+        copy_init_files(size)
+
+    # if the directory exists remove any older files from the dir 
+    if os.path.exists(save_json_folder):
+        for f in os.listdir(save_json_folder):
+            os.remove(os.path.join(save_json_folder, f))
+
+    os.makedirs(save_json_folder, exist_ok=True)
+
+    run_shell_command("make")
+
+    case =  RunCase(
+        skip_diffusion=skip_diffusion,
+        size=size,
+        dt=dt,
+        steps=steps,
+        restarts=0,
+        reynolds_number=40,
+        path=output_folder,
+        load_initial_data=load_initial_data,
+        epsilon1=ep1,
+        # delta2 is negative, this will decrease helicity
+        epsilon2=ep2,
+        export_vtk=True,
+        scalar_type=14,
+        require_forcing=1,
+        viscous_compensation=0,
+        validate_viscous_compensation=0,
+        io_steps = io_steps,
+        nprocs=nprocs,
+        export_divergence=export_divergence
+    )
+
+    if IS_DISTRIBUTED:
+        print("creating files to run on distributed compute")
+        case.write_to_json(job_name, save_json_folder)
+
+        copy_distribute_files(save_json_folder, batch_name, extra_caps)
+
+        build = Build("master", "master")
+        build.to_json(save_json_folder)
+
+    else:
+        print("running the case locally")
+        # init files have already been copied above
+        case.run(1)

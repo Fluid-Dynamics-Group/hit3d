@@ -4,10 +4,12 @@ import os
 import traceback
 import csv
 import json 
+from pprint import pprint
 from glob import glob
 
 UNR = True
 IS_DISTRIBUTED = True
+#IS_DISTRIBUTED = False
 IS_SINGULARITY = False
 
 if UNR:
@@ -384,14 +386,21 @@ def postprocessing(
         for filename in flowfield_files:
             timestep = parse_filename(filename)
 
-            run_shell_command(f"hit3d-utils vtk {solver_folder}/velocity_field/{filename} {size} {output_folder}/flowfield/flow_{timestep:05}.vtk")
+            csv_file = f"{solver_folder}/velocity_field/{filename}"
+            vtk_file = f"{output_folder}/flowfield/flow_{timestep:05}.vtk"
+            print_csv_file_header(csv_file, 5)
 
-            os.remove(f"{solver_folder}/velocity_field/{filename}")
+            run_shell_command(f"hit3d-utils vtk  {csv_file} {size} {vtk_file}")
+
+            #os.remove(csv_file)
 
     # othewise just remove the csv files anyway
     else:
         for filename in flowfield_files:
             os.remove(f"{solver_folder}/velocity_field/{filename}")
+
+    print("now printing the VTK files that have been generated")
+    pprint(list(os.listdir(f"{output_folder}/flowfield/")))
 
     for filename in scalar_files:
         timestep = parse_scalar_name(filename)
@@ -491,9 +500,13 @@ def create_file(path):
 
 def run_shell_command(command):
     print(f"running {command}")
-    output = subprocess.run(command,shell=True, check=True)
-    if not output.stdout is None:
-        print(output.stdout)
+    output = subprocess.run(command, shell=True, check=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+    if (not output.stdout is None) and len(output.stdout) != 0:
+        print(str(output.stdout.decode()))
+
+    if (not output.stderr is None) and len(output.stderr) != 0:
+        print(len(output.stderr.decode()))
 
 def skip_diffusion_to_str(skip_diffusion):
     if skip_diffusion == 1:
@@ -853,91 +866,34 @@ def test_viscous_compensation():
     build = Build("master", "master")
     build.to_json(save_json_folder)
 
-# helpful function for runnning one-off cases
-def one_case():
-    TIME_END = 10
-    batch_name = "viscous_baseline_2"
-    job_name = "single-case"
-    save_json_folder = f"{BASE_SAVE}/{batch_name}"
-    size = 128
-    dt = 0.0005
-    steps = int(TIME_END / dt)
-    nprocs = 16
-    extra_caps = []
-    io_steps = None
-    load_initial_data = 0
-    export_divergence = 0
-
-    ep1 = 0.0
-    ep2 = 0.0
-
-    skip_diffusion = 0
-
-    output_folder = define_output_folder()
-
-    if not( load_initial_data == 2):
-        copy_init_files(size)
-
-    # if the directory exists remove any older files from the dir 
-    if os.path.exists(save_json_folder):
-        for f in os.listdir(save_json_folder):
-            os.remove(os.path.join(save_json_folder, f))
-
-    os.makedirs(save_json_folder, exist_ok=True)
-
-    run_shell_command("make")
-
-    case =  RunCase(
-        skip_diffusion=skip_diffusion,
-        size=size,
-        dt=dt,
-        steps=steps,
-        restarts=0,
-        reynolds_number=40,
-        path=output_folder,
-        load_initial_data=load_initial_data,
-        epsilon1=ep1,
-        # delta2 is negative, this will decrease helicity
-        epsilon2=ep2,
-        export_vtk=True,
-        scalar_type=14,
-        require_forcing=1,
-        viscous_compensation=0,
-        validate_viscous_compensation=0,
-        io_steps = io_steps,
-        nprocs=nprocs,
-        export_divergence=export_divergence
-    )
-
-    if IS_DISTRIBUTED:
-        print("creating files to run on distributed compute")
-        case.write_to_json(job_name, save_json_folder)
-
-        copy_distribute_files(save_json_folder, batch_name, extra_caps)
-
-        build = Build("master", "master")
-        build.to_json(save_json_folder)
-
-    else:
-        print("running the case locally")
-        # init files have already been copied above
-        case.run(1)
 
 def remove_restart_files():
     for i in ["initial_condition_espec.pkg", "initial_condition_wrk.pkg", "initial_condition_vars.json"]:
         if os.path.exists(i):
             os.remove(i) 
 
+# print the first `n` number of lines from a csv file at `path`
+# n must be > 0
+def print_csv_file_header(path: str, n: int) -> None:
+    with open(path, "r") as f:
+        lines = f.readlines()
+
+        if len(lines) > n:
+            print("csv header:\n")
+            for i in range(0,n):
+                print(lines[i])
+
 if __name__ == "__main__":
     from cases import forcing_sweep
     from cases import forcing_cases
     from cases import full_system_test
     from cases import figure2 
+    from cases import one_case 
     #forcing_cases()
     #one_case()
     #proposal_figures()
     #forcing_sweep()
     #forcing_cases()
-    full_system_test()
-    #figure2()
+    #full_system_test()
+    figure2()
     pass
