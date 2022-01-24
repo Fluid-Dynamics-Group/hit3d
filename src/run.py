@@ -8,8 +8,8 @@ from pprint import pprint
 from glob import glob
 
 UNR = True
-IS_DISTRIBUTED = True
-# IS_DISTRIBUTED = False
+#IS_DISTRIBUTED = True
+IS_DISTRIBUTED = False
 IS_SINGULARITY = False
 
 if UNR:
@@ -1075,10 +1075,10 @@ if __name__ == "__main__":
     from cases import one_case
 
     # forcing_cases()
-    # one_case()
+    one_case()
     # proposal_figures()
     # forcing_sweep()
     # forcing_cases()
     # full_system_test()
-    figure2()
+    # figure2()
     pass

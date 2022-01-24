@@ -128,7 +128,7 @@ contains
         ! f_u_2y
         ! f_u_2z
         ! so they can be output in write_data.f90
-        allocate (fcomp_individual(nx, ny, nz, 0:6), stat=i); ierr = ierr + i
+        allocate (fcomp_individual(nx, ny, nz, 1:6), stat=i); ierr = ierr + i
         !------------------------------------------------------------
 
         ! array for the spare RHS for Adams-Bashforth time-stepping scheme methods

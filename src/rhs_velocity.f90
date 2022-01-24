@@ -900,7 +900,7 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
 
     wrk(:,:,:,1:3) = fcomp(:,:,:,3:5)
 
-    ! Do the IFFT over the 3 forcing components
+    ! Do the FFT over the 3 forcing components
     do n = 1, 3
         call xFFT3d(1, n)
     end do

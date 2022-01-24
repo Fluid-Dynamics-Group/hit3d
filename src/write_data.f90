@@ -139,7 +139,7 @@ subroutine write_velocity_field(current_timestep)
 
         write (filenumber, "('u,v,w,forcing,fu1,fu2,fu3,omgx,omgy,omgz,fu_left1,fu_left2,fu_left3,&
             fu_right1,fu_right2,fu_right3' &
-            )") 
+            )")
 
         do i = 1, nx
             do j = 1, ny
@@ -518,6 +518,10 @@ subroutine write_energy(current_time)
     ! This modifies the wrk variables so we copy over to the tmp wrk before calculating Re_lambda
     tmp_wrk(:, :, :, 1:6) = wrk(:, :, :, 1:6)
 
+    ! a side effect of this function is that it maps
+    ! fcomp from fourier space to X-space
+    ! this is not an issue above because we have manually recalculated the values (for some reason)
+    ! instead of inverting fcomp and using them directly
     call calculate_re_lambda(re_lambda)
     
     wrk(:, :, :, 1:6) = tmp_wrk(:, :, :, 1:6)

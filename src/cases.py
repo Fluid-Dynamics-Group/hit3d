@@ -321,7 +321,7 @@ def figure2():
     delta_2 = 0.7
 
     run_shell_command("make")
-    n = 18
+    n = 20
     batch_name = f"figure2_{n}"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
 
@@ -331,7 +331,7 @@ def figure2():
     for f in os.listdir(save_json_folder):
         os.remove(os.path.join(save_json_folder, f))
 
-    END_TIME = 0.5
+    END_TIME = 5.0
     dt = 0.0005
     size = 128
     re = 40
@@ -350,9 +350,9 @@ def figure2():
         # n=7 has baseline
         [0.0, 0.0, "baseline_viscous", 0],
         # viscous stuff
-        [-1 * delta_1, 0.0, "energy_modification_viscous", 0],
-        [0.0, -1 * delta_2, "helicity_modification_viscous", 0],
-        [-1 * delta_1, -1 * delta_2, "both_modification_viscous", 0],
+        #[-1 * delta_1, 0.0, "energy_modification_viscous", 0],
+        #[0.0, -1 * delta_2, "helicity_modification_viscous", 0],
+        #[-1 * delta_1, -1 * delta_2, "both_modification_viscous", 0],
         # inviscid stuff
         # [-1*delta_1, 0., "energy_modification_inviscid", 1],
         # [ 0., -1*delta_2, "helicity_modification_inviscid", 1],
@@ -406,8 +406,8 @@ def one_case():
     load_initial_data = 0
     export_divergence = 0
 
-    ep1 = 0.0
-    ep2 = 0.0
+    ep1 = 0.001
+    ep2 = 0.001
 
     skip_diffusion = 0
 
