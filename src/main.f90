@@ -34,6 +34,9 @@ program x_code
     call m_work_init
     call init_write_energy
 
+    ! initalize any arrays for working with viscous compensation stuff
+    call init_viscous_compensation_files
+
     write(*,*) "finished calling first init functions"
 
     ! allocating and initializing FFTW arrays
@@ -238,6 +241,8 @@ program x_code
             end if
         end if hydro
 
+        call write_visc_comp_rates()
+
         ! if we are at the specified timestep and our job is to write a restart file ...
         if (ITIME >= ITMAX .and. load_initial_condition == 1) then
             ! write a full flowfield file
@@ -246,6 +251,9 @@ program x_code
             call write_energy(time)
             ! create a file to restart from
             call write_initial_data()
+
+            call finish_viscous_compensation_files()
+
             call my_exit(0)
             call m_openmpi_exit
             stop

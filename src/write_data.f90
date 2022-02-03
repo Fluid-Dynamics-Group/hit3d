@@ -336,30 +336,11 @@ subroutine write_energy(current_time)
     ! ifft the RHS variables so we are in x-space
     call ifft_rhs
 
-    ! this subroutine consumes all the wrk arrays and stores
-    ! wrk(:,:,:,1)  - omgx
-    ! wrk(:,:,:,2)  - omgy
-    ! wrk(:,:,:,3)  - omgz
-    wrk(:, :, :, 1:3) = fields(:, :, :, 1:3)
-    call calculate_vorticity()
-
-    wrk(:,:,:,4:6) = wrk(:,:,:,1:3)
-
-    ! wrk(:, :, :, 4) - omgx
-    ! wrk(:, :, :, 5) - omgy
-    ! wrk(:, :, :, 6) - omgz
-
-    ! copy velocities back into wrk (1,2,3)
-    wrk(:, :, :, 1:3) = fields(:, :, :, 1:3)
-
-    ! truncate and convert data to x-space
-    do i = 1, 6
-        !call truncate_and_inverse_wrk_idx(i)
-        call xFFT3d(-1,i)
-    end do
-
+    ! after this call
     ! wrk( 1-3) contains velocity information (x-space)
     ! wrk( 4-6) contains omega information (x-space)
+    call calculate_vorticity_velocity_x_space()
+
 
     !
     ! Main calculation loop - perform required integrals
@@ -598,6 +579,31 @@ subroutine ifft_rhs
     wrk(:, :, :, 1:3) = tmp_wrk(:, :, :, 1:3)
 end subroutine ifft_rhs
 
+! take the forward FFT of the RHS_SAVED variable
+subroutine fft_rhs
+    use m_work !tmp_wrk + wrk + rhs_saved
+    use x_fftw ! fft stuff
+    use m_parameters ! kmax
+
+    ! save the current wrk array
+    tmp_wrk(:, :, :, 1:3) = wrk(:, :, :, 1:3)
+
+    ! copy the RHS variables into wrk
+    wrk(:, :, :, 1:3) = rhs_saved(:, :, :, 1:3)
+
+    ! truncate all the variables + perform ifft
+    do i = 1, 3
+        !call truncate_and_inverse_wrk_idx(i)
+        call xFFT3d(1, i)
+    end do
+
+    ! copy the data out of wrk and into the rhs
+    rhs_saved(:, :, :, 1:3) = wrk(:, :, :, 1:3)
+
+    ! copy the original data back into wrk
+    wrk(:, :, :, 1:3) = tmp_wrk(:, :, :, 1:3)
+end subroutine fft_rhs
+
 ! runs through an index of the wrk variable and truncates the values
 ! before inverting the array to x-space
 subroutine truncate_and_inverse_wrk_idx(idx)
@@ -825,4 +831,39 @@ subroutine write_derivatives(current_timestep)
         end do
         flush (filenumber)
     end if
+end subroutine
+
+subroutine calculate_vorticity_velocity_x_space()
+    use m_fields
+    use m_work
+    use x_fftw
+
+    implicit none
+
+    integer :: i
+
+    ! this subroutine consumes all the wrk arrays and stores
+    ! wrk(:,:,:,1)  - omgx
+    ! wrk(:,:,:,2)  - omgy
+    ! wrk(:,:,:,3)  - omgz
+    wrk(:, :, :, 1:3) = fields(:, :, :, 1:3)
+    call calculate_vorticity()
+
+    wrk(:,:,:,4:6) = wrk(:,:,:,1:3)
+
+    ! wrk(:, :, :, 4) - omgx
+    ! wrk(:, :, :, 5) - omgy
+    ! wrk(:, :, :, 6) - omgz
+
+    ! copy velocities back into wrk (1,2,3)
+    wrk(:, :, :, 1:3) = fields(:, :, :, 1:3)
+
+    ! truncate and convert data to x-space
+    do i = 1, 6
+        !call truncate_and_inverse_wrk_idx(i)
+        call xFFT3d(-1,i)
+    end do
+
+    ! wrk( 1-3) contains velocity information (x-space)
+    ! wrk( 4-6) contains omega information (x-space)
 end subroutine

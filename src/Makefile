@@ -95,6 +95,7 @@ OBJ     = main.o\
 	velocity_rescale.o\
 	write_tmp4.o \
 	write_data.o \
+	viscous_compensation.o \
 	initial_condition.o
 
 

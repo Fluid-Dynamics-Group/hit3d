@@ -76,13 +76,16 @@ module m_parameters
     ! when we do the calculation of diffusion keep the term in its 
     ! own array so that we can use it for viscous compensation calculation later
     ! = 1 -> use the if statement in the viscous compensation equation to calculate the forcing
-    ! = 0 -> use the regular forcing formulation from MGM to calculate forcing
+    ! = 0 -> use the regular forcing formulation from MGM to calculate forcing <------------------------- TODO : MAKE SURE WE DONT
+    !                                                                                                       RELY ON THIS ANYWHERE
+    ! = 0 -> use track parameter values binary files provided in the current working directory
     integer :: viscous_compensation_validation
 
     ! whether or not to use viscous compensation
     ! if you are using viscous compensation calculate_diffusion_separate
     ! must be == 1
-    ! = 1 -> use viscous compensation formulation
+    ! = 2 -> write a viscous compensation formulation to a binary file to be loaded later
+    ! = 1 -> use viscous compensation formulation from file
     ! = 0 -> do not use viscous compensation formulation
     integer :: viscous_compensation
 

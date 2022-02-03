@@ -606,56 +606,6 @@ subroutine calculate_vorticity()
     wrk(:, :, :, 3) = wrk(:, :, :, 3) - wrk(:, :, :, 1)  ! omega_3 = v_x - u_y
     wrk(:, :, :, 2) = wrk(:, :, :, 2) - wrk(:, :, :, 5)  ! omega_2 = u_z - w_x
     wrk(:, :, :, 1) = wrk(:, :, :, 6) - wrk(:, :, :, 4)  ! omega_1 = w_y - v_z
-    
-    ! wrk(:, :, :, 1:3) = fields(:, :, :, 1:3)
-    ! 
-    ! ! invert to physical space
-    ! do i = 1,3
-    !     call xFFT3d(-1, i)
-    ! end do
-
-    ! call gradient3D(nx, ny, nz, &
-    !     wrk(1:nx, 1:ny, 1:nz, 3), & ! WRT W
-    !     dx, dx, dx, &    ! step sizes in each direction
-    !     wrk(1:nx, 1:ny, 1:nz, 5), & ! dW / dx -> 5
-    !     wrk(1:nx, 1:ny, 1:nz, 6), & ! dW / dy -> 6
-    !     wrk(1:nx, 1:ny, 1:nz, 0)  & ! 
-    ! )
-
-    ! call gradient3D(nx, ny, nz, &
-    !     wrk(1:nx, 1:ny, 1:nz, 2), & ! WRT V
-    !     dx, dx, dx, &    ! step sizes in each direction
-    !     wrk(1:nx, 1:ny, 1:nz, 3), & ! dV / dx -> 3
-    !     wrk(1:nx, 1:ny, 1:nz, 0), & ! 
-    !     wrk(1:nx, 1:ny, 1:nz, 4)  & ! dV / dz -> 4
-    ! )
-
-    ! call gradient3D(nx, ny, nz, &
-    !     wrk(1:nx, 1:ny, 1:nz, 1), & ! WRT U
-    !     dx, dx, dx, &    ! step sizes in each direction
-    !     tmp_wrk(1:nx, 1:ny, 1:nz, 8), & ! this is calculated before the next section so this is actually ok
-    !     tmp_wrk(1:nx, 1:ny, 1:nz, 9), & ! dU / dy -> 1
-    !     wrk(1:nx, 1:ny, 1:nz, 2)  & ! dU / dZ -> 2
-    ! )
-
-    ! write(*,*) "DU / DY"
-    ! do k = 1,nz
-    !     write(*,*) "k = ", k -1
-    !     do j = 1,ny
-    !         do i = 1,nx
-    !             write(*,*) "i = ", i-1, "j = ", j-1, "velocity x: ", tmp_wrk(i,j,k,9)
-    !         end do
-    !     end do
-    ! end do
-
-    ! wrk(1:nx, 1:ny, 1:nz, 3) = wrk(1:nx, 1:ny, 1:nz, 3) - tmp_wrk(1:nx, 1:ny, 1:nz, 9)  ! omega_3 = v_x - u_y
-    ! wrk(1:nx, 1:ny, 1:nz, 2) = wrk(1:nx, 1:ny, 1:nz, 2) - wrk(1:nx, 1:ny, 1:nz, 5)  ! omega_2 = u_z - w_x
-    ! wrk(1:nx, 1:ny, 1:nz, 1) = wrk(1:nx, 1:ny, 1:nz, 6) - wrk(1:nx, 1:ny, 1:nz, 4)  ! omega_1 = w_y - v_z
-
-    ! ! transform to fourier space since thats what the rest of the code expects
-    ! do i = 1,3
-    !     call xFFT3d(1, i)
-    ! end do
 end
 
 SUBROUTINE gradient3D(m, n, o, f, hx, hy, hz, dfdx, dfdy, dfdz)
@@ -725,6 +675,10 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     real*8 :: f_left, f_right, f_total, diffusion
     integer :: i,j,k,n
 
+    logical :: is_reading_file
+
+    call check_read_viscous_compensation(is_reading_file, .false.)
+
     if (ITIME == 1) then
         write(out, *) "calculating forcing components with visc compensation routine"
     end if
@@ -749,7 +703,7 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     ! 
     ! this code is replicated (read: Copied) from the for-loop that is directly AFTER this subroutine is called
     ! copy all the old varaibles to tmp_work
-    if (viscous_compensation ==1) then
+    if (viscous_compensation ==1 .or. viscous_compensation == 2) then
         call calculate_diffusion_term()
     end if
 
@@ -878,6 +832,9 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
         if (viscous_compensation_validation == 1) then
             dQ_1 = 0.0
             dQ_2 = 0.0
+        elseif (is_reading_file) then
+            ! load in the values from a file
+            call read_visc_dQ_dt_values(dQ_1, dQ_2)
         end if
 
         if (skip_diffusion == 1) then
