@@ -241,7 +241,14 @@ program x_code
             end if
         end if hydro
 
+        ! before we do any plotting and mess up the wrk() arrays
+        ! write some statistics (if needed) to the arrays for viscous 
+        ! compensation calculations
         call write_visc_comp_rates()
+
+        if (ITIME >= ITMAX) then 
+            call finish_viscous_compensation_files()
+        endif 
 
         ! if we are at the specified timestep and our job is to write a restart file ...
         if (ITIME >= ITMAX .and. load_initial_condition == 1) then
@@ -252,7 +259,6 @@ program x_code
             ! create a file to restart from
             call write_initial_data()
 
-            call finish_viscous_compensation_files()
 
             call my_exit(0)
             call m_openmpi_exit
@@ -270,7 +276,17 @@ program x_code
             ! also only write them after the restarts are done
             if ( &
                 ( &
-                    finished_restarts .AND. mod(itime, iwrite4*4) .eq. 0) &
+                    ( &
+                        finished_restarts .AND. mod(itime, iwrite4*4) .eq. 0) &
+                        .and. &
+                        ! DONT write flowifeld files if we are 
+                        ! doing viscous compensation stuff
+                        ( &
+                            viscous_compensation == 1 &
+                            .or. &
+                            viscous_compensation == 2 &
+                        ) &
+                    ) &
                     .or. &
                     itime == ITMIN + 1 &
                 ) then

@@ -568,7 +568,6 @@ subroutine ifft_rhs
 
     ! truncate all the variables + perform ifft
     do i = 1, 3
-        !call truncate_and_inverse_wrk_idx(i)
         call xFFT3d(-1, i)
     end do
 
@@ -593,7 +592,6 @@ subroutine fft_rhs
 
     ! truncate all the variables + perform ifft
     do i = 1, 3
-        !call truncate_and_inverse_wrk_idx(i)
         call xFFT3d(1, i)
     end do
 

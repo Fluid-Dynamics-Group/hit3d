@@ -70,7 +70,7 @@ subroutine load_initial_velocity_data
     integer :: i, j, k, v
 
     if (myid == master) then 
-        write(*,*) "reading velicity initial condition"
+        write(*,*) "reading velocity initial condition"
     end if
 
     ! read in the data from the file

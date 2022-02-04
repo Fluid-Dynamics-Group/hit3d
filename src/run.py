@@ -14,10 +14,11 @@ IS_SINGULARITY = False
 
 if UNR:
     BASE_SAVE = "/home/brooks/sync/hit3d"
-    INITIAL_COND_FOLDER = "/home/brooks/distribute-server/results/hit3d"
+    INITIAL_COND_FOLDER = "/home/brooks/distribute-cases/initial_consitions_1/initial_consitions_1"
 else:
     BASE_SAVE = "/home/brooks/lab/hit3d-cases"
-    INITIAL_COND_FOLDER = "/home/brooks/lab/sync/initial_conditions"
+    # TODO: pull these cases locally
+    #INITIAL_COND_FOLDER = "/home/brooks/lab/sync/initial_conditions"
 
 if IS_DISTRIBUTED:
     HIT3D_UTILS_BASE = "../../hit3d-utils"
@@ -425,6 +426,17 @@ def postprocessing(
     export_divergence,
     io_steps,
 ):
+
+    # move viscous compensation files if they are present
+    if os.path.exists(f"{solver_folder}/dE_dt_history.binary"):
+        dest = f"{output_folder}/dE_dt_history.binary"
+        print("renaming dE_dt binary to", dest)
+        os.rename(f"{solver_folder}/dE_dt_history.binary", dest)
+    if os.path.exists(f"{solver_folder}/dh_dt_history.binary"):
+        dest = f"{output_folder}/dh_dt_history.binary"
+        print("renaming dh_dt binary")
+        os.rename(f"{solver_folder}/dh_dt_history.binary", dest)
+
     shutil.move("input_file.in", output_folder + "/input_file.in")
     shutil.copy(f"{solver_folder}/energy.csv", output_folder + "/energy.csv")
 
@@ -715,33 +727,23 @@ def wrap_error_case(case, filepath):
 
 
 def copy_init_files(size):
-    if UNR:
-        if size == 128:
-            prefix = (
-                INITIAL_COND_FOLDER
-                + "/initial_condition_5k_steps128/initial_condition_5k_steps128"
-            )
-        elif size == 256:
-            prefix = (
-                INITIAL_COND_FOLDER
-                + "/initial_condition_25k_steps256/initial_condition_25k_steps256"
-            )
-        elif size == 64:
-            prefix = (
-                INITIAL_COND_FOLDER
-                + "/initial_condition_5k_steps64/initial_condition_5k_steps64"
-            )
-        else:
-            raise ValueError("unknown initial condition file formats")
+    if size == 128:
+        prefix = (
+            INITIAL_COND_FOLDER
+            + "/ic_128/"
+        )
+    elif size == 256:
+        prefix = (
+            INITIAL_COND_FOLDER
+            + "/ic_256/"
+        )
+    elif size == 64:
+        prefix = (
+            INITIAL_COND_FOLDER
+            + "/ic_64/"
+        )
     else:
-        if size == 128:
-            prefix = INITIAL_COND_FOLDER + "/5ksteps/128"
-        elif size == 256:
-            prefix = INITIAL_COND_FOLDER + "/5ksteps/256"
-        elif size == 64:
-            prefix = INITIAL_COND_FOLDER + "/5ksteps/64"
-        else:
-            raise ValueError("unknown initial condition file formats")
+        raise ValueError("unknown initial condition file formats")
 
     shutil.copy(prefix + "/" + IC_JSON_NAME, IC_JSON_NAME)
     shutil.copy(prefix + "/" + IC_SPEC_NAME, IC_SPEC_NAME)
@@ -948,7 +950,7 @@ def adjust_negative_epsilon(epsilon_value: float) -> float:
         return epsilon_value
 
 
-def test_viscous_compensation():
+def validate_viscous_compensation():
     batch_name = "viscous_compensation_short_128_final_validation_8"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
     size = 128
@@ -1072,12 +1074,17 @@ if __name__ == "__main__":
     from cases import full_system_test
     from cases import figure2
     from cases import one_case
+    from cases import one_case
+    from cases import track_inviscid_compensation_local
+    from cases import generate_initial_conditions
 
     # forcing_cases()
-    one_case()
+    # one_case()
     # proposal_figures()
     # forcing_sweep()
     # forcing_cases()
     # full_system_test()
     # figure2()
+    track_inviscid_compensation_local()
+    # generate_initial_conditions()
     pass

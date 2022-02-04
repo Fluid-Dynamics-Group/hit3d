@@ -20,7 +20,8 @@ subroutine init_viscous_compensation_files()
     helicity_filehandle = 991
 
     call check_read_viscous_compensation(is_reading_files, .true.)
-    call check_write_viscous_compensation(is_reading_files, .true.)
+    call check_write_viscous_compensation(is_writing_files, .true.)
+
 
     if (is_writing_files) then
         if (iammaster) then 
@@ -34,8 +35,10 @@ subroutine init_viscous_compensation_files()
 
         open(energy_filehandle, file="dE_dt_history.binary", status="old", access="STREAM")
         open(helicity_filehandle, file="dh_dt_history.binary", status="old", access="STREAM")
-    endif
 
+        read(energy_filehandle) (dE_dt_tracking(i), i=1, ITMAX)
+        read(helicity_filehandle) (dh_dt_tracking(i), i=1, ITMAX)
+    endif
 
 end subroutine
 
@@ -50,12 +53,14 @@ subroutine finish_viscous_compensation_files()
     logical :: is_writing_files, is_reading_files
 
     call check_read_viscous_compensation(is_reading_files, .false.)
-    call check_write_viscous_compensation(is_reading_files, .false.)
+    call check_write_viscous_compensation(is_writing_files, .false.)
 
     if (is_writing_files) then
         ! only the master node will have access to the arrays
         ! required for writing the binary files
         if (iammaster) then
+            write(out, *) "writing binary files"
+            write(*, *) "writing binary files"
 
             open(energy_filehandle, file="output/dE_dt_history.binary", status="new", access="STREAM")
             open(helicity_filehandle, file="output/dh_dt_history.binary", status="new", access="STREAM")
@@ -63,6 +68,9 @@ subroutine finish_viscous_compensation_files()
             ! now we write the contents of all the arrays to a file
             write(energy_filehandle) (dE_dt_tracking(i), i=1,ITMAX)
             write(helicity_filehandle) (dh_dt_tracking(i), i=1,ITMAX)
+
+            write(*, *) "printing dh_dt data points"
+            write(*, *) (dh_dt_tracking(i), i=1,ITMAX)
 
             flush(energy_filehandle)
             flush(helicity_filehandle)
@@ -87,6 +95,7 @@ subroutine check_write_viscous_compensation(check, is_verbose)
 
     if (viscous_compensation == 2 .and. viscous_compensation_validation == 0) then
         if (is_verbose) write(out, *) "we are writing viscous compensation files"
+        if (is_verbose) write(*, *) "we are writing viscous compensation files"
         check = .true.
     else
         if (is_verbose) write(out, *) "we are NOT writing viscous compensation files"
@@ -106,6 +115,7 @@ subroutine check_read_viscous_compensation(check, is_verbose)
 
     if (viscous_compensation == 1 .and. viscous_compensation_validation == 0) then
         if (is_verbose) write(out, *)"we are reading viscous compensation files"
+        if (is_verbose) write(*, *) "we are reading viscous compensation files"
         check = .true.
     else 
         if (is_verbose) write(out, *) "we are NOT reading viscous compensation files"
@@ -121,7 +131,7 @@ subroutine write_visc_comp_rates()
     use m_parameters
     use m_work
     use m_fields
-    !use m_data
+    use x_fftw
 
     implicit none
 
@@ -138,7 +148,7 @@ subroutine write_visc_comp_rates()
     integer :: i, j, k
 
     call check_read_viscous_compensation(is_reading_files, .false.)
-    call check_write_viscous_compensation(is_reading_files, .false.)
+    call check_write_viscous_compensation(is_writing_files, .false.)
 
     if (is_writing_files) then 
         ! after this call
@@ -147,7 +157,7 @@ subroutine write_visc_comp_rates()
         call calculate_vorticity_velocity_x_space()
 
         ! make sure RHS is in X-space
-        call fft_rhs
+        call ifft_rhs
 
         ! initialize the WRK array to the velocity values from fields
         wrk(:,:,:,1:3) = fields(:,:,:,1:3)
@@ -202,13 +212,16 @@ subroutine write_visc_comp_rates()
         endif
 
         ! invert the RHS variables back to where they should be for future analysis
-        call ifft_rhs
+        call fft_rhs
 
         ! we dont really care what exists in the WRK array here
         ! since it will be overwritten later
     end if
 end subroutine
 
+! fetch the current derivatives that we neet to track
+! this subroutine must only be called if you have validated that 
+! we have vectors to read from
 subroutine read_visc_dQ_dt_values(dq1, dq2)
     use m_parameters
     use m_viscous_compensation
@@ -219,5 +232,9 @@ subroutine read_visc_dQ_dt_values(dq1, dq2)
 
     dq1 = dE_dt_tracking(ITIME)
     dq2 = dh_dt_tracking(ITIME)
+
+    if (iammaster) then
+        write(*, *) "dq1, dq2 are", dq1, dq2
+    endif
 
 end subroutine

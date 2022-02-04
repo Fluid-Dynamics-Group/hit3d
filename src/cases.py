@@ -392,6 +392,73 @@ def figure2():
 
 
 # helpful function for runnning one-off cases
+def generate_initial_conditions():
+    TIME_END = 2.5
+    batch_name = "initial_consitions_1"
+    save_json_folder = f"{BASE_SAVE}/{batch_name}"
+    nprocs = 16
+    extra_caps = []
+
+    output_folder = define_output_folder()
+
+    # if the directory exists remove any older files from the dir
+    if os.path.exists(save_json_folder):
+        for f in os.listdir(save_json_folder):
+            os.remove(os.path.join(save_json_folder, f))
+
+    os.makedirs(save_json_folder, exist_ok=True)
+
+    run_shell_command("make")
+
+    def make_case(dt: float, size: int):
+        steps = int(TIME_END / dt)
+
+        return RunCase(
+            # initial conditions are calculated from inviscid data
+            skip_diffusion=1,
+            size=size,
+            dt=dt,
+            steps=steps,
+            restarts=0,
+            reynolds_number=40,
+            path=output_folder,
+            # write an initial condition from the default condition
+            load_initial_data=1,
+            epsilon1=0.0,
+            # delta2 is negative, this will decrease helicity
+            epsilon2=0.0,
+            export_vtk=False,
+            require_forcing=1,
+            viscous_compensation=0,
+            validate_viscous_compensation=0,
+            nprocs=nprocs,
+            export_divergence=0,
+        )
+
+    cases = [
+        [64, 0.0005],
+        [128, 0.0005],
+        [256, 0.0001],
+    ]
+
+    cases = [make_case(dt, size) for size, dt in cases]
+
+    if IS_DISTRIBUTED:
+        print("creating files to run on distributed compute")
+        for case in cases:
+            job_name = f"ic_{case.size}"
+
+            case.write_to_json(job_name, save_json_folder)
+
+        copy_distribute_files(save_json_folder, batch_name, extra_caps)
+
+        build = Build("master", "master")
+        build.to_json(save_json_folder)
+
+    else:
+        raise ValueError("cannot generate an initial condition locally")
+
+# helpful function for runnning one-off cases
 def one_case():
     TIME_END = 0.5
     batch_name = "viscous_baseline_2"
@@ -460,3 +527,60 @@ def one_case():
         print("running the case locally")
         # init files have already been copied above
         case.run(1)
+
+# helpful function for runnning one-off cases
+def track_inviscid_compensation_local():
+    TIME_END = 0.1
+    size = 64
+    dt = 0.0005
+    steps = int(TIME_END / dt)
+    nprocs = 16
+    load_initial_data = 0
+    export_divergence = 0
+
+    epsilon_generator = EpsilonControl.load_json()
+    ep1 = epsilon_generator.epsilon_1(0.01)
+    ep2 = epsilon_generator.epsilon_1(0.01)
+
+    output_folder = define_output_folder()
+
+    copy_init_files(size)
+
+    run_shell_command("make")
+
+    def make_case(skip_diffusion: int, viscous_compensation: int, ep1: float, ep2: float) -> RunCase:
+        return RunCase(
+            skip_diffusion=skip_diffusion,
+            size=size,
+            dt=dt,
+            steps=steps,
+            restarts=0,
+            reynolds_number=40,
+            path=output_folder,
+            load_initial_data=load_initial_data,
+            epsilon1=ep1,
+            # delta2 is negative, this will decrease helicity
+            epsilon2=ep2,
+            export_vtk=False,
+            scalar_type=14,
+            require_forcing=1,
+            viscous_compensation=viscous_compensation,
+            validate_viscous_compensation=0,
+            io_steps=10,
+            nprocs=nprocs,
+            export_divergence=export_divergence,
+        )
+
+    if IS_DISTRIBUTED == False:
+        # first, an inviscid case
+
+        # print("running inviscid case")
+        # inviscid_case = make_case(1, 2, ep1, ep2)
+        # inviscid_case.run(1)
+        
+        print("running viscous case to track")
+        print("WARNING: make sure the .binary files are in the current directory")
+        viscous_case = make_case(0, 1, 0.0, 0.0)
+        viscous_case.run(2)
+    else:
+        raise ValueError("local viscous compensation validation must be run locally")
