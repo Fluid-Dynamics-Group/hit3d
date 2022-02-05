@@ -274,7 +274,7 @@ program x_code
             if ( &
                 ( &
                 ! if we are prepared to write a vtk ile
-                finished_restarts .AND. mod(itime, iwrite4*4) .eq. 0 &
+                (finished_restarts .AND. mod(itime, iwrite4*4) .eq. 0) &
                 .or. &
                 ! write a flowfield file on the first timestep regardless of
                 ! any conditions ( as long as export_vtk = 1 )

@@ -413,7 +413,7 @@ def figure2():
 
 # helpful function for runnning one-off cases
 def one_case():
-    TIME_END = 0.5
+    TIME_END = 0.1
     batch_name = "viscous_baseline_2"
     job_name = "single-case"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
@@ -422,7 +422,7 @@ def one_case():
     steps = int(TIME_END / dt)
     nprocs = 16
     extra_caps = []
-    io_steps = None
+    io_steps = int(steps / 10)
     load_initial_data = 0
     export_divergence = 0
 
@@ -471,7 +471,7 @@ def one_case():
         print("creating files to run on distributed compute")
         case.write_to_json(job_name, save_json_folder)
 
-        copy_distribute_files(save_json_folder, batch_name, extra_caps, False)
+        copy_distribute_files(save_json_folder, batch_name, extra_caps, False, size)
 
         build = Build("master", "master")
         build.to_json(save_json_folder)
