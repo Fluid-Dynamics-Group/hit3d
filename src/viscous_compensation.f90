@@ -69,8 +69,8 @@ subroutine finish_viscous_compensation_files()
             write(energy_filehandle) (dE_dt_tracking(i), i=1,ITMAX)
             write(helicity_filehandle) (dh_dt_tracking(i), i=1,ITMAX)
 
-            write(*, *) "printing dh_dt data points"
-            write(*, *) (dh_dt_tracking(i), i=1,ITMAX)
+            write(out, *) "printing dh_dt data points"
+            write(out, *) (dh_dt_tracking(i), i=1,max(ITMAX,10))
 
             flush(energy_filehandle)
             flush(helicity_filehandle)
@@ -94,8 +94,8 @@ subroutine check_write_viscous_compensation(check, is_verbose)
     logical :: is_verbose
 
     if (viscous_compensation == 2 .and. viscous_compensation_validation == 0) then
-        if (is_verbose) write(out, *) "we are writing viscous compensation files"
-        if (is_verbose) write(*, *) "we are writing viscous compensation files"
+        if (is_verbose .and. iammaster) write(out, *) "we are writing viscous compensation files"
+        if (is_verbose .and. iammaster) write(*, *) "we are writing viscous compensation files"
         check = .true.
     else
         if (is_verbose) write(out, *) "we are NOT writing viscous compensation files"
@@ -114,8 +114,8 @@ subroutine check_read_viscous_compensation(check, is_verbose)
     logical :: is_verbose
 
     if (viscous_compensation == 1 .and. viscous_compensation_validation == 0) then
-        if (is_verbose) write(out, *)"we are reading viscous compensation files"
-        if (is_verbose) write(*, *) "we are reading viscous compensation files"
+        if (is_verbose .and. iammaster) write(out, *)"we are reading viscous compensation files"
+        if (is_verbose .and. iammaster) write(*, *) "we are reading viscous compensation files"
         check = .true.
     else 
         if (is_verbose) write(out, *) "we are NOT reading viscous compensation files"
@@ -233,8 +233,8 @@ subroutine read_visc_dQ_dt_values(dq1, dq2)
     dq1 = dE_dt_tracking(ITIME)
     dq2 = dh_dt_tracking(ITIME)
 
-    if (iammaster) then
-        write(*, *) "dq1, dq2 are", dq1, dq2
-    endif
+    !if (iammaster) then
+    !    write(*, *) "dq1, dq2 are", dq1, dq2
+    !endif
 
 end subroutine

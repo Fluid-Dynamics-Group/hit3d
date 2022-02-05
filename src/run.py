@@ -6,15 +6,17 @@ import csv
 import json
 from pprint import pprint
 from glob import glob
+from typing import List
 
 UNR = True
-#IS_DISTRIBUTED = True
-IS_DISTRIBUTED = False
+IS_DISTRIBUTED = True
+#IS_DISTRIBUTED = False
 IS_SINGULARITY = False
 
 if UNR:
     BASE_SAVE = "/home/brooks/sync/hit3d"
-    INITIAL_COND_FOLDER = "/home/brooks/distribute-cases/initial_consitions_1/initial_consitions_1"
+    INITIAL_COND_FOLDER = "/home/brooks/distribute-cases/initial_conditions_{n}/initial_conditions_{n}".format(n=3)
+    VISC_COMP_BINARIES = "/home/brooks/distribute-cases/viscous_compensation_ic"
 else:
     BASE_SAVE = "/home/brooks/lab/hit3d-cases"
     # TODO: pull these cases locally
@@ -35,7 +37,6 @@ else:
 IC_SPEC_NAME = "initial_condition_espec.pkg"
 IC_WRK_NAME = "initial_condition_wrk.pkg"
 IC_JSON_NAME = "initial_condition_vars.json"
-
 
 class RunCase:
     def __init__(
@@ -228,7 +229,7 @@ def run_case(
     save_folder,
     iteration,
     steps_between_io,
-    export_vtk,
+    export_vtk: bool,
     epsilon1,
     epsilon2,
     restart_time,
@@ -284,6 +285,7 @@ def run_case(
             --viscous-compensation {viscous_compensation} \
             --require-forcing {require_forcing} \
             --export-divergence {export_divergence} \
+            --export-vtk {int(export_vtk)} \
             input_file.in "
     )
 
@@ -821,7 +823,7 @@ def ep1_temporal_cases():
     copy_distribute_files(save_json_folder, forcing_folder)
 
 
-def copy_distribute_files(target_folder, batch_name, extra_caps):
+def copy_distribute_files(target_folder: str, batch_name: str, extra_caps: List[str], include_binary_files:bool, size: int):
     if UNR:
         build_location = "/home/brooks/github/hit3d-utils/build.py"
         run_py = "/home/brooks/github/hit3d/src/run.py"
@@ -849,7 +851,9 @@ def copy_distribute_files(target_folder, batch_name, extra_caps):
 
     print("files are \n", files)
 
-    run_shell_command(
+    if include_binary_files:
+        print("WARNING: remember to copy over the binary files that you need to the directory manually")
+        cmd = \
         f"hit3d-utils distribute-gen \
             --output-folder {target_folder} \
             --library {run_py} \
@@ -858,8 +862,24 @@ def copy_distribute_files(target_folder, batch_name, extra_caps):
             --extra-caps {caps_str} \
             --required-files {IC_SPEC_NAME} \
             --required-files {IC_WRK_NAME} \
+            --required-files build.json \
+            --required-files dE_dt_history.binary \
+            --required-files dh_dt_history.binary \
             {files}"
-    )
+    else:
+        cmd = \
+        f"hit3d-utils distribute-gen \
+            --output-folder {target_folder} \
+            --library {run_py} \
+            --library-save-name hit3d_helpers.py \
+            --batch-name {batch_name} \
+            --extra-caps {caps_str} \
+            --required-files {IC_SPEC_NAME} \
+            --required-files {IC_WRK_NAME} \
+            --required-files build.json \
+            {files}"
+
+    run_shell_command(cmd)
 
     shutil.copy(build_location, f"{target_folder}/build.py")
 
@@ -868,6 +888,15 @@ def copy_distribute_files(target_folder, batch_name, extra_caps):
 
     shutil.copy(f"{HIT3D_UTILS_BASE}/generic_run.py", target_folder)
     shutil.copy(f"{HIT3D_UTILS_BASE}/build.py", target_folder)
+
+    # binaries, if required
+    if include_binary_files:
+        if size == 128:
+            binary_ic_folder = f"{VISC_COMP_BINARIES}/ic_128/"
+        else: 
+            raise ValueError(f"No initial conditions generated for N = {size}")
+        shutil.copy(f"{binary_ic_folder}/dE_dt_history.binary", target_folder)
+        shutil.copy(f"{binary_ic_folder}/dh_dt_history.binary", target_folder)
 
 
 def proposal_figures():
@@ -1077,6 +1106,7 @@ if __name__ == "__main__":
     from cases import one_case
     from cases import track_inviscid_compensation_local
     from cases import generate_initial_conditions
+    from cases import track_viscous_compensation_remote
 
     # forcing_cases()
     # one_case()
@@ -1084,7 +1114,8 @@ if __name__ == "__main__":
     # forcing_sweep()
     # forcing_cases()
     # full_system_test()
-    # figure2()
-    track_inviscid_compensation_local()
+    figure2()
+    # track_inviscid_compensation_local()
     # generate_initial_conditions()
+    # track_viscous_compensation_remote(False)
     pass

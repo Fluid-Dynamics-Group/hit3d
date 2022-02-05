@@ -94,6 +94,11 @@ module m_parameters
     ! = 0 -> do not export them
     integer :: export_divergence
 
+    ! whether or to save VTK files to csvs
+    ! = 1 -> export them
+    ! = 0 -> do not export them
+    integer :: export_vtk
+
     ! number of particles assigned to the processor
     ! and the total number of particles
     integer(kind=MPI_INTEGER_KIND) :: np, np1, nptot
@@ -462,6 +467,9 @@ contains
 
         read (in, *, err=9000) export_divergence 
         write (out, *) "export_divergence", export_divergence
+
+        read (in, *, err=9000) export_vtk 
+        write (out, *) "export_vtk", export_vtk 
 
 
         read (in, *) ! skips the --- line
