@@ -18,7 +18,7 @@ subroutine init_scalars
     call flush (out)
 
     do n_scalar = 1, n_scalars
-        write(out, *) "calling init_scalar from init_scalars"
+        write (out, *) "calling init_scalar from init_scalars"
         call init_scalar(n_scalar)
     end do
 
@@ -373,14 +373,13 @@ subroutine init_scalar_space(n_scalar)
         call xFFT3d_fields(1, nfi)
 
     case (14)
-        write(out, *) "init scalars by aditya condition"
-        black_range = int(nx / 3)
+        write (out, *) "init scalars by aditya condition"
+        black_range = int(nx/3)
 
-        write(out, *) "black range for scalars is ", black_range
+        write (out, *) "black range for scalars is ", black_range
 
-        fields(:,:,:,nfi) = -1.0
+        fields(:, :, :, nfi) = -1.0
 
-        
         ! black box in the top left and the bottom left
         !
         ! |-------------|
@@ -391,19 +390,19 @@ subroutine init_scalar_space(n_scalar)
         ! |xxx          |
         ! |xxx          |
         ! |-------------|
-        do i=  1,black_range
+        do i = 1, black_range
             ! top left
-            do j=  1,black_range
-                do k=  1,nz
-                    fields(i,j,k, nfi) = 1.0
+            do j = 1, black_range
+                do k = 1, nz
+                    fields(i, j, k, nfi) = 1.0
                     iter = iter + 1
                 end do
             end do
 
             ! bottom left
-            do j=  2*black_range,ny
-                do k=  1,nz
-                    fields(i,j,k, nfi) = 1.0
+            do j = 2*black_range, ny
+                do k = 1, nz
+                    fields(i, j, k, nfi) = 1.0
                     iter = iter + 1
                 end do
             end do
@@ -419,19 +418,19 @@ subroutine init_scalar_space(n_scalar)
         ! |          xxx|
         ! |          xxx|
         ! |-------------|
-        do i=  2*black_range, nx
+        do i = 2*black_range, nx
             ! top right
-            do j=  1,black_range
-                do k=  1,nz
-                    fields(i,j,k, nfi) = 1.0
+            do j = 1, black_range
+                do k = 1, nz
+                    fields(i, j, k, nfi) = 1.0
                     iter = iter + 1
                 end do
             end do
 
             ! bottom right
-            do j=  2*black_range,ny
-                do k=  1,nz
-                    fields(i,j,k, nfi) = 1.0
+            do j = 2*black_range, ny
+                do k = 1, nz
+                    fields(i, j, k, nfi) = 1.0
                     iter = iter + 1
                 end do
             end do
@@ -447,17 +446,17 @@ subroutine init_scalar_space(n_scalar)
         ! |             |
         ! |             |
         ! |-------------|
-        do i=  black_range, 2*black_range
+        do i = black_range, 2*black_range
             ! top right
-            do j=  black_range, 2*black_range
-                do k=  1,nz
-                    fields(i,j,k, nfi) = 1.0
+            do j = black_range, 2*black_range
+                do k = 1, nz
+                    fields(i, j, k, nfi) = 1.0
                     iter = iter + 1
                 end do
             end do
         end do
 
-        write(out, *) dble(iter) / dble(nx*ny*nz), "points have been colored to concentration of 1"
+        write (out, *) dble(iter)/dble(nx*ny*nz), "points have been colored to concentration of 1"
 
         ! apply FFT to the data
         call xFFT3d_fields(1, nfi)

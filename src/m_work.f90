@@ -120,7 +120,7 @@ contains
         ! ================MGM-Forcing=====================
         ! temporary working array for forcing
         allocate (fcomp(nx + 2, ny, nz, 0:6), stat=i); ierr = ierr + i
-        ! this is an additional working array for storing 
+        ! this is an additional working array for storing
         ! f_u_1x
         ! f_u_1y
         ! f_u_1z
@@ -147,7 +147,7 @@ contains
 
         if (allocated(wrk)) write (out, "('allocated wrk(nx+2,ny,nz,0:',i3,')')") number
         if (allocated(rhs_old)) write (out, "('allocated rhs_old(nx+2,ny,nz,1:',i3,')')") 3 + n_scalars + n_les
-        if (allocated(tmp_wrk)) write (out, "('allocated tmp_wrk(nx+2,ny,nz,1:',i3,')')") number+3
+        if (allocated(tmp_wrk)) write (out, "('allocated tmp_wrk(nx+2,ny,nz,1:',i3,')')") number + 3
         call flush (out)
 
         tmp4 = 0.0

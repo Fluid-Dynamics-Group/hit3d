@@ -1,4 +1,4 @@
-module forcing_vaues 
+module forcing_vaues
     real*8 F_1, F_2
     real*8 D_1, D_2
 end module
@@ -119,7 +119,7 @@ subroutine rhs_velocity
 
         do k = 1, nz
             do j = 1, ny
-                do i = 1, nx+ 1, 2
+                do i = 1, nx + 1, 2
                     ! If the dealiasing option is 2/3-rule (dealias=0) then we retain the modes
                     ! inside the cube described by $| k_i | \leq  k_{max}$, $i=1,2,3$.
                     ! The rest of the modes is purged
@@ -139,8 +139,8 @@ subroutine rhs_velocity
                             if (skip_diffusion == 1) then ! skip diffusion calculation
                                 ! ===========================MGM-Forcing=====================
                                 ! Validation by inviscid flow
-                                rtmp = -wrk(i + 1, j, k, n) + fcomp(i  ,j,k,n)
-                                wrk(i + 1, j, k, n) = wrk(i, j, k, n) + fcomp(i+1,j,k,n)
+                                rtmp = -wrk(i + 1, j, k, n) + fcomp(i, j, k, n)
+                                wrk(i + 1, j, k, n) = wrk(i, j, k, n) + fcomp(i + 1, j, k, n)
                                 wrk(i, j, k, n) = rtmp
                             else ! dont skip the diffusion calculation
                                 ! ==========================================================
@@ -150,13 +150,12 @@ subroutine rhs_velocity
                                 ! the diffusion terms from wrk(4) here have already been calculated in real space
                                 ! if there is viscous compensation - but it simplifies the code to not do anything
                                 ! about it here
-                                
 
                                 ! taking the convective term, multiply it by "i"
                                 ! (see how it's done in x_fftw.f90)
                                 ! and adding the diffusion term
-                                rtmp =           - wrk(i+1,j,k,n) + wrk(i  ,j,k,4) * fields(i  ,j,k,n) + fcomp(i  ,j,k,n)
-                                wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) + wrk(i+1,j,k,4) * fields(i+1,j,k,n) + fcomp(i+1,j,k,n)
+                                rtmp = -wrk(i + 1, j, k, n) + wrk(i, j, k, 4)*fields(i, j, k, n) + fcomp(i, j, k, n)
+                          wrk(i + 1, j, k, n) = wrk(i, j, k, n) + wrk(i + 1, j, k, 4)*fields(i + 1, j, k, n) + fcomp(i + 1, j, k, n)
                                 wrk(i, j, k, n) = rtmp
 
                                 ! dot this wrk variable with u - can try doing truncation here based on rtmp
@@ -589,7 +588,7 @@ subroutine calculate_vorticity()
 
     implicit none
 
-    integer :: i,j,k
+    integer :: i, j, k
 
     ! velocities in Fourier space
     wrk(:, :, :, 1:3) = fields(:, :, :, 1:3)
@@ -619,11 +618,11 @@ SUBROUTINE gradient3D(m, n, o, f, hx, hy, hz, dfdx, dfdy, dfdz)
     !dfdx
     do k = 1, o
         do j = 1, n
-    !        forward difference at start point
+            !        forward difference at start point
             dfdx(1, j, k) = (f(2, j, k) - f(1, j, k))/hx; 
-    !        central difference at middle region
+            !        central difference at middle region
             dfdx(2:m - 1, j, k) = (f(3:m, j, k) - f(1:m - 2, j, k))/(2.*hx); 
-    !        backward difference at end point
+            !        backward difference at end point
             dfdx(m, j, k) = (f(m, j, k) - f(m - 1, j, k))/hx; 
         end do
     end do
@@ -631,11 +630,11 @@ SUBROUTINE gradient3D(m, n, o, f, hx, hy, hz, dfdx, dfdy, dfdz)
     !dfdy
     do k = 1, o
         do i = 1, m
-    !        forward difference at start point
+            !        forward difference at start point
             dfdy(i, 1, k) = (f(i, 2, k) - f(i, 1, k))/hy; 
-    !        central difference at middle region
+            !        central difference at middle region
             dfdy(i, 2:n - 1, k) = (f(i, 3:n, k) - f(i, 1:n - 2, k))/(2.*hy); 
-    !        backward difference at end point
+            !        backward difference at end point
             dfdy(i, n, k) = (f(i, n, k) - f(i, n - 1, k))/hy; 
         end do
     end do
@@ -673,14 +672,14 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     real*8 :: epsilon_1, epsilon_2
     real*8 :: new_epsilon_1, new_epsilon_2
     real*8 :: f_left, f_right, f_total, diffusion
-    integer :: i,j,k,n
+    integer :: i, j, k, n
 
     logical :: is_reading_file
 
     call check_read_viscous_compensation(is_reading_file, .false.)
 
     if (ITIME == 1) then
-        write(out, *) "calculating forcing components with visc compensation routine"
+        write (out, *) "calculating forcing components with visc compensation routine"
     end if
 
     F_1 = 0.
@@ -691,34 +690,34 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     D_2 = 0.
     dQ_2 = 0.
 
-    ! copy the first 3 terms (used for derivatives or something) to the temp array 
+    ! copy the first 3 terms (used for derivatives or something) to the temp array
     ! so that we can use the first three indicies to store the results of the diffusion term
-    tmp_wrk(:,:,:,1:3) = wrk(:,:,:,1:3)
+    tmp_wrk(:, :, :, 1:3) = wrk(:, :, :, 1:3)
 
     ! copy the diffusion term to the 7th slot
-    tmp_wrk(:,:,:,7) = wrk(:,:,:,4)
+    tmp_wrk(:, :, :, 7) = wrk(:, :, :, 4)
 
     ! FIRST:
     ! we evaluate the diffusion term from the RHS in fourier space
-    ! 
+    !
     ! this code is replicated (read: Copied) from the for-loop that is directly AFTER this subroutine is called
     ! copy all the old varaibles to tmp_work
-    if (viscous_compensation ==1 .or. viscous_compensation == 2) then
+    if (viscous_compensation == 1 .or. viscous_compensation == 2) then
         call calculate_diffusion_term()
     end if
 
     ! after calling calculate_diffusion_term the diffusion term WRT u,v,w is now populated in wrk(:,:,:,1-3)
     ! so we can now use it to calculate whatever derivatives we may need. Swap the diffusion terms to X-space
-    ! so we can use them when calculating the forcing   
+    ! so we can use them when calculating the forcing
 
-    do n=1,3
+    do n = 1, 3
         call xFFT3d(-1, n)
     end do
 
-    ! Lets copy these diffusion terms  
+    ! Lets copy these diffusion terms
     ! to tmp_wrk so that we can use all 6 values of wrk() when calculating vorticity
 
-    tmp_wrk(:,:,:,4:6) = wrk(:,:,:,1:3)
+    tmp_wrk(:, :, :, 4:6) = wrk(:, :, :, 1:3)
 
     ! so now:
     ! tmp_wrk(:,:,:,1) -> some fourier derivative term we need to return to wrk() in this position
@@ -763,58 +762,58 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     ! ||u||^2
     fcomp(:, :, :, 2) = wrk(:, :, :, 4)**2 + wrk(:, :, :, 5)**2 + wrk(:, :, :, 6)**2
 
-    do i=1,nx
-        do j=1,ny
-            do k=1,nz
+    do i = 1, nx
+        do j = 1, ny
+            do k = 1, nz
 
                 ! for each n direction
-                do n = 1,3
+                do n = 1, 3
                     !
                     ! Calculate the forcing components for 1 and 2
                     !
 
                     ! u \cdot omg * omg_i - |omg|^2 * u_i
-                    f_left = fcomp(i,j,k,0) * wrk(i,j,k,n) - fcomp(i,j,k,1) * wrk(i,j,k,3+n)
+                    f_left = fcomp(i, j, k, 0)*wrk(i, j, k, n) - fcomp(i, j, k, 1)*wrk(i, j, k, 3 + n)
                     ! u \cdot omg * u_i - |u|^2 * omg_i
-                    f_right = fcomp(i,j,k,0) * wrk(i,j,k,3+n) - fcomp(i,j,k,2) * wrk(i,j,k,n)
+                    f_right = fcomp(i, j, k, 0)*wrk(i, j, k, 3 + n) - fcomp(i, j, k, 2)*wrk(i, j, k, n)
 
                     ! store fcomp left and right so they can be exported to a VTK file later
                     ! in a 3D flowfield
-                    
-                    fcomp_individual(i,j,k,n) = f_left
-                    fcomp_individual(i,j,k,n+3) = f_right
+
+                    fcomp_individual(i, j, k, n) = f_left
+                    fcomp_individual(i, j, k, n + 3) = f_right
 
                     ! the total forcing
-                    f_total = (f_left * epsilon_1) + (f_right * epsilon_2)
+                    f_total = (f_left*epsilon_1) + (f_right*epsilon_2)
 
                     ! integrate all the forcing components without the corresponding
                     ! epsilons into each F term
                     !
                     ! these values are outside the if statement because we want to know F_1 and F_2
                     ! for all the time steps so that we can (sometimes) output them into the energy.csv file
-                    F_1 = F_1 + (f_left * wrk(i,j,k,3+n))
-                    F_2 = F_2 + (f_right * wrk(i,j,k,n))
+                    F_1 = F_1 + (f_left*wrk(i, j, k, 3 + n))
+                    F_2 = F_2 + (f_right*wrk(i, j, k, n))
 
-                    diffusion = tmp_wrk(i,j,k,n+3)
+                    diffusion = tmp_wrk(i, j, k, n + 3)
 
                     ! D_1 = u \cdot d_u
-                    D_1 = D_1 + wrk(i,j,k,n+3) * diffusion
+                    D_1 = D_1 + wrk(i, j, k, n + 3)*diffusion
 
                     ! D_2 = \omega \cdot d_u
-                    D_2 = D_2 + wrk(i,j,k,n) * diffusion
+                    D_2 = D_2 + wrk(i, j, k, n)*diffusion
 
                     if (viscous_compensation == 1) then
 
                         ! d/dt Q_1 = u \cdot (d_u + f_u)
-                        dQ_1 = dQ_1 +&
-                            wrk(i,j,k,n+3) * (diffusion + f_total)
+                        dQ_1 = dQ_1 + &
+                               wrk(i, j, k, n + 3)*(diffusion + f_total)
 
                         ! d/dt Q_2 = \omega \cdot (d_u + f_u)
-                        dQ_2 = dQ_2 +&
-                            wrk(i,j,k,n) * (diffusion + f_total) 
+                        dQ_2 = dQ_2 + &
+                               wrk(i, j, k, n)*(diffusion + f_total)
                     else
                         ! forcing results if no viscous compensation go in 3:5
-                        fcomp(i,j,k,n+2) = f_total
+                        fcomp(i, j, k, n + 2) = f_total
                     end if
                 end do
 
@@ -826,8 +825,8 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     ! now we have evaluated the integral so we can set the forcing components to their true value
     if (viscous_compensation == 1) then
 
-        F_1 = -1 * F_1
-        F_2 = -1 * F_2
+        F_1 = -1*F_1
+        F_2 = -1*F_2
 
         if (viscous_compensation_validation == 1) then
             dQ_1 = 0.0
@@ -855,28 +854,27 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     ! copy either forcing result to the wrk array (we dont care about any of the data in it anymore)
     ! so that we can go back to fourier space
 
-    wrk(:,:,:,1:3) = fcomp(:,:,:,3:5)
+    wrk(:, :, :, 1:3) = fcomp(:, :, :, 3:5)
 
     ! Do the FFT over the 3 forcing components
     do n = 1, 3
         call xFFT3d(1, n)
     end do
 
-    fcomp(:,:,:, 1:3) = wrk(:,:,:,1:3)
-    
+    fcomp(:, :, :, 1:3) = wrk(:, :, :, 1:3)
+
     ! copy back whatever fourier derivatives used to be at this position
-    wrk(:,:,:,1:3) = tmp_wrk(:,:,:,1:3)
+    wrk(:, :, :, 1:3) = tmp_wrk(:, :, :, 1:3)
 
     ! copy back the original diffusion term (fourier space) and just recalculate diffusion components as normal
     ! This is a missed optimization in the parent routine
 
-    wrk(:,:,:,4) = tmp_wrk(:,:,:,7)
+    wrk(:, :, :, 4) = tmp_wrk(:, :, :, 7)
 end
-
 
 ! calculate and store the result of the diffusion term
 ! in wrk(:,:,:,4)
-! in order to call this subroutine you must have ensured that the laplace 
+! in order to call this subroutine you must have ensured that the laplace
 ! operation has been evaluated in fourier space in the main rhs_velocity
 ! initialization and that it is stored in wrk(:,:,:)
 !
@@ -899,14 +897,14 @@ subroutine calculate_diffusion_term()
                     wrk(i, j, k, 1:3) = zip
                     wrk(i + 1, j, k, 1:3) = zip
 
-                else 
+                else
                     ! RHS for u, v and w
                     do n = 1, 3
                         ! for the inviscid case
                         if (skip_diffusion == 1) then
                             wrk(i + 1, j, k, n) = 0.
-                            wrk(i, j, k, n) =    0.
-                        ! for the viscouse case - we evaluate the diffusion term
+                            wrk(i, j, k, n) = 0.
+                            ! for the viscouse case - we evaluate the diffusion term
                         else
                             !write(*,*) "calculating diffusion terms"
                             ! the reason these indicies look like this is the convective term has
@@ -914,8 +912,8 @@ subroutine calculate_diffusion_term()
                             ! that we never fixed.
                             !wrk(i+1,j,k,n)  =   wrk(i  ,j,k,n) + wrk(i+1,j,k,4) * fields(i+1,j,k,n)
                             !wrk(i, j, k, n) =- wrk(i+1,j,k,n)  + wrk(i  ,j,k,4) * fields(i  ,j,k,n)
-                            wrk(i+1,j,k,n)  = wrk(i+1,j,k,4) * fields(i+1,j,k,n)
-                            wrk(i, j, k, n) = wrk(i  ,j,k,4) * fields(i  ,j,k,n)
+                            wrk(i + 1, j, k, n) = wrk(i + 1, j, k, 4)*fields(i + 1, j, k, n)
+                            wrk(i, j, k, n) = wrk(i, j, k, 4)*fields(i, j, k, n)
                         end if
                     end do
 
@@ -924,5 +922,5 @@ subroutine calculate_diffusion_term()
             end do
         end do
     end do
-    
-end 
+
+end

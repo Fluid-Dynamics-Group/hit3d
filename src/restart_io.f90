@@ -230,7 +230,7 @@ subroutine restart_read_parallel
 
         ! initializing the added scalars
         do n = nums1 + 1, n_scalars
-            write(out, *) "calling init_scalar from restart_read_parallel"
+            write (out, *) "calling init_scalar from restart_read_parallel"
             call init_scalar(n)
         end do
 

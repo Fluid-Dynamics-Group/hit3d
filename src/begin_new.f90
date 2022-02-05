@@ -11,7 +11,7 @@ subroutine begin_new
 
     ! deciding if we advance scalars or not
     if (TSCALAR .le. zip .and. n_scalars .gt. 0) then
-        write(out, *) "Engaging the scalars from begin_new (int_scalars=true)"
+        write (out, *) "Engaging the scalars from begin_new (int_scalars=true)"
         int_scalars = .true.
     end if
 

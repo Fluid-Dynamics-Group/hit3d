@@ -73,7 +73,7 @@ module m_parameters
     ! whether or not to skip calculating the diffusion term of euler
     integer :: skip_diffusion, load_initial_condition
 
-    ! when we do the calculation of diffusion keep the term in its 
+    ! when we do the calculation of diffusion keep the term in its
     ! own array so that we can use it for viscous compensation calculation later
     ! = 1 -> use the if statement in the viscous compensation equation to calculate the forcing
     ! = 0 -> use the regular forcing formulation from MGM to calculate forcing <------------------------- TODO : MAKE SURE WE DONT
@@ -465,15 +465,13 @@ contains
         read (in, *, err=9000) viscous_compensation
         write (out, *) "viscous_compensation", viscous_compensation
 
-        read (in, *, err=9000) export_divergence 
+        read (in, *, err=9000) export_divergence
         write (out, *) "export_divergence", export_divergence
 
-        read (in, *, err=9000) export_vtk 
-        write (out, *) "export_vtk", export_vtk 
-
+        read (in, *, err=9000) export_vtk
+        write (out, *) "export_vtk", export_vtk
 
         read (in, *) ! skips the --- line
-
 
         ! -------------------------------------------------------------
 
@@ -502,7 +500,7 @@ contains
 
         ! if there are scalars, then read them one by one
         if (n_scalars > 0) then
-            write(out, *) "reading in the scalar information for ", n_scalars, "scalars"
+            write (out, *) "reading in the scalar information for ", n_scalars, "scalars"
             read (in, '(A)', ERR=9000, END=9000) str_tmp
             write (out, *) str_tmp
             call flush (out)
@@ -514,12 +512,12 @@ contains
             if (ierr .ne. 0) passed = 0
 
             do n = 1, n_scalars
-                write(out, *) "reading information on a scalar"
+                write (out, *) "reading information on a scalar"
 
                 read (in, *, ERR=9000, END=9000) scalar_type(n), sc(n), ir_exp_sc(n), &
                     peak_wavenum_sc(n), reac_sc(n)
 
-                write(out, *) "finished reading scalar information"
+                write (out, *) "finished reading scalar information"
 
                 write (out, '(9x,i4,1x,4(f8.3,1x))') scalar_type(n), sc(n), ir_exp_sc(n), &
                     peak_wavenum_sc(n), reac_sc(n)

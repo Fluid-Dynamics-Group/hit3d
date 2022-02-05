@@ -39,7 +39,6 @@ contains
             call load_initial_spectral_data()
         end if
 
-
         return
     end subroutine m_stats_init
 

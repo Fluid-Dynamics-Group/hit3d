@@ -1,4 +1,4 @@
-module m_viscous_compensation 
+module m_viscous_compensation
     integer :: energy_filehandle
     integer :: helicity_filehandle
     real*8, allocatable :: dE_dt_tracking(:)
@@ -22,23 +22,22 @@ subroutine init_viscous_compensation_files()
     call check_read_viscous_compensation(is_reading_files, .true.)
     call check_write_viscous_compensation(is_writing_files, .true.)
 
-
     if (is_writing_files) then
-        if (iammaster) then 
-            allocate(dE_dt_tracking(ITMAX))
-            allocate(dh_dt_tracking(ITMAX))
-        endif
+        if (iammaster) then
+            allocate (dE_dt_tracking(ITMAX))
+            allocate (dh_dt_tracking(ITMAX))
+        end if
     elseif (is_reading_files) then
         ! allocate the arrays that we will store the target values in
-        allocate(dE_dt_tracking(ITMAX))
-        allocate(dh_dt_tracking(ITMAX))
+        allocate (dE_dt_tracking(ITMAX))
+        allocate (dh_dt_tracking(ITMAX))
 
-        open(energy_filehandle, file="dE_dt_history.binary", status="old", access="STREAM")
-        open(helicity_filehandle, file="dh_dt_history.binary", status="old", access="STREAM")
+        open (energy_filehandle, file="dE_dt_history.binary", status="old", access="STREAM")
+        open (helicity_filehandle, file="dh_dt_history.binary", status="old", access="STREAM")
 
-        read(energy_filehandle) (dE_dt_tracking(i), i=1, ITMAX)
-        read(helicity_filehandle) (dh_dt_tracking(i), i=1, ITMAX)
-    endif
+        read (energy_filehandle) (dE_dt_tracking(i), i=1, ITMAX)
+        read (helicity_filehandle) (dh_dt_tracking(i), i=1, ITMAX)
+    end if
 
 end subroutine
 
@@ -59,29 +58,29 @@ subroutine finish_viscous_compensation_files()
         ! only the master node will have access to the arrays
         ! required for writing the binary files
         if (iammaster) then
-            write(out, *) "writing binary files"
-            write(*, *) "writing binary files"
+            write (out, *) "writing binary files"
+            write (*, *) "writing binary files"
 
-            open(energy_filehandle, file="output/dE_dt_history.binary", status="new", access="STREAM")
-            open(helicity_filehandle, file="output/dh_dt_history.binary", status="new", access="STREAM")
+            open (energy_filehandle, file="output/dE_dt_history.binary", status="new", access="STREAM")
+            open (helicity_filehandle, file="output/dh_dt_history.binary", status="new", access="STREAM")
 
             ! now we write the contents of all the arrays to a file
-            write(energy_filehandle) (dE_dt_tracking(i), i=1,ITMAX)
-            write(helicity_filehandle) (dh_dt_tracking(i), i=1,ITMAX)
+            write (energy_filehandle) (dE_dt_tracking(i), i=1, ITMAX)
+            write (helicity_filehandle) (dh_dt_tracking(i), i=1, ITMAX)
 
-            write(out, *) "printing dh_dt data points"
-            write(out, *) (dh_dt_tracking(i), i=1,max(ITMAX,10))
+            write (out, *) "printing dh_dt data points"
+            write (out, *) (dh_dt_tracking(i), i=1, max(ITMAX, 10))
 
-            flush(energy_filehandle)
-            flush(helicity_filehandle)
+            flush (energy_filehandle)
+            flush (helicity_filehandle)
 
-            close(energy_filehandle)
-            close(helicity_filehandle)
-        endif
+            close (energy_filehandle)
+            close (helicity_filehandle)
+        end if
 
     elseif (is_reading_files) then
         ! nothing to do here
-    endif
+    end if
 
 end subroutine
 
@@ -94,13 +93,13 @@ subroutine check_write_viscous_compensation(check, is_verbose)
     logical :: is_verbose
 
     if (viscous_compensation == 2 .and. viscous_compensation_validation == 0) then
-        if (is_verbose .and. iammaster) write(out, *) "we are writing viscous compensation files"
-        if (is_verbose .and. iammaster) write(*, *) "we are writing viscous compensation files"
+        if (is_verbose .and. iammaster) write (out, *) "we are writing viscous compensation files"
+        if (is_verbose .and. iammaster) write (*, *) "we are writing viscous compensation files"
         check = .true.
     else
-        if (is_verbose) write(out, *) "we are NOT writing viscous compensation files"
+        if (is_verbose) write (out, *) "we are NOT writing viscous compensation files"
         check = .false.
-    endif
+    end if
 
 end subroutine
 
@@ -114,13 +113,13 @@ subroutine check_read_viscous_compensation(check, is_verbose)
     logical :: is_verbose
 
     if (viscous_compensation == 1 .and. viscous_compensation_validation == 0) then
-        if (is_verbose .and. iammaster) write(out, *)"we are reading viscous compensation files"
-        if (is_verbose .and. iammaster) write(*, *) "we are reading viscous compensation files"
+        if (is_verbose .and. iammaster) write (out, *) "we are reading viscous compensation files"
+        if (is_verbose .and. iammaster) write (*, *) "we are reading viscous compensation files"
         check = .true.
-    else 
-        if (is_verbose) write(out, *) "we are NOT reading viscous compensation files"
+    else
+        if (is_verbose) write (out, *) "we are NOT reading viscous compensation files"
         check = .false.
-    endif
+    end if
 
 end subroutine
 
@@ -150,7 +149,7 @@ subroutine write_visc_comp_rates()
     call check_read_viscous_compensation(is_reading_files, .false.)
     call check_write_viscous_compensation(is_writing_files, .false.)
 
-    if (is_writing_files) then 
+    if (is_writing_files) then
         ! after this call
         ! wrk( 1-3) contains velocity information (x-space)
         ! wrk( 4-6) contains omega information (x-space)
@@ -160,11 +159,11 @@ subroutine write_visc_comp_rates()
         call ifft_rhs
 
         ! initialize the WRK array to the velocity values from fields
-        wrk(:,:,:,1:3) = fields(:,:,:,1:3)
+        wrk(:, :, :, 1:3) = fields(:, :, :, 1:3)
 
         ! invert the wrk values to X-SPACE
         do i = 1, 3
-            call xFFT3d(-1,i)
+            call xFFT3d(-1, i)
         end do
 
         !
@@ -173,7 +172,7 @@ subroutine write_visc_comp_rates()
         do i = 1, nx
             do j = 1, nx
                 do k = 1, nz
-                    
+
                     u_rhs = rhs_saved(i, j, k, 1)
                     v_rhs = rhs_saved(i, j, k, 2)
                     w_rhs = rhs_saved(i, j, k, 3)
@@ -186,7 +185,7 @@ subroutine write_visc_comp_rates()
                     omg_y = wrk(i, j, k, 5)
                     omg_z = wrk(i, j, k, 6)
 
-                    dE_dt = dE_dt+ (u_rhs*u + v_rhs*v + w_rhs*w)
+                    dE_dt = dE_dt + (u_rhs*u + v_rhs*v + w_rhs*w)
                     dh_dt = dh_dt + ((u_rhs*omg_x) + (v_rhs*omg_y) + (w_rhs*omg_z))
                 end do
             end do
@@ -195,8 +194,8 @@ subroutine write_visc_comp_rates()
         frac = (2*3.1415)**3/(nx*ny*nz_all)
 
         ! TODO: these might need to be / 2
-        dE_dt = dE_dt * frac
-        dh_dt = dh_dt * frac
+        dE_dt = dE_dt*frac
+        dh_dt = dh_dt*frac
 
         call error_on_nan(dE_dt, "dE_dt")
         call error_on_nan(dh_dt, "dh_dt")
@@ -209,7 +208,7 @@ subroutine write_visc_comp_rates()
         if (iammaster) then
             dE_dt_tracking(ITIME) = dE_dt
             dh_dt_tracking(ITIME) = dh_dt
-        endif
+        end if
 
         ! invert the RHS variables back to where they should be for future analysis
         call fft_rhs
@@ -220,12 +219,12 @@ subroutine write_visc_comp_rates()
 end subroutine
 
 ! fetch the current derivatives that we neet to track
-! this subroutine must only be called if you have validated that 
+! this subroutine must only be called if you have validated that
 ! we have vectors to read from
 subroutine read_visc_dQ_dt_values(dq1, dq2)
     use m_parameters
     use m_viscous_compensation
-    
+
     implicit none
 
     real*8 dq1, dq2

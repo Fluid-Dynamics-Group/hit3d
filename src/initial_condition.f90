@@ -40,22 +40,22 @@ subroutine write_initial_data
         open (994, file="initial_condition_wrk.pkg", form='unformatted', access="stream")
         write (994) ((((wrk_global(i, j, k, v), i=1, nx), j=1, ny), k=1, nz_all), v=1, 3)
         call flush (994)
-        close(994)
+        close (994)
 
         ! in a previous
 
     end if
 
     ! writing espec to file
-    ! we dont use any mpi here because the number of processes can change between restarts 
-    ! and it is not clear how the processes should be adjusted to only write 1:kmax number 
+    ! we dont use any mpi here because the number of processes can change between restarts
+    ! and it is not clear how the processes should be adjusted to only write 1:kmax number
     ! of points
 
-    if (myid == master) then 
-        open(994, file="initial_condition_espec.pkg", form="unformatted", access="stream")
-        write(994) (e_spec(i), i=1,kmax)
-        flush(994)
-        close(994)
+    if (myid == master) then
+        open (994, file="initial_condition_espec.pkg", form="unformatted", access="stream")
+        write (994) (e_spec(i), i=1, kmax)
+        flush (994)
+        close (994)
     end if
 
 end subroutine write_initial_data
@@ -69,8 +69,8 @@ subroutine load_initial_velocity_data
 
     integer :: i, j, k, v
 
-    if (myid == master) then 
-        write(*,*) "reading velocity initial condition"
+    if (myid == master) then
+        write (*, *) "reading velocity initial condition"
     end if
 
     ! read in the data from the file
@@ -96,12 +96,12 @@ subroutine load_initial_spectral_data
 
     integer :: i
 
-    if (myid == master) then 
-        write(*,*) "reading spectral initial condition"
+    if (myid == master) then
+        write (*, *) "reading spectral initial condition"
     end if
 
     open (994, file="initial_condition_espec.pkg", form='unformatted', access="stream")
-    read (994) (e_spec(i), i=1,kmax)
+    read (994) (e_spec(i), i=1, kmax)
     close (994)
 
 end subroutine load_initial_spectral_data

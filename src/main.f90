@@ -19,7 +19,7 @@ program x_code
     integer :: n
     integer :: itemp, jtemp, ktemp
     integer :: filenumber_temp
-    real* 8 :: expectedtemp
+    real*8 :: expectedtemp
     character :: sym
     logical :: finished_restarts
     finished_restarts = .false.
@@ -37,7 +37,7 @@ program x_code
     ! initalize any arrays for working with viscous compensation stuff
     call init_viscous_compensation_files
 
-    write(*,*) "finished calling first init functions"
+    write (*, *) "finished calling first init functions"
 
     ! allocating and initializing FFTW arrays
     call x_fftw_allocate(1)
@@ -89,7 +89,6 @@ program x_code
     ! need to dealias the fields at the beginning
     if (task .eq. 'hydro') call dealias_all
 
-
 !********************************************************************************
 !  call benchmark
 !********************************************************************************
@@ -103,9 +102,9 @@ program x_code
         ! output some runtime statistics on how far into the simulation we are
         if (mod(ITIME, 1000) == 0) then
             if (myid == master) then
-                write(*,*) 100* ITIME / ITMAX, " percent done"
-            endif
-        endif
+                write (*, *) 100*ITIME/ITMAX, " percent done"
+            end if
+        end if
 
         ! getting the file extension for current iteration
         call get_file_ext
@@ -242,13 +241,13 @@ program x_code
         end if hydro
 
         ! before we do any plotting and mess up the wrk() arrays
-        ! write some statistics (if needed) to the arrays for viscous 
+        ! write some statistics (if needed) to the arrays for viscous
         ! compensation calculations
         call write_visc_comp_rates()
 
-        if (ITIME >= ITMAX) then 
+        if (ITIME >= ITMAX) then
             call finish_viscous_compensation_files()
-        endif 
+        end if
 
         ! if we are at the specified timestep and our job is to write a restart file ...
         if (ITIME >= ITMAX .and. load_initial_condition == 1) then
@@ -259,40 +258,38 @@ program x_code
             ! create a file to restart from
             call write_initial_data()
 
-
             call my_exit(0)
             call m_openmpi_exit
             stop
-        ! write data at the first iteration of any IWRITE4 (config file) point after
-        elseif (mod(itime, iwrite4) == 0 .or. itime == ITMIN+1) then
+            ! write data at the first iteration of any IWRITE4 (config file) point after
+        elseif (mod(itime, iwrite4) == 0 .or. itime == ITMIN + 1) then
             ! write energy and helicity to a csv
             call write_energy(time)
             call write_slice(int(itime))
             call write_scalars(int(itime))
-
 
             ! we only write vtk files once every *8 time steps because the post processessing
             ! is very slow
             ! also only write them after the restarts are done
             if ( &
                 ( &
-                    ! if we are prepared to write a vtk ile
-                    finished_restarts .AND. mod(itime, iwrite4*4) .eq. 0 &
-                    .or. &
-                    ! write a flowfield file on the first timestep regardless of 
-                    ! any conditions ( as long as export_vtk = 1 )
-                    itime == ITMIN + 1 &
+                ! if we are prepared to write a vtk ile
+                finished_restarts .AND. mod(itime, iwrite4*4) .eq. 0 &
+                .or. &
+                ! write a flowfield file on the first timestep regardless of
+                ! any conditions ( as long as export_vtk = 1 )
+                itime == ITMIN + 1 &
                 ) &
                 .and. &
                 ! we have to have the export_vtk parameter actually set to true to write any flowfields
                 export_vtk == 1 &
-            ) then
-                write(out, *) "writing flowfield at itime ", itime
+                ) then
+                write (out, *) "writing flowfield at itime ", itime
                 call write_velocity_field(int(itime))
             end if
 
             if (export_divergence == 1) then
-                call write_derivatives(int(itime));
+                call write_derivatives(int(itime)); 
             end if
         end if
 
@@ -371,7 +368,7 @@ program x_code
             ! the restart writing time can be long (up to 20 minutes or so).
             ! this should be taken care of in the job submission script
             ! via file job_parameters.txt
-            
+
             ! Brooks - no early exit to the simulation
             ! if (cpu_min_total + 5 .gt. job_runlimit) call my_exit(2)
 
