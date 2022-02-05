@@ -326,7 +326,7 @@ def figure2():
     include_viscous_compensation = True
 
     run_shell_command("make")
-    n = 23
+    n = 24
 
     if include_viscous_compensation:
         batch_name = f"figure2_viscous_comp_{n}"
@@ -408,7 +408,7 @@ def figure2():
 
     copy_distribute_files(save_json_folder, batch_name, extra_caps, include_viscous_compensation, size)
 
-    build = Build("master", "master")
+    build = Build("visc-compensation-tracking", "master")
     build.to_json(save_json_folder)
 
 # helpful function for runnning one-off cases
