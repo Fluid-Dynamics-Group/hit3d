@@ -11,3 +11,5 @@ src/post/*
 **/fort.11
 **/current_results/
 src/__pycache__
+**/visc_baseline_results
+**/*.binary
