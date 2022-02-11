@@ -641,6 +641,20 @@ subroutine add_through_mpi(variable_to_add)
     call MPI_REDUCE(tmp_val, variable_to_add, count, MPI_REAL8, MPI_SUM, 0, MPI_COMM_TASK, mpi_err)
 end subroutine add_through_mpi
 
+! sum `variable_to_add` across every mpi process
+! and return the result
+! This subroutine also returns the result to each of the non-master subroutines
+subroutine add_broadcast_mpi(variable_to_add)
+    use m_parameters
+    implicit none
+    real*8 :: variable_to_add, tmp_val
+
+    tmp_val = variable_to_add
+    count = 1
+    call MPI_REDUCE(tmp_val, variable_to_add, count, MPI_REAL8, MPI_SUM, 0, MPI_COMM_TASK, mpi_err)
+    call MPI_BCAST(variable_to_add, 1, MPI_REAL8, 0, MPI_COMM_TASK, mpi_err)
+end subroutine add_broadcast_mpi
+
 subroutine error_on_nan(variable_to_check, variable_name)
     use m_openmpi
     use m_io

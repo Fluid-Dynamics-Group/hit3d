@@ -825,6 +825,12 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     ! now we have evaluated the integral so we can set the forcing components to their true value
     if (viscous_compensation == 1) then
 
+        D_1 = D_1 * (2*3.1415)**3 / (nx * ny * nz_all)
+        D_2 = D_2 * (2*3.1415)**3 / (nx * ny * nz_all)
+
+        call add_broadcast_mpi(D_1, "D_1 forcing")
+        call add_broadcast_mpi(D_2, "D_2 forcing")
+
         F_1 = -1*F_1
         F_2 = -1*F_2
 
@@ -843,6 +849,12 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
 
         new_epsilon_1 = epsilon_1 + ((D_1 - dQ_1)/F_1)
         new_epsilon_2 = epsilon_2 + ((D_2 - dQ_2)/F_2)
+
+
+        write(*, *) "D1, DQ_1", D_1, dQ_1
+        !write(*, *) "D_1 - DQ_1 :: D_2 - DQ_2", (D_1 - dQ_1), (D_2 - dQ_2)
+        !write(*, *) "-D_1 + DQ_1 :: -D_2 + DQ_2", (dQ_1 - D_1), (dQ_2 - D_2)
+        !write(out, *) "ep1 inc, ep2 inc", ((D_1 - dQ_1)/F_1), ((D_2 - dQ_2)/F_2)
 
         ! recalculate the forcing components with the new values
         do n = 1, 3

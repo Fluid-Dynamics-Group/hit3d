@@ -1106,16 +1106,15 @@ if __name__ == "__main__":
     from cases import one_case
     from cases import track_inviscid_compensation_local
     from cases import generate_initial_conditions
-    from cases import track_viscous_compensation_remote
 
     # forcing_cases()
-    one_case()
+    # one_case()
     # proposal_figures()
     # forcing_sweep()
     # forcing_cases()
     # full_system_test()
-    # figure2()
-    # track_inviscid_compensation_local()
+    #figure2()
+    track_inviscid_compensation_local()
     # generate_initial_conditions()
     # track_viscous_compensation_remote(False)
     pass

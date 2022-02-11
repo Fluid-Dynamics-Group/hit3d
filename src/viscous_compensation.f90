@@ -146,6 +146,9 @@ subroutine write_visc_comp_rates()
     real*8:: u, v, w
     integer :: i, j, k
 
+    dE_dt = 0.0
+    dh_dt = 0.0
+
     call check_read_viscous_compensation(is_reading_files, .false.)
     call check_write_viscous_compensation(is_writing_files, .false.)
 
@@ -232,8 +235,8 @@ subroutine read_visc_dQ_dt_values(dq1, dq2)
     dq1 = dE_dt_tracking(ITIME)
     dq2 = dh_dt_tracking(ITIME)
 
-    !if (iammaster) then
-    !    write(*, *) "dq1, dq2 are", dq1, dq2
-    !endif
+    if (iammaster) then
+        write(*, *) "dq1, dq2 are", dq1, dq2
+    endif
 
 end subroutine
