@@ -68,7 +68,7 @@ endif
 
 
 # Program name
-PROG    = hit3d
+PROG    = hit3d.x
 
 # Modules
 MODULES = m_openmpi.o\
