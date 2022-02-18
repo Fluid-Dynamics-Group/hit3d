@@ -17,7 +17,7 @@ INPUT FILE FOR THE SPECTRAL CODE WITH SCALARS   (example for v.1.0.0)
 1.0 3           TRESCALE, NRESCALE  rescale time and # of rescales
 1.0             TSCALAR  time when to start moving scalars in the flow
 ----------------------------------------------------------------------
-0               ITYPV    flow type: 0=decay, 1=forced
+1               ITYPV    flow type: 0=decay, 1=forced
 ----------------------------------------------------------------------
 40.0		RE	 Reynolds number (1/viscosity, really)
 -0.0005		DT	 timestep. if dt<0, dt=const, otherwise not
@@ -42,7 +42,7 @@ INPUT FILE FOR THE SPECTRAL CODE WITH SCALARS   (example for v.1.0.0)
 0.1		time_p, when to release the particles into the flow
 0.7		particle_filter_size, in case we average the velocity
 ----------------------------------------------------------------------
-0       skip_diffusion: skip calculating diffusion term in rhs_velocity (1=yes, 0=no)
+1       skip_diffusion: skip calculating diffusion term in rhs_velocity (1=yes, 0=no)
 ----------------------------------------------------------------------
 0               les_model, the LES model (0=none, see the README.txt)
 ----------------------------------------------------------------------
