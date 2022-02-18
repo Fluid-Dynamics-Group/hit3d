@@ -71,6 +71,29 @@ Notes:
 1. Scalar statistics: `stat1.gp` \& `stat2.gp` (see `m_stat.f90`)
 1. E-spectra in time: `es.gp` (see `m_stat.f90`)
 
+## MGM's NOTES: Forced HIT3D
+
+Edited: 02/18/2022
+
+Summary:
+* Forcing is done after `rhs_velocity`
+* Forcing subroutines are in `m_force.f90`.
+* The forcing is given by the forcing techniques in equation (4) of Machiels's 1997 PRL paper - https://doi.org/10.1103/PhysRevLett.79.3411
+
+Algorithm:
+1. `m_force_init` to initialize
+    * Just to determine which nodes (corresponding shell satisfies `kfmax`; see next bullet point) are to be forced (for each MPI process) and save their index IDs. No actual forcing is done yet.
+    * `kfmax` decides the upper bound for the forcing band in the Fourier space (Forcing range from k=1 to KFMAX. See input file.)
+2. Every time iteration:
+   1. do `rhs_scalar`
+   1. do `rhs_velocity`
+   1. do `force_velocity`
+      * Forcing for a given node `i` in each direction `j` is given by adding `f(i,j) = FAMP*u(i,j)/(2*energy_f)` to the rhs of `u(i,j)`, where `FAMP` is the added energy (which is the mean dissipation rate from MAchiels's 1997 PRL paper) and `energy_f` (`energy` in `m_force.f90`) is the total energy (K.E, `U(i).U(i)/nx*ny*nz`) of all nodes which have to be forced (these nodes are obtained from `m_force_init` as discussed above).
+      1. Compute energy of all nodes to be forced
+      2. Sum all energies
+      3. Force only nodes to be forced (this is why we saved the node IDs previously) using this energy.
+
+
 ## THE INPUT FILE
 `NX`,`NY`,`NZ`  Number of grid points in one dimension.  The grid will be NX x NY x NZ.
 	  The physical dimensions will be 2*pi x 2*pi x 2*pi
