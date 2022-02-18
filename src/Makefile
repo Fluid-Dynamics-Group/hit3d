@@ -2,9 +2,10 @@
 
 # Define the correct flags and compilers
 
-MPIF90 = mpif90
-FCFLAGS = -O4 -c -fallow-argument-mismatch
-LDFLAGS = -O4 -L/usr/local/lib -lfftw3
+# MPIF90 = mpif90
+# FCFLAGS = -O4 -c -fallow-argument-mismatch
+# LDFLAGS = -O4 -L/usr/local/lib -lfftw3
+HOSTNAME = mgmwork.ornl
 
 # Franklin cluster, NERSC
 ifeq ($(NERSC_HOST), franklin)
@@ -58,8 +59,16 @@ ifeq ($(HOSTNAME), sparrow.stanford.edu)
         LDFLAGS = -fdefault-real-8 -fdefault-integer-8 -finit-integer=0 -finit-real=zero -lmpi -lmpi -lfftw3 -lm
 endif
 
+# MGM_work, ORNL laptop
+ifeq ($(HOSTNAME), mgmwork.ornl)
+        MPIF90 = mpif90
+        FCFLAGS = -O3 -c -fallow-argument-mismatch
+        LDFLAGS = -O3 -L/usr/local/Cellar/fftw/3.3.9/lib -lfftw3
+endif
+
+
 # Program name
-PROG    = hit3d.x
+PROG    = hit3d
 
 # Modules
 MODULES = m_openmpi.o\
