@@ -413,8 +413,8 @@ def figure2():
 
 # helpful function for runnning one-off cases
 def one_case():
-    TIME_END = 0.1
-    batch_name = "viscous_baseline_2"
+    TIME_END = 5
+    batch_name = "inviscid_example_0"
     job_name = "single-case"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
     size = 128
@@ -422,14 +422,13 @@ def one_case():
     steps = int(TIME_END / dt)
     nprocs = 16
     extra_caps = []
-    io_steps = int(steps / 10)
     load_initial_data = 0
     export_divergence = 0
 
-    ep1 = 0.001
-    ep2 = 0.001
+    ep1 = 0.000
+    ep2 = 0.000
 
-    skip_diffusion = 0
+    skip_diffusion = 1
 
     output_folder = define_output_folder()
 
@@ -457,12 +456,12 @@ def one_case():
         epsilon1=ep1,
         # delta2 is negative, this will decrease helicity
         epsilon2=ep2,
-        export_vtk=True,
-        scalar_type=14,
-        require_forcing=1,
+        export_vtk=False,
+        scalar_type=0,
+        require_forcing=0,
         viscous_compensation=0,
         validate_viscous_compensation=0,
-        io_steps=io_steps,
+        io_steps=None,
         nprocs=nprocs,
         export_divergence=export_divergence,
     )
@@ -530,7 +529,7 @@ def track_inviscid_compensation_local():
         # first, an inviscid case
 
         print("running baseline case")
-        baseline_case = make_case(0, 2, 0.0, 0.0)
+        baseline_case = make_case(1, 2, 0.0, 0.0)
         baseline_case.run(1)
 
         # move the binary files so we can execute them here

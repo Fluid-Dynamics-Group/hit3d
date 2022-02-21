@@ -3,7 +3,7 @@
 # Define the correct flags and compilers
 
 MPIF90 = mpif90
-FCFLAGS = -O4 -c -fallow-argument-mismatch
+FCFLAGS = -O4 -c -fallow-argument-mismatch -ffree-line-length-none -ffixed-line-length-none
 LDFLAGS = -O4 -L/usr/local/lib -lfftw3
 
 # Franklin cluster, NERSC

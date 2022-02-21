@@ -147,18 +147,12 @@ subroutine rhs_velocity
                                 ! BROOKS: original hit3d code with MGM forcing is here (with diffusion, i think)
                                 ! ==========================================================
 
-                                ! the diffusion terms from wrk(4) here have already been calculated in real space
-                                ! if there is viscous compensation - but it simplifies the code to not do anything
-                                ! about it here
-
                                 ! taking the convective term, multiply it by "i"
                                 ! (see how it's done in x_fftw.f90)
                                 ! and adding the diffusion term
                                 rtmp = -wrk(i + 1, j, k, n) + wrk(i, j, k, 4)*fields(i, j, k, n) + fcomp(i, j, k, n)
-                          wrk(i + 1, j, k, n) = wrk(i, j, k, n) + wrk(i + 1, j, k, 4)*fields(i + 1, j, k, n) + fcomp(i + 1, j, k, n)
+                                wrk(i + 1, j, k, n) = wrk(i, j, k, n) + wrk(i + 1, j, k, 4)*fields(i + 1, j, k, n) + fcomp(i + 1, j, k, n)
                                 wrk(i, j, k, n) = rtmp
-
-                                ! dot this wrk variable with u - can try doing truncation here based on rtmp
 
                             end if
 
@@ -673,6 +667,7 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     real*8 :: new_epsilon_1, new_epsilon_2
     real*8 :: f_left, f_right, f_total, diffusion
     integer :: i, j, k, n
+    real*8 :: frac
 
     logical :: is_reading_file
 
@@ -824,12 +819,19 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
 
     ! now we have evaluated the integral so we can set the forcing components to their true value
     if (viscous_compensation == 1) then
+        frac = (2*3.1415)**3/(nx*ny*nz_all)
 
-        D_1 = D_1 * (2*3.1415)**3 / (nx * ny * nz_all)
-        D_2 = D_2 * (2*3.1415)**3 / (nx * ny * nz_all)
+        D_1 = D_1 * frac
+        D_2 = D_2 * frac
 
-        call add_broadcast_mpi(D_1, "D_1 forcing")
-        call add_broadcast_mpi(D_2, "D_2 forcing")
+        F_1 = F_1 * frac
+        F_2 = F_2 * frac
+
+        call add_broadcast_mpi(D_1)
+        call add_broadcast_mpi(D_2)
+
+        call add_broadcast_mpi(F_1)
+        call add_broadcast_mpi(F_2)
 
         F_1 = -1*F_1
         F_2 = -1*F_2
@@ -850,11 +852,8 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
         new_epsilon_1 = epsilon_1 + ((D_1 - dQ_1)/F_1)
         new_epsilon_2 = epsilon_2 + ((D_2 - dQ_2)/F_2)
 
-
-        write(*, *) "D1, DQ_1", D_1, dQ_1
-        !write(*, *) "D_1 - DQ_1 :: D_2 - DQ_2", (D_1 - dQ_1), (D_2 - dQ_2)
-        !write(*, *) "-D_1 + DQ_1 :: -D_2 + DQ_2", (dQ_1 - D_1), (dQ_2 - D_2)
-        !write(out, *) "ep1 inc, ep2 inc", ((D_1 - dQ_1)/F_1), ((D_2 - dQ_2)/F_2)
+        write(*, *) "D1, DQ_1, F_1", D_1, dQ_1, F_1
+        write(*, *) "ep1 inc, ep2 inc", ((D_1 - dQ_1)/F_1), ((D_2 - dQ_2)/F_2)
 
         ! recalculate the forcing components with the new values
         do n = 1, 3
