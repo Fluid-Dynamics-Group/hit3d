@@ -219,6 +219,9 @@ subroutine init_velocity
 !  normalize it so it has the unit total energy
   e_spec1 = e_spec1 / sum(e_spec1(1:kmax))
 
+    write(*,*) "akx aky akz", akx(1), aky(1), akz(1)
+    write(*,*) "nshell before indexing is", nint(sqrt(real(akx(1)**2 + aky(1)**2 + akz(1)**2, 4)))
+    write(*,*) "espec at nshell", e_spec(nint(sqrt(real(akx(1)**2 + aky(1)**2 + akz(1)**2, 4))))
   ! now go over all Fourier shells and multiply the velocities in a shell by
   ! the sqrt of ratio of the resired to the current spectrum
   do k = 1,nz

@@ -3,8 +3,14 @@
 # Define the correct flags and compilers
 
 MPIF90 = mpif90
+
+#
 FCFLAGS = -O4 -c -fallow-argument-mismatch
 LDFLAGS = -O4 -L/usr/local/lib -lfftw3
+
+#FCFLAGS = -O -c -fallow-argument-mismatch -ffree-line-length-none -ffixed-line-length-none -Wall -fcheck=all -g -fbacktrace 
+#LDFLAGS = -O -L/usr/local/lib -lfftw3
+
 
 # Franklin cluster, NERSC
 ifeq ($(NERSC_HOST), franklin)
