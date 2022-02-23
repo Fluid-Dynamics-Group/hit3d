@@ -117,6 +117,8 @@ subroutine init_velocity
 
                 n_shell = nint(sqrt(akx(i)**2 + aky(k)**2 + akz(j)**2))
 
+                write(*,*) "nshell (pre) is ", n_shell
+
                 if (n_shell .gt. 0 .and. n_shell .le. kmax) then
 
                     wrk(i, j, k, 4) = -(aky(k)*wrk(i + 1, j, k, 3) - akz(j)*wrk(i + 1, j, k, 2))
@@ -164,6 +166,7 @@ subroutine init_velocity
             do i = 1, nx
 
                 n_shell = nint(sqrt(real(akx(i)**2 + aky(k)**2 + akz(j)**2, 4)))
+                write(*,*) "n shell (pre 2) is ", n_shell
                 if (n_shell .gt. 0 .and. n_shell .le. kmax) then
                     fac2 = fac*(fields(i, j, k, 1)**2 + fields(i, j, k, 2)**2 + fields(i, j, k, 3)**2)
                     if (akx(i) .eq. 0.d0) fac2 = fac2*0.5d0
@@ -221,6 +224,7 @@ subroutine init_velocity
             do i = 1, nx + 2
 
                 n_shell = nint(sqrt(real(akx(i)**2 + aky(k)**2 + akz(j)**2, 4)))
+                write(*,*) "nshell indexing e_spec is", n_shell, "akx(i)", akx(i), "axy", aky(k), "akz", akz(j)
                 if (n_shell .gt. 0 .and. n_shell .le. kmax .and. e_spec(n_shell) .gt. zip) then
                     fields(i, j, k, 1:3) = fields(i, j, k, 1:3)*sqrt(e_spec1(n_shell)/e_spec(n_shell))
                 else

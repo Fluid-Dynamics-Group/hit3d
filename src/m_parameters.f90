@@ -488,8 +488,8 @@ contains
             energy_helicity_forcing = .false.
             energy_helicity_squared_forcing = .true.
         else 
-            write(out, *) "invalid forcing_method value", forcing_method
-            write(* , *) "invalid forcing_method value", forcing_method
+            write(out, *) "!!!!! invalid forcing_method value - EXITING", forcing_method
+            write(* , *) "!!!!! invalid forcing_method value - EXITING", forcing_method
             call my_exit(2)
             call m_openmpi_exit
         end if

@@ -110,9 +110,10 @@ subroutine write_velocity_field(current_timestep)
     real*8 :: fu_left1, fu_left2, fu_left3
     real*8 :: fu_right1, fu_right2, fu_right3, helicity_broadcast
 
-    character(len=60) :: filename, sizefile
+    character(len=60) :: filename
 
     ! TODO: make sure the wrk arrays are in the correct order for this
+    helicity_broadcast = 0.0
     call calculate_helicity(helicity_broadcast)
 
     if (load_initial_condition == 1) then
@@ -141,9 +142,9 @@ subroutine write_velocity_field(current_timestep)
         write (filename, "('output/velocity_field/', i5.5, '.csv')") current_timestep
         open (filenumber, file=filename, status="new")
 
-        write (filenumber, "('u,v,w,forcing,fu1,fu2,fu3,omgx,omgy,omgz,fu_left1,fu_left2,fu_left3,&
-            fu_right1,fu_right2,fu_right3' &
-            )")
+        write (filenumber, "('u,v,w,forcing,fu1,fu2,fu3,omgx,omgy,omgz,fu_left1,fu_left2,fu_left3, &
+            &u_right1,fu_right2,fu_right3' &
+            & )")
 
         do i = 1, nx
             do j = 1, ny
@@ -331,12 +332,11 @@ subroutine write_energy(current_time)
     ! tmp variables for calculations
     real*8 :: u, v, w, u_rhs, v_rhs, w_rhs, omg_x, omg_y, omg_z
     real*8 :: f_rate, f_rate_e, f_rate_h
-    real*8 :: energy_derivative, helicity_derivative
     ! loop variables
     integer :: i, j, k
 
     real*8 :: epsilon_1, epsilon_2
-    real*8 :: tmp_val, frac
+    real*8 :: frac
     real*8 :: re_lambda
     ! helicity calculated by broadcast calculation
     real*8 :: helicity_broadcast
@@ -362,6 +362,8 @@ subroutine write_energy(current_time)
     fcomp_omega_right = 0.
     fcomp_u_left = 0.
     fcomp_u_right = 0.
+    f_rate = 0.
+
 
     do k = 1, nz
         do j = 1, ny
@@ -439,7 +441,10 @@ subroutine write_energy(current_time)
     ! do the helicity calculation early so that we can use it in the next section
     call error_on_nan(helicity, "helicity")
     call add_through_mpi(helicity)
-    call add_broadcast_mpi(helicity_broadcast)
+
+    ! copy over the value of helicity from the loop and add it through the alternate method 
+    ! to ensure that the solver would function in the same way we would
+    call calculate_helicity(helicity_broadcast)
 
     ! adjust for other types of forcing
     if (energy_helicity_squared_forcing) then
@@ -676,8 +681,8 @@ subroutine add_broadcast_mpi(variable_to_add)
 
     tmp_val = variable_to_add
     count = 1
-    call MPI_REDUCE(tmp_val, variable_to_add, count, MPI_REAL8, MPI_SUM, 0, MPI_COMM_TASK, mpi_err)
-    call MPI_BCAST(variable_to_add, 1, MPI_REAL8, 0, MPI_COMM_TASK, mpi_err)
+    !call MPI_REDUCE(tmp_val, variable_to_add, count, MPI_REAL8, MPI_SUM, 0, MPI_COMM_TASK, mpi_err)
+    !call MPI_BCAST(variable_to_add, 1, MPI_REAL8, 0, MPI_COMM_TASK, mpi_err)
 end subroutine add_broadcast_mpi
 
 subroutine error_on_nan(variable_to_check, variable_name)
@@ -903,25 +908,38 @@ end subroutine
 ! expects the wrk(1:3) to contain VORTICITY data (x-space)
 ! and wrk(4:6) to contain VELOCITY data (x-space)
 subroutine calculate_helicity(helicity_value)
-    use m_work
-    implicit none
+    !use m_work
+    !use m_parameters
+    !implicit none
 
-    real*8 :: helicity_value
-    integer :: i, j, k, n
+    !real*8 :: helicity_value, frac
+    !integer :: i, j, k, n
 
-    helicity_value = 0.0
+    !write(*,*) "starting calculate_helicity"
 
-    do i = 1, nx
-        do j = 1, ny
-            do k = 1, nz
-                do n = 1,3
-                    helicity_value = helicity_value + &
-                        wrk(i,j,k, n) * wrk(i,j,k, n+3)
-                end do
-            end do
-        end do
-    end do
+    !frac = (2*3.1415)**3/(nx*ny*nz_all)
+    !helicity_value = 0.0
 
-    call add_broadcast_mpi(helicity_value)
+    !do i = 1, nx
+    !    do j = 1, ny
+    !        do k = 1, nz
+    !            do n = 1,3
+    !                helicity_value = helicity_value + &
+    !                    wrk(i,j,k, n) * wrk(i,j,k, n+3)
+    !            end do
+    !        end do
+    !    end do
+    !end do
+
+    !write(*,*) "helicity value", helicity_value
+
+    !helicity_value = helicity_value * frac
+
+    !write(*,*) "helicity value (after frac) ", helicity_value
+
+    !call error_on_nan(helicity_value, "helicity in calculate_helicity")
+    !!call add_broadcast_mpi(helicity_value)
+
+    !write(*,*) "helicity value (after frac + add) ", helicity_value
 
 end subroutine calculate_helicity

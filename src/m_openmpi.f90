@@ -50,7 +50,6 @@ contains
 
         implicit none
 
-        integer(kind=mpi_INTEGER_KIND) :: n
         integer*4 :: np_local
         integer :: i
 

@@ -53,7 +53,6 @@ subroutine write_tmp4_all
     use m_work
     implicit none
 
-    integer :: my_out = 13, i, j, k
     integer(kind=MPI_INTEGER_KIND) :: sizes(3), fh
     integer(kind=MPI_OFFSET_KIND)  :: offset
 

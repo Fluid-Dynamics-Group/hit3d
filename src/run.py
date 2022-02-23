@@ -9,8 +9,8 @@ from glob import glob
 from typing import List
 
 UNR = True
-IS_DISTRIBUTED = True
-#IS_DISTRIBUTED = False
+#IS_DISTRIBUTED = True
+IS_DISTRIBUTED = False
 IS_SINGULARITY = False
 
 if UNR:
@@ -292,7 +292,7 @@ def run_case(
             --require-forcing {require_forcing} \
             --export-divergence {export_divergence} \
             --export-vtk {int(export_vtk)} \
-            --forcing_method {forcing_method} \
+            --forcing-method {forcing_method} \
             input_file.in "
     )
 

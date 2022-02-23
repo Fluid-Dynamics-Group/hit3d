@@ -100,7 +100,7 @@ contains
 
         implicit none
         integer :: number
-        integer :: i, ierr, ierr_total
+        integer :: i, ierr
 
         ierr = 0
 

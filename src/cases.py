@@ -412,7 +412,7 @@ def figure2():
     build.to_json(save_json_folder)
 
 def test_helicity_squared_forcing():
-    TIME_END = 5
+    TIME_END = 0.05
     n = 0
     batch_name = f"helicity_squared_forcing_{n}"
     job_name = "single-case"
@@ -421,7 +421,8 @@ def test_helicity_squared_forcing():
     dt = 0.0005
     steps = int(TIME_END / dt)
     extra_caps = []
-    load_initial_data = 0
+    load_initial_data = 2
+    #load_initial_data = 0
 
     delta_1 = -0.001
     delta_2 = -0.001
@@ -435,10 +436,11 @@ def test_helicity_squared_forcing():
         copy_init_files(size)
 
     # if the directory exists remove any older files from the dir
-    if os.path.exists(save_json_folder):
-        raise ValueError(f"folder for {batch_name} already exists")
+    if IS_DISTRIBUTED:
+        if os.path.exists(save_json_folder):
+            raise ValueError(f"folder for {batch_name} already exists")
 
-    os.makedirs(save_json_folder, exist_ok=True)
+        os.makedirs(save_json_folder, exist_ok=True)
 
     run_shell_command("make")
 
@@ -453,6 +455,8 @@ def test_helicity_squared_forcing():
         load_initial_data=load_initial_data,
         epsilon1=ep1,
         epsilon2=ep2,
+        nprocs=1,
+        #forcing_method = 1
     )
 
     if IS_DISTRIBUTED:
@@ -465,7 +469,8 @@ def test_helicity_squared_forcing():
         build.to_json(save_json_folder)
 
     else:
-        raise ValueError("must run helicity test cases on the cluster")
+        case.run(0)
+        #raise ValueError("must run helicity test cases on the cluster")
 
 # helpful function for runnning one-off cases
 def one_case():
