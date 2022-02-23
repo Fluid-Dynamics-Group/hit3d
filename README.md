@@ -1,210 +1,216 @@
-# HIT3D Conservative Dissipation Control
+# Possible UB in HIT3d
 
-Control of 3D homogeneous isotropic turbulence with conservative dissipation.
+`akx` `aky` and `akz` are defined in `x_fftw.f90`:
 
-Author: Muralikrishnan Gopalakrishnan Meena, Oak Ridge National Laboratory
-
-The HIT3D code is a modified version of the original code forked from Sergei Chumakov's repository (http://schumakov.info/codes-hit3d.php).
-
-# Hit3DP
-HIT3DP is a pseudospectral DNS code, that is, it performs direct numerical
-simulation of incompressible isotripic homogeneous turbulence with or without
-forcing.  The code has capability of carrying passive scalars, Lagrangian
-particles and Large Eddy Simulation
-
-
-## Extra Packages
-The code is written in Fortran 90 and uses the two open libraries:
-- Open-MPI  (www.open-mpi.org)
-- FFTW3	    (www.fftw.org)
-
-## LICENSING
-The code is distributed under the terms of GNU GPLv3 license.  You can read
-the full text of the license at http://www.gnu.org/licenses/gpl.html
-
-Copyright (C) 2006-2010 Sergei Chumakov, Natalia Vladimirova, Misha Stepanov
-
-
-## COMPILING THE CODE
-First, edit the Makefile:
-- add a section that corresponds to the name of your machine.  Ideally it should
-  be a wrapper from your MPI implementation.
-- define the name of the F90 compiler
-- define FCFLAGS and LDFLAGS.  They should include the include directories, the
-  flags that link FFTW3 and MPI implementation.
-
-Run "gmake".
-
-## RUNNING THE CODE
-The directory "scripts" provides some examples of the batch job submission files.
-
-The directory "scripts" contains the following files:
-
-00_example.in a sample input file
-
-snapshot.gp	a Gnuplot instruction file that creates two plots that
- 		can get attached to the notification emails
-
-coyote.sub Running script for the Coyote cluster at LANL
-wcr.sub Example script for WCR cluster at Center for Turbuience Research
-		at Stanford University
-
-## MGM's NOTES: COMPLING \& RUNNING THE CODE
-
-Edited: 05/22/2021
-
-1. Edit `MAKEFILE` and add details for your machine. See above and sample machine binaries given in the Makefile.
-1. Check input file `sample_inp.in`. File name (also run name) should have 10 characters.
-2. Compile:
-```
-make clean
-make
-```
-3. Run code:
-```
-mpirun -np <nproc> ./hit3d <run-name> "nosplit"
-```
-Add this to submission file to run in HPC.
-
-Notes:
-1. File extension edited! Check `io_write_4.f90`, `m_io.f90`, `restart_io.f90`
-1. Scalar statistics: `stat1.gp` \& `stat2.gp` (see `m_stat.f90`)
-1. E-spectra in time: `es.gp` (see `m_stat.f90`)
-
-## THE INPUT FILE
-`NX`,`NY`,`NZ`  Number of grid points in one dimension.  The grid will be NX x NY x NZ.
-	  The physical dimensions will be 2*pi x 2*pi x 2*pi
-
-`ITMIN`	The timestep number of the restart file.  The restart files have names
-	such as "test__this.64.123456".  Here, "test__this" is the run name,
-	"64" signifies that the file is written with double precision and
-	"123456" is the timestep number.  If the ITMIN is set to 0, the
-	subroutine that defines	the initial conditionis for the flow is called.
-
-`ITMAX`	The maximum number of timesteps in the simulation.
-
-`IPRNT1` How often to generate the statistics.
-
-`IPRNT2` How often to write restart files
-
-`IWRITE4` How often to write the real*4 files that are used for post-processing.
-
-`TMAX` The runtime of the simulation (not the wallclocok time)
-
-`TRESCALE` The time at which to rescale the velocity.  This is used in decaying
-	  simulations when we want to establish some correlations first and
-	  then rescale the velocity field so it has higher kinetic energy.
-
-`TSCALAR` When to start moving the passive scalars.
-
-`flow_type` Parameter that switches the flow type
-	  0 - decaying turbulence
-	  1 - forced turbulence
-
-`RE` The local Reynolds number (1/nu, where nu is viscosity)
-
-`DT` The timestep.
-	  If DT is negative, then the timestep is fixed to be (-DT)
-	  If DT is positive, the timestep is found from the stability
-	  criteria for the time-stepping scheme that is used.
-
-`ISPCV1` Initial spectrum type (see init_velocity.f90)
-`mv1` initial infrared exponent in the spectrum
-`wm0v1` initial peak wavenumber in the spectrum
-
-
-`force_type` The type of the forcing that is applied for the case of forced turbulence.
-	* 1 - forcing from Michaels PRL paper (PRL #79(18) p.3411)
-	* So far no other forcing has been implemented
-
-`KFMAX`	The upper bound for the forcing band in the Fourier space.
-
-`FAMP` The magnitude of the forcing (usually set to 0.5)
-
-`det_rand` The parameter that switches the random generation for the random seeds for the code.
-
-DEFUNCTIONAL.  In the current version of the code, the seeds for the
-random number generator are fixed and are taken from the input file.
-The fixed seeds have the effect of producing the initial data that
-looks similar for different resolutions (the large features of
-initial flow in 32^3 simulation will look similar to the large features
-of a 1024^3 simulation if the seeds are the same).
-
-`RN1`, `RN2`, `RN3` - random number seeds
-
-
-`DEALIAS` The parameter that switches between the dealiasing algorithms.
-
-* 0 - the standard 3/2-rule (or 2/3 rule).  Faster computations, but fewer modes.
-* 1 - the phase shift combined with truncation.  This retains much more
-	modes than the 2/3-rule, while increasing the computations 60% or so.
-	The most economical mode for DNS in terms of flops per the number of
-	Fourier modes in the resulting data.
-
-`np` The number of Lagrangian particles
-
-`particle tracking mechanism`:
-
-* 0 - trilinear interpolations
-* 1 - 4-point cubic interpolation
-
-`time_p` time in the simulation when to release the particles in the flow
-
-`particle_filter_size`
-
-The particles can be advected by fully resolved field or by locally averaged
-field.  The filter size determines the size of the filter that is applied
-to the velocity field before computing the particles' velocities.
-
-`les_model` The LES model.  See m_les.f90 for list of the current models.
-
-`NUMS` The number of passive scalars to carry around
-
-The last section contains the parameters of the passive scalars.  Each scalar
-must have the type, Schmidt number, infrared exponent, peak wavenumber and
-reaction rate.
-
-`TYPE`:
-*0	The scalar that is forced by the mean gradient.
-
-* 1-9 The initial conditions for the scalar are generated using Fourier space.
-	* 1: Exponential spectrum
-	* 2: von Karman spectrum
-	* 3: double-delta PDF
-
-* 10 The initial conditions for the scalar are generated in the real space.
-	* 11: single slab of the scalar.
-	* 12: two slabs of the scalar
-	* 13: 1-D sinusoidal wave of the scalar
-
-
-The reaction rate parameter is defunctional in this version of the code.
-
-## Example
-The provided example in scripts/00_example.in is somewhat difficult to run out of the box. The
-solver requires that the file name (not including the .in extension) is 10 characters in length.
-Therefore, I have moved the example file to the project root (./input_file.in).
-
-The solver may be run on the sample input file with
-
-```
-./hit3d.x input_file
+```fortran
+    do ix = 1, nx + 1, 2
+       akx(ix) = real((ix - 1) / 2, 8)		! <--- here
+       akx(ix + 1) = akx(ix)
+       coskx2(ix) = dcos(half * akx(ix))
+       sinkx2(ix) = dsin(half * akx(ix))
+       coskx2(ix + 1) = coskx2(ix)
+       sinkx2(ix + 1) = sinkx2(ix)
+       rezkax(ix) = 0
+       if (dabs(akx(ix)) > (real(nz_all, 8)) / 3.0D0) rezkax(ix) = 1
+    end do
+    ! in Fourier space ky-axis is distributed among the processors
+    do iy = 1, nz
+       aky(iy) = real(myid * nz + iy - 1, 8)	! <--- here
+       if (aky(iy) > (0.5D0 * real(ny, 8))) aky(iy) = aky(iy) - real(ny, 8)
+       cosky2(iy) = dcos(half * aky(iy))
+       sinky2(iy) = dsin(half * aky(iy))
+       rezkay(iy) = 0
+       if (dabs(aky(iy)) > (real(ny, 8)) / 3.0D0) rezkay(iy) = 1
+    end do
+    ! in Fourier space the z wavenumbers are aligned along the second index
+    do iz = 1, ny
+       akz(iz) = real(iz - 1, 8)		! <--- here
+       if (akz(iz) > (0.5D0 * real(nz_all, 8))) akz(iz) = akz(iz) - real(nz_all, 8)
+       coskz2(iz) = dcos(half * akz(iz))
+       sinkz2(iz) = dsin(half * akz(iz))
+       rezkaz(iz) = 0
+       if (dabs(akz(iz)) > (real(nz_all, 8)) / 3.0D0) rezkaz(iz) = 1
+    end do
 ```
 
-If there is no output some diagnostic information can be found in a newly created ./d00000.txt.
+If you notice, if the mpi rank `myid` is zero (for instance, on the master process)
+all of `akx(1)`, `aky(1)` and `akz(1)` will be zero. This routine is called in `main.f90`:
 
-Also note that the solver really doesnt like input file names that start with "NUM_...". I have
-no idea why, probably related to how fortran parses command line arguments.
-
-After running the above command a `stat1.gp` and `stat2.gp` file will be produced. These
-files can be plotted with `./scripts/snapshot.gp`:
 
 ```
-./scripts/snapshot.gp
+  implicit none
+
+  integer :: n
+  character :: sym
+
+  call m_timing_init   ! Setting the time zero
+  call m_openmpi_init
+  call m_io_init
+  call m_parameters_init
+  call m_les_init
+  call m_fields_init
+  call m_work_init
+
+
+  ! allocating and initializing FFTW arrays
+  call x_fftw_allocate(1)
+  call x_fftw_init				! < --------  called here
+
+  call m_stats_init
+  call m_force_init
+
+  ! allocating and initializing particles
+  if (task.eq.'parts') then
+     call particles_init
+  end if
+
+  write(out,*) "IN THE PROGRAM."
+  call flush(out)
+
+  ! initializing the random number generator
+  ! call rand_knuth_init
+
+  ! getting the wallclock runlimit for the job
+  call get_job_runlimit
+
+
+!-----------------------------------------------------------------------
+!     Starting from the beginning or from the saved flowfield
+!-----------------------------------------------------------------------
+  if(ITMIN.eq.0) then
+     call begin_new				! <---- where we are going next
+  else
+     call begin_restart
+  endif
 ```
 
-which will produce `1.png` and `2.png` for viewing.
+Then, in `begin_new`:
 
-## Questions
+```
+subroutine begin_new
 
-email Sergei Chumakov at sergei@chumakov.info
+  use m_openmpi
+  use m_parameters
+  use m_fields
+  use m_stats
+  implicit none
+
+
+  ! defining time
+  TIME = zip
+
+  ! deciding if we advance scalars or not
+  if (TSCALAR.le.zip .and. n_scalars.gt.0) int_scalars = .true.
+
+  ! defining the iteration number
+  ITIME = 0
+  file_ext = '000000'
+
+
+
+  if (task.eq.'hydro') then
+    call init_velocity						! <-----  we use "hydro", so this routine gets called
+    if (n_scalars.gt.0) call init_scalars
+    call io_write_4
+  end if
+
+  if (task_split) then
+     call fields_to_stats
+     if (task.eq.'stats') call stat_main
+  end if
+
+  return
+end subroutine begin_new
+```
+
+The problem with `ak_(1)` arises in `init_velocity.f90` deep inside the `init_velocity` subroutine.
+At line 222:
+
+```
+    write(*,*) "akx aky akz", akx(1), aky(1), akz(1)
+    write(*,*) "nshell before indexing is", nint(sqrt(real(akx(1)**2 + aky(1)**2 + akz(1)**2, 4)))
+    write(*,*) "espec at nshell", e_spec(nint(sqrt(real(akx(1)**2 + aky(1)**2 + akz(1)**2, 4))))
+  ! now go over all Fourier shells and multiply the velocities in a shell by
+  ! the sqrt of ratio of the resired to the current spectrum
+  do k = 1,nz
+     do j = 1,ny
+        do i = 1,nx+2
+
+           n_shell = nint(sqrt(real(akx(i)**2 + aky(k)**2 + akz(j)**2, 4)))
+           if (n_shell .gt. 0 .and. n_shell .le. kmax .and. e_spec(n_shell) .gt. zip) then
+              fields(i,j,k,1:3) = fields(i,j,k,1:3) * sqrt(e_spec1(n_shell)/e_spec(n_shell))
+           else
+              fields(i,j,k,1:3) = zip
+           end if
+
+        end do
+     end do
+  end do
+```
+
+You will notice that `n_shell` is defined based on the magnitude of `ak_( )`. At `i,j,k = 1`, so since
+`akx(1) = 0.`, `aky(1) = 0.`, `akz(1) = 0.`, the magnitude on the master node is `n_shell = 0`. 
+On the next line, we see that `n_shell` is used to index `e_spec`, and `e_spec` is allocated
+for indicied `e_spec(1:kmax)`.
+
+Running the code with compiler optimizations removes this issue (read: undefined behavior):
+
+```
+FCFLAGS = -O4 -c -fallow-argument-mismatch
+LDFLAGS = -O4 -L/usr/local/lib -lfftw3
+```
+
+Running: 
+
+```
+# from src/
+make clean && make && mpirun -np 1 ./hit3d.x "input_file.in" "nosplit"
+```
+
+The output from the `write` statements is:
+
+```
+ akx aky akz   0.0000000000000000        0.0000000000000000        0.0000000000000000
+ nshell before indexing is           0
+ espec at nshell   8.6955553668059392E-322
+```
+
+Then, if you run the code without compiler optimizations:
+
+```
+FCFLAGS = -O -c -fallow-argument-mismatch -ffree-line-length-none -ffixed-line-length-none -Wall -fcheck=all -g -fbacktrace 
+LDFLAGS = -O -L/usr/local/lib -lfftw3
+```
+
+```
+# from src/
+make clean && make && mpirun -np 1 ./hit3d.x "input_file.in" "nosplit"
+```
+
+```
+akx aky akz   0.0000000000000000        0.0000000000000000        0.0000000000000000
+ nshell before indexing is           0
+At line 224 of file init_velocity.f90
+Fortran runtime error: Index '0' of dimension 1 of array 'e_spec' below lower bound of 1
+
+Error termination. Backtrace:
+#0  0x55d131750cbc in init_velocity_
+        at /home/brooks/github/hit3d/src/init_velocity.f90:224
+#1  0x55d13174c027 in begin_new_
+        at /home/brooks/github/hit3d/src/begin_new.f90:23
+#2  0x55d1317486a3 in x_code
+        at /home/brooks/github/hit3d/src/main.f90:57
+#3  0x55d13174b6a3 in main
+        at /home/brooks/github/hit3d/src/main.f90:3
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[42808,1],0]
+  Exit code:    2
+--------------------------------------------------------------------------
+```
