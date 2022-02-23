@@ -414,7 +414,7 @@ def figure2():
 # helpful function for runnning one-off cases
 def one_case():
     TIME_END = 5
-    batch_name = "inviscid_example_0"
+    batch_name = "inviscid_example_1"
     job_name = "single-case"
     save_json_folder = f"{BASE_SAVE}/{batch_name}"
     size = 128
@@ -472,7 +472,7 @@ def one_case():
 
         copy_distribute_files(save_json_folder, batch_name, extra_caps, False, size)
 
-        build = Build("master", "master")
+        build = Build("visc-compensation-tracking", "master")
         build.to_json(save_json_folder)
 
     else:
@@ -529,7 +529,8 @@ def track_inviscid_compensation_local():
         # first, an inviscid case
 
         print("running baseline case")
-        baseline_case = make_case(1, 2, 0.0, 0.0)
+        #baseline_case = make_case(1, 2, 0.0, 0.0)
+        baseline_case = make_case(0, 2, 0.0, 0.0)
         baseline_case.run(1)
 
         # move the binary files so we can execute them here
