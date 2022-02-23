@@ -99,6 +99,13 @@ module m_parameters
     ! = 0 -> do not export them
     integer :: export_vtk
 
+
+    ! what type of forcing to apply
+    ! 0 -> energy / helicity forcing
+    ! 1 -> energy / helicity^2 forcing
+    integer :: forcing_method 
+    logical :: energy_helicity_forcing, energy_helicity_squared_forcing
+
     ! number of particles assigned to the processor
     ! and the total number of particles
     integer(kind=MPI_INTEGER_KIND) :: np, np1, nptot
@@ -470,6 +477,25 @@ contains
 
         read (in, *, err=9000) export_vtk
         write (out, *) "export_vtk", export_vtk
+        
+        read (in, *, err=9000) forcing_method
+        write (out, *) "forcing_method", export_vtk
+
+        if (forcing_method == 0) then 
+            energy_helicity_forcing = .true.
+            energy_helicity_squared_forcing = .false.
+        elseif (forcing_method == 1) then
+            energy_helicity_forcing = .false.
+            energy_helicity_squared_forcing = .true.
+        else 
+            write(out, *) "invalid forcing_method value", forcing_method
+            write(* , *) "invalid forcing_method value", forcing_method
+            call my_exit(2)
+            call m_openmpi_exit
+        end if
+
+        write(out, *) "energy helicity forcing", energy_helicity_forcing
+        write(out, *) "energy helicity^2 forcing", energy_helicity_squared_forcing
 
         read (in, *) ! skips the --- line
 

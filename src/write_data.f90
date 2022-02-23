@@ -92,6 +92,8 @@ subroutine send_scalars(wrk_idx, current_timestep)
     end if
 end subroutine send_scalars
 
+! this subroutine is called with wrk(1:3) with velocity info
+! and wrk(4:6) vorticity information
 subroutine write_velocity_field(current_timestep)
     use m_work ! wrk()
     use m_data
@@ -106,9 +108,12 @@ subroutine write_velocity_field(current_timestep)
     real*8 :: fcomp_left, fcomp_right, fcomp_total, epsilon_1, epsilon_2
     real*8 :: fu1, fu2, fu3
     real*8 :: fu_left1, fu_left2, fu_left3
-    real*8 :: fu_right1, fu_right2, fu_right3
+    real*8 :: fu_right1, fu_right2, fu_right3, helicity_broadcast
 
     character(len=60) :: filename, sizefile
+
+    ! TODO: make sure the wrk arrays are in the correct order for this
+    call calculate_helicity(helicity_broadcast)
 
     if (load_initial_condition == 1) then
         epsilon_1 = 1.0
@@ -177,7 +182,11 @@ subroutine write_velocity_field(current_timestep)
                                   epsilon_2*(udotw*v - umag2*omgy_) + &
                                   epsilon_2*(udotw*w - umag2*omgz_)
 
-                    fcomp_total = fcomp_left + fcomp_right
+                    if (energy_helicity_forcing) then
+                        fcomp_total = fcomp_left + fcomp_right
+                    elseif (energy_helicity_squared_forcing) then
+                        fcomp_total = helicity_broadcast**2 *fcomp_left + helicity_broadcast*fcomp_right
+                    end if
 
                     write (filenumber, "(E16.10, ',', E16.10 ',', E16.10, ',' E16.10, ',' &
 &                        E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',' &
@@ -264,7 +273,7 @@ subroutine init_write_energy
         open (filenumber, file="output/energy.csv")
         write (filenumber, "('current_time,', 'energy,', 'solver_energy,', 'helicity,', 'solver_helicity,', &
 &              'fdot_u_1,', 'fdot_u_2,', 'fdot_omega_1,', 'fdot_omega_2,', 'f_rate_e,', 'f_rate_h,', &
-&              're_lambda,', 'F_1,', 'F_2,', 'D_1,', 'D_2,', 'helicity1' &
+&              're_lambda,', 'F_1,', 'F_2,', 'D_1,', 'D_2,', 'helicity1,', 'helicity_broadcast' &
 &          )")
     end if
 
@@ -329,6 +338,8 @@ subroutine write_energy(current_time)
     real*8 :: epsilon_1, epsilon_2
     real*8 :: tmp_val, frac
     real*8 :: re_lambda
+    ! helicity calculated by broadcast calculation
+    real*8 :: helicity_broadcast
 
     ! ifft the RHS variables so we are in x-space
     call ifft_rhs
@@ -344,6 +355,7 @@ subroutine write_energy(current_time)
 
     energy = 0.
     helicity = 0.
+    helicity_broadcast = 0.
     solver_energy = 0.
     solver_helicity = 0.
     fcomp_omega_left = 0.
@@ -402,6 +414,7 @@ subroutine write_energy(current_time)
                                     omg_y*(udotw*v - umag2*omg_y) + &
                                     omg_z*(udotw*w - umag2*omg_z)
 
+
                 f_rate = f_rate + &
                          (v*omg_z - w*omg_y)**2 + &
                          (u*omg_z - w*omg_x)**2 + &
@@ -423,6 +436,20 @@ subroutine write_energy(current_time)
     fcomp_omega_left = fcomp_omega_left*frac
     fcomp_omega_right = fcomp_omega_right*frac
 
+    ! do the helicity calculation early so that we can use it in the next section
+    call error_on_nan(helicity, "helicity")
+    call add_through_mpi(helicity)
+    call add_broadcast_mpi(helicity_broadcast)
+
+    ! adjust for other types of forcing
+    if (energy_helicity_squared_forcing) then
+        fcomp_u_left = fcomp_u_left * helicity**2
+        fcomp_omega_left = fcomp_u_left * helicity**2
+
+        fcomp_u_right = fcomp_u_left * helicity
+        fcomp_omega_right = fcomp_u_left * helicity
+    end if
+
     ! we initialize these values for the rate specifically
     epsilon_1 = PERTamp1
     epsilon_2 = PERTamp2
@@ -442,7 +469,6 @@ subroutine write_energy(current_time)
     ! check that all of the variables are not NAN
     !
 
-    call error_on_nan(helicity, "helicity")
     call error_on_nan(solver_helicity, "solver helicity")
     call error_on_nan(energy, "energy")
     call error_on_nan(solver_energy, "solver energy")
@@ -467,7 +493,6 @@ subroutine write_energy(current_time)
     ! sum the values through mpi
     !
 
-    call add_through_mpi(helicity)
     call add_through_mpi(solver_helicity)
     call add_through_mpi(energy)
     call add_through_mpi(solver_energy)
@@ -514,11 +539,11 @@ subroutine write_energy(current_time)
         write (filenumber, "(E16.10, ',', E16.10, ',', E16.10, ',', &
   &            E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',' E16.10, ',', E16.10, ',' &
 &               E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',' E16.10, ',', E16.10, ',' &
-&               E16.10, ',', E16.10 &
+&               E16.10, ',', E16.10, ',', E16.10 &
 &              )") &
             current_time, energy, solver_energy, helicity, solver_helicity, fcomp_u_left, &
             fcomp_u_right, fcomp_omega_left, fcomp_omega_right, f_rate_e, f_rate_h, re_lambda, &
-            F_1, F_2, D_1, D_2, helicity1
+            F_1, F_2, D_1, D_2, helicity1, helicity_broadcast
 
         flush (filenumber)
     end if
@@ -874,3 +899,29 @@ subroutine calculate_vorticity_velocity_x_space()
     ! wrk( 1-3) contains velocity information (x-space)
     ! wrk( 4-6) contains omega information (x-space)
 end subroutine
+
+! expects the wrk(1:3) to contain VORTICITY data (x-space)
+! and wrk(4:6) to contain VELOCITY data (x-space)
+subroutine calculate_helicity(helicity_value)
+    use m_work
+    implicit none
+
+    real*8 :: helicity_value
+    integer :: i, j, k, n
+
+    helicity_value = 0.0
+
+    do i = 1, nx
+        do j = 1, ny
+            do k = 1, nz
+                do n = 1,3
+                    helicity_value = helicity_value + &
+                        wrk(i,j,k, n) * wrk(i,j,k, n+3)
+                end do
+            end do
+        end do
+    end do
+
+    call add_broadcast_mpi(helicity_value)
+
+end subroutine calculate_helicity

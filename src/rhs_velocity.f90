@@ -1,6 +1,7 @@
 module forcing_vaues
     real*8 F_1, F_2
     real*8 D_1, D_2
+    real*8 helicity_rhs_velocity
 end module
 
 subroutine rhs_velocity
@@ -667,9 +668,10 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     real*8 :: new_epsilon_1, new_epsilon_2
     real*8 :: f_left, f_right, f_total, diffusion
     integer :: i, j, k, n
-    real*8 :: frac
+    real*8 :: frac, helicity
 
     logical :: is_reading_file
+
 
     call check_read_viscous_compensation(is_reading_file, .false.)
 
@@ -749,13 +751,21 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
     ! wrk(:,:,:,5) -> v (x-space)
     ! wrk(:,:,:,6) -> w (x-space)
 
+    ! now that we have wrk() organized correctly, we can calculate the helicity of the data.
+    ! we only need helicity information sometimes
+    if (energy_helicity_squared_forcing) then
+        call calculate_helicity(helicity)
+    end if
+
     ! ******2. Compute forcing terms & take FFTs
-    ! u \cdot omg
-    fcomp(:, :, :, 0) = wrk(:, :, :, 1)*wrk(:, :, :, 4) + wrk(:, :, :, 2)*wrk(:, :, :, 5) + wrk(:, :, :, 3)*wrk(:, :, :, 6)
-    ! ||omg||^2
-    fcomp(:, :, :, 1) = wrk(:, :, :, 1)**2 + wrk(:, :, :, 2)**2 + wrk(:, :, :, 3)**2
-    ! ||u||^2
-    fcomp(:, :, :, 2) = wrk(:, :, :, 4)**2 + wrk(:, :, :, 5)**2 + wrk(:, :, :, 6)**2
+    if (energy_helicity_forcing .or. energy_helicity_squared_forcing) then 
+        ! u \cdot omg
+        fcomp(:, :, :, 0) = wrk(:, :, :, 1)*wrk(:, :, :, 4) + wrk(:, :, :, 2)*wrk(:, :, :, 5) + wrk(:, :, :, 3)*wrk(:, :, :, 6)
+        ! ||omg||^2
+        fcomp(:, :, :, 1) = wrk(:, :, :, 1)**2 + wrk(:, :, :, 2)**2 + wrk(:, :, :, 3)**2
+        ! ||u||^2
+        fcomp(:, :, :, 2) = wrk(:, :, :, 4)**2 + wrk(:, :, :, 5)**2 + wrk(:, :, :, 6)**2
+    end if
 
     do i = 1, nx
         do j = 1, ny
@@ -767,10 +777,21 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
                     ! Calculate the forcing components for 1 and 2
                     !
 
-                    ! u \cdot omg * omg_i - |omg|^2 * u_i
-                    f_left = fcomp(i, j, k, 0)*wrk(i, j, k, n) - fcomp(i, j, k, 1)*wrk(i, j, k, 3 + n)
-                    ! u \cdot omg * u_i - |u|^2 * omg_i
-                    f_right = fcomp(i, j, k, 0)*wrk(i, j, k, 3 + n) - fcomp(i, j, k, 2)*wrk(i, j, k, n)
+                    if (energy_helicity_forcing) then
+                        ! u \cdot omg * omg_i - |omg|^2 * u_i
+                        f_left = fcomp(i, j, k, 0)*wrk(i, j, k, n) - fcomp(i, j, k, 1)*wrk(i, j, k, 3 + n)
+                        ! u \cdot omg * u_i - |u|^2 * omg_i
+                        f_right = fcomp(i, j, k, 0)*wrk(i, j, k, 3 + n) - fcomp(i, j, k, 2)*wrk(i, j, k, n)
+                    else if (energy_helicity_squared_forcing) then
+                        ! These are the exact same forcing equations as above except
+                        ! the first equation is multiplied by h^2
+                        ! the second equation is multiplied by h
+
+                        ! h^2 * (u \cdot omg * omg_i - |omg|^2 * u_i)
+                        f_left = helicity**2  * (fcomp(i, j, k, 0)*wrk(i, j, k, n) - fcomp(i, j, k, 1)*wrk(i, j, k, 3 + n))
+                        ! h * (u \cdot omg * u_i - |u|^2 * omg_i)
+                        f_right = helicity * (fcomp(i, j, k, 0)*wrk(i, j, k, 3 + n) - fcomp(i, j, k, 2)*wrk(i, j, k, n))
+                    end if
 
                     ! store fcomp left and right so they can be exported to a VTK file later
                     ! in a 3D flowfield
@@ -857,8 +878,16 @@ subroutine update_forcing_viscous_compensation(epsilon_1, epsilon_2)
 
         ! recalculate the forcing components with the new values
         do n = 1, 3
-            fcomp(:, :, :, 2 + n) = new_epsilon_1*(fcomp(:, :, :, 0)*wrk(:, :, :, n) - fcomp(:, :, :, 1)*wrk(:, :, :, 3 + n)) + &
-                                    new_epsilon_2*(fcomp(:, :, :, 0)*wrk(:, :, :, 3 + n) - fcomp(:, :, :, 2)*wrk(:, :, :, n))
+            if (energy_helicity_forcing) then
+                fcomp(:, :, :, 2 + n) = new_epsilon_1*(fcomp(:, :, :, 0)*wrk(:, :, :, n) - fcomp(:, :, :, 1)*wrk(:, :, :, 3 + n)) + &
+                                        new_epsilon_2*(fcomp(:, :, :, 0)*wrk(:, :, :, 3 + n) - fcomp(:, :, :, 2)*wrk(:, :, :, n))
+            elseif (energy_helicity_squared_forcing) then
+                ! exact same forcing equations except f_left is multiplied by h^2
+                ! and f_righ is multiplied by h
+                fcomp(:, :, :, 2 + n) = new_epsilon_1 * helicity**2 * (fcomp(:, :, :, 0)*wrk(:, :, :, n) - fcomp(:, :, :, 1)*wrk(:, :, :, 3 + n)) + &
+                                        new_epsilon_2 * helicity    * (fcomp(:, :, :, 0)*wrk(:, :, :, 3 + n) - fcomp(:, :, :, 2)*wrk(:, :, :, n))
+
+            endif
         end do
     end if
 

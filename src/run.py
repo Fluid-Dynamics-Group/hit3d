@@ -9,8 +9,8 @@ from glob import glob
 from typing import List
 
 UNR = True
-#IS_DISTRIBUTED = True
-IS_DISTRIBUTED = False
+IS_DISTRIBUTED = True
+#IS_DISTRIBUTED = False
 IS_SINGULARITY = False
 
 if UNR:
@@ -62,6 +62,7 @@ class RunCase:
         io_steps=None,
         export_divergence=0,
         nscalar=0,
+        forcing_method=0
     ):
 
         if steps >= 100_000:
@@ -98,6 +99,8 @@ class RunCase:
         self.require_forcing = require_forcing
         self.io_steps = io_steps
         self.nscalar = nscalar
+
+        self.forcing_method = forcing_method
 
     def validate_params(self):
         if (
@@ -138,6 +141,7 @@ class RunCase:
             self.require_forcing,
             self.export_divergence,
             self.nscalar,
+            self.forcing_method
         )
 
     def __repr__(self):
@@ -173,6 +177,7 @@ class RunCase:
             "io_steps": self.io_steps,
             "export_divergence": self.export_divergence,
             "nscalar": self.nscalar,
+            "forcing_method": self.forcing_method,
         }
 
         with open(file_name, "w", encoding="utf-8") as file:
@@ -239,6 +244,7 @@ def run_case(
     require_forcing,
     export_divergence,
     nscalar,
+    forcing_method:int
 ):
 
     if IS_DISTRIBUTED:
@@ -286,6 +292,7 @@ def run_case(
             --require-forcing {require_forcing} \
             --export-divergence {export_divergence} \
             --export-vtk {int(export_vtk)} \
+            --forcing_method {forcing_method} \
             input_file.in "
     )
 
@@ -1106,6 +1113,7 @@ if __name__ == "__main__":
     from cases import one_case
     from cases import track_inviscid_compensation_local
     from cases import generate_initial_conditions
+    from cases import test_helicity_squared_forcing 
 
     # forcing_cases()
     # one_case()
@@ -1114,7 +1122,8 @@ if __name__ == "__main__":
     # forcing_cases()
     # full_system_test()
     #figure2()
-    track_inviscid_compensation_local()
+    # track_inviscid_compensation_local()
     # generate_initial_conditions()
     # track_viscous_compensation_remote(False)
+    test_helicity_squared_forcing()
     pass

@@ -411,6 +411,62 @@ def figure2():
     build = Build("visc-compensation-tracking", "master")
     build.to_json(save_json_folder)
 
+def test_helicity_squared_forcing():
+    TIME_END = 5
+    n = 0
+    batch_name = f"helicity_squared_forcing_{n}"
+    job_name = "single-case"
+    save_json_folder = f"{BASE_SAVE}/{batch_name}"
+    size = 128
+    dt = 0.0005
+    steps = int(TIME_END / dt)
+    extra_caps = []
+    load_initial_data = 0
+
+    delta_1 = -0.001
+    delta_2 = -0.001
+    epsilon_generator = EpsilonControl.load_json()
+    ep1 = epsilon_generator.epsilon_1(delta_1)
+    ep2 = epsilon_generator.epsilon_2(delta_2)
+
+    output_folder = define_output_folder()
+
+    if not (load_initial_data == 2):
+        copy_init_files(size)
+
+    # if the directory exists remove any older files from the dir
+    if os.path.exists(save_json_folder):
+        raise ValueError(f"folder for {batch_name} already exists")
+
+    os.makedirs(save_json_folder, exist_ok=True)
+
+    run_shell_command("make")
+
+    case = RunCase(
+        skip_diffusion=1,
+        size=size,
+        dt=dt,
+        steps=steps,
+        restarts=0,
+        reynolds_number=40,
+        path=output_folder,
+        load_initial_data=load_initial_data,
+        epsilon1=ep1,
+        epsilon2=ep2,
+    )
+
+    if IS_DISTRIBUTED:
+        print("creating files to run on distributed compute")
+        case.write_to_json(job_name, save_json_folder)
+
+        copy_distribute_files(save_json_folder, batch_name, extra_caps, False, size)
+
+        build = Build("visc-compensation-tracking", "master")
+        build.to_json(save_json_folder)
+
+    else:
+        raise ValueError("must run helicity test cases on the cluster")
+
 # helpful function for runnning one-off cases
 def one_case():
     TIME_END = 5
