@@ -479,7 +479,7 @@ contains
         write (out, *) "export_vtk", export_vtk
         
         read (in, *, err=9000) forcing_method
-        write (out, *) "forcing_method", export_vtk
+        write (out, *) "forcing_method", forcing_method
 
         if (forcing_method == 0) then 
             energy_helicity_forcing = .true.

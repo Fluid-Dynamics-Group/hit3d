@@ -264,6 +264,7 @@ CONTAINS
         ! in Fourier space it is (nx / 2 + 1) complex numbers along kx-axis
         do ix = 1, nx + 1, 2
             akx(ix) = real((ix - 1)/2, 8)
+            write(*,*) "when creating akx, ak(", ix, ") =", akx(ix)
             akx(ix + 1) = akx(ix)
             coskx2(ix) = dcos(half*akx(ix))
             sinkx2(ix) = dsin(half*akx(ix))
@@ -304,6 +305,8 @@ CONTAINS
                 end do
             end do
         end do
+
+        write(*,*) "xfftw akx(1)", akx(1), "aky(1)", aky(1), "akz(1)", akz(1), "nshell 1,1,1", nint(sqrt(real(akx(1)**2 + aky(1)**2 + akz(1)**2, 4)))
 
         write (out, *) "x_fftw arrays are intiialized."
         call flush (out)

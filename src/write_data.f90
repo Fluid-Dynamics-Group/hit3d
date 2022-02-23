@@ -143,8 +143,8 @@ subroutine write_velocity_field(current_timestep)
         open (filenumber, file=filename, status="new")
 
         write (filenumber, "('u,v,w,forcing,fu1,fu2,fu3,omgx,omgy,omgz,fu_left1,fu_left2,fu_left3, &
-            &u_right1,fu_right2,fu_right3' &
-            & )")
+            u_right1,fu_right2,fu_right3' &
+            )")
 
         do i = 1, nx
             do j = 1, ny
@@ -273,9 +273,9 @@ subroutine init_write_energy
     if (master == myid) then
         open (filenumber, file="output/energy.csv")
         write (filenumber, "('current_time,', 'energy,', 'solver_energy,', 'helicity,', 'solver_helicity,', &
-&              'fdot_u_1,', 'fdot_u_2,', 'fdot_omega_1,', 'fdot_omega_2,', 'f_rate_e,', 'f_rate_h,', &
-&              're_lambda,', 'F_1,', 'F_2,', 'D_1,', 'D_2,', 'helicity1,', 'helicity_broadcast' &
-&          )")
+                'fdot_u_1,', 'fdot_u_2,', 'fdot_omega_1,', 'fdot_omega_2,', 'f_rate_e,', 'f_rate_h,', &
+                're_lambda,', 'F_1,', 'F_2,', 'D_1,', 'D_2,', 'helicity1,', 'helicity_broadcast' &
+          )")
     end if
 
     filenumber = 622
@@ -542,10 +542,10 @@ subroutine write_energy(current_time)
         ! initialize the name of the csv that this mpi process will write to
         open (filenumber, file="output/energy.csv")
         write (filenumber, "(E16.10, ',', E16.10, ',', E16.10, ',', &
-  &            E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',' E16.10, ',', E16.10, ',' &
-&               E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',' E16.10, ',', E16.10, ',' &
-&               E16.10, ',', E16.10, ',', E16.10 &
-&              )") &
+                E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',' E16.10, ',', E16.10, ',' &
+                E16.10, ',', E16.10, ',', E16.10, ',', E16.10, ',' E16.10, ',', E16.10, ',' &
+                E16.10, ',', E16.10, ',', E16.10 &
+              )") &
             current_time, energy, solver_energy, helicity, solver_helicity, fcomp_u_left, &
             fcomp_u_right, fcomp_omega_left, fcomp_omega_right, f_rate_e, f_rate_h, re_lambda, &
             F_1, F_2, D_1, D_2, helicity1, helicity_broadcast
@@ -855,10 +855,10 @@ subroutine write_derivatives(current_timestep)
                     divergence = dudx + dvdy + dwdz
 
                     write (filenumber, "( &
-&                        E16.10, ',', E16.10 ',', E16.10, ',', &
-&                        E16.10, ',', E16.10 ',', E16.10, ',', &
-&                        E16.10, ',', E16.10 ',', E16.10, ',', &
-&                        E16.10)") &
+                        E16.10, ',', E16.10 ',', E16.10, ',', &
+                        E16.10, ',', E16.10 ',', E16.10, ',', &
+                        E16.10, ',', E16.10 ',', E16.10, ',', &
+                        E16.10)") &
                         dudx, dudy, dudz, &
                         dvdx, dvdy, dvdz, &
                         dwdx, dwdy, dwdz, &

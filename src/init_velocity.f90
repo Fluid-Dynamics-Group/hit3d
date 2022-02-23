@@ -117,7 +117,7 @@ subroutine init_velocity
 
                 n_shell = nint(sqrt(akx(i)**2 + aky(k)**2 + akz(j)**2))
 
-                write(*,*) "nshell (pre) is ", n_shell
+                !write(*,*) "nshell (pre) is ", n_shell
 
                 if (n_shell .gt. 0 .and. n_shell .le. kmax) then
 
@@ -161,12 +161,14 @@ subroutine init_velocity
     hits1 = 0
 
     ! assembling the total energy in each shell and number of hits in each shell
+    write(*,*) "pre2 akx(1)", akx(1), "aky(1)", aky(1), "akz(1)", akz(1), "nshell 1,1,1", nint(sqrt(real(akx(1)**2 + aky(1)**2 + akz(1)**2, 4)))
+
     do k = 1, nz
         do j = 1, ny
             do i = 1, nx
 
                 n_shell = nint(sqrt(real(akx(i)**2 + aky(k)**2 + akz(j)**2, 4)))
-                write(*,*) "n shell (pre 2) is ", n_shell
+                !write(*,*) "n shell (pre 2) is ", n_shell
                 if (n_shell .gt. 0 .and. n_shell .le. kmax) then
                     fac2 = fac*(fields(i, j, k, 1)**2 + fields(i, j, k, 2)**2 + fields(i, j, k, 3)**2)
                     if (akx(i) .eq. 0.d0) fac2 = fac2*0.5d0
@@ -186,6 +188,8 @@ subroutine init_velocity
 !-------------------------------------------------------------------------------
 !  Now make the spectrum to be as desired
 !-------------------------------------------------------------------------------
+
+    write(*,*) "adjustint spectrum akx(1)", akx(1), "aky(1)", aky(1), "akz(1)", akz(1)
 
     ! first, define the desired spectrum
     do k = 1, kmax
@@ -213,6 +217,9 @@ subroutine init_velocity
 
         end if
     end do
+
+    write(*,*) "before problematic loop akx(10)", akx(10), "aky(10)", aky(10), "akz(10)", akz(10)
+    write(*,*) "before problematic loop akx(1)", akx(1), "aky(1)", aky(1), "akz(1)", akz(1)
 
 !  normalize it so it has the unit total energy
     e_spec1 = e_spec1/sum(e_spec1(1:kmax))
