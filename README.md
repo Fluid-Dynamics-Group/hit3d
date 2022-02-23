@@ -37,7 +37,7 @@ If you notice, if the mpi rank `myid` is zero (for instance, on the master proce
 all of `akx(1)`, `aky(1)` and `akz(1)` will be zero. This routine is called in `main.f90`:
 
 
-```
+```fortran
   implicit none
 
   integer :: n
@@ -86,7 +86,7 @@ all of `akx(1)`, `aky(1)` and `akz(1)` will be zero. This routine is called in `
 
 Then, in `begin_new`:
 
-```
+```fortran
 subroutine begin_new
 
   use m_openmpi
@@ -126,7 +126,7 @@ end subroutine begin_new
 The problem with `ak_(1)` arises in `init_velocity.f90` deep inside the `init_velocity` subroutine.
 At line 222:
 
-```
+```fortran
     write(*,*) "akx aky akz", akx(1), aky(1), akz(1)
     write(*,*) "nshell before indexing is", nint(sqrt(real(akx(1)**2 + aky(1)**2 + akz(1)**2, 4)))
     write(*,*) "espec at nshell", e_spec(nint(sqrt(real(akx(1)**2 + aky(1)**2 + akz(1)**2, 4))))
@@ -213,4 +213,20 @@ the job to be terminated. The first process to do so was:
   Process name: [[42808,1],0]
   Exit code:    2
 --------------------------------------------------------------------------
+```
+
+My compiler versions:
+
+```
+brooks@lab-1 ~/g/hit3d (possible-ub)> mpif90 --version
+GNU Fortran (GCC) 11.1.0
+Copyright (C) 2021 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+brooks@lab-1 ~/g/hit3d (possible-ub)> gfortran --version
+GNU Fortran (GCC) 11.1.0
+Copyright (C) 2021 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 ```
