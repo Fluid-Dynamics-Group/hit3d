@@ -1073,12 +1073,14 @@ if __name__ == "__main__":
     from cases import full_system_test
     from cases import figure2
     from cases import one_case
+    from cases import spectral_dns
 
     # forcing_cases()
-    one_case()
+    # one_case()
     # proposal_figures()
     # forcing_sweep()
     # forcing_cases()
     # full_system_test()
     # figure2()
+    spectral_dns()
     pass

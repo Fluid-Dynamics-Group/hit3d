@@ -12,6 +12,9 @@ from run import copy_distribute_files
 from run import EpsilonControl
 from run import RunCase
 from run import Build
+from run import IC_WRK_NAME
+from run import IC_SPEC_NAME
+import shutil
 
 
 def forcing_sweep():
@@ -389,6 +392,49 @@ def figure2():
 
     build = Build("master", "master")
     build.to_json(save_json_folder)
+
+def spectral_dns():
+    TIME_END = 5
+    dt = 0.01
+    size = 64
+    steps = int(TIME_END / dt)
+    nprocs = 16
+    io_steps = 5
+    load_initial_data = 0
+    export_divergence = 0
+
+    skip_diffusion = 0
+
+    output_folder = define_output_folder()
+
+    if load_initial_data == 0:
+        print("copying over initial condition files")
+        shutil.copy("/home/brooks/github/selective-modification/results/hit3d_ic.pkg", IC_WRK_NAME)
+        shutil.copy("/home/brooks/github/selective-modification/results/e_spec.pkg", IC_SPEC_NAME)
+        #copy_init_files(size)
+
+    run_shell_command("make")
+
+    case = RunCase(
+        skip_diffusion=skip_diffusion,
+        size=size,
+        dt=dt,
+        steps=steps,
+        restarts=0,
+        reynolds_number=40,
+        path=output_folder,
+        load_initial_data=load_initial_data,
+        export_vtk=True,
+        scalar_type=14,
+        io_steps=io_steps,
+        nprocs=nprocs,
+        export_divergence=export_divergence,
+    )
+
+    print("running the case locally")
+    # init files have already been copied above
+    case.run(1)
+
 
 
 # helpful function for runnning one-off cases
