@@ -6,58 +6,6 @@ MPIF90 = mpif90
 FCFLAGS = -O4 -c -fallow-argument-mismatch
 LDFLAGS = -O4 -L/usr/local/lib -lfftw3
 
-# Franklin cluster, NERSC
-ifeq ($(NERSC_HOST), franklin)
-        MPIF90 = ftn
-
-        FCFLAGS = -target=linux -i8 -r8 -O4 -c
-        LDFLAGS = -target=linux -i8 -r8 -O4 -lfftw3
-        FCFLAGS_F77 = -Mextend
-endif
-
-# Hopper cluster, NERSC
-ifeq ($(NERSC_HOST), hopper)
-        MPIF90 = ftn
-
-        FCFLAGS = -target=linux -i8 -r8 -O4 -c
-        LDFLAGS = -target=linux -i8 -r8 -O4 -lfftw3
-        FCFLAGS_F77 = -Mextend
-endif
-
-# Yellowrail cluster, LANL
-ifeq ($(HOSTNAME), yr-fe1.lanl.gov)
-	MPIF90 = mpif90
-
-	FCFLAGS = -i8 -r8 -O4 -c $(MPI_COMPILE_FLAGS) -I$(FFTW_INCLUDE)
-	LDFLAGS = -i8 -r8 -O4 -lfftw3 $(MPI_LD_FLAGS) -L$(FFTW_HOME)/lib
-endif
-
-# Coyote cluster, LANL
-ifeq ($(HOSTNAME), cy-c2.lanl.gov)
-	MPIF90 = mpif90
-	FCFLAGS = -i8 -r8 -O4 -c $(MPI_COMPILE_FLAGS) -I$(FFTW_INCLUDE)
-	LDFLAGS = -i8 -r8 -O4 -lfftw3 $(MPI_LD_FLAGS) -L$(FFTW_HOME)/lib
-endif
-
-# WCR cluster, Stanford
-ifeq ($(HOSTNAME), glacial.stanford.edu)
-        FFTW_HOME = /home/chumakov/packages/fftw-3.2/pgi
-        MPIF90 = mpif90
-        FCFLAGS = -i8 -r8 -c $(MPI_COMPILE_FLAGS) -I$(FFTW_HOME)/include
-        LDFLAGS = -i8 -r8 $(MPI_LD_FLAGS) -L$(FFTW_HOME)/lib -lfftw3 -lm
-        FCFLAGS_F77 = -Mextend
-
-endif
-
-# sparrow.stanford.edu, Mac OS X box
-ifeq ($(HOSTNAME), sparrow.stanford.edu)
-        MPIF90 = mpif90
-        FCFLAGS = -fdefault-real-8 -fdefault-integer-8 -finit-integer=0 -finit-real=zero -c 
-        FCFLAGS_F77 = -ffixed-form -ffixed-line-length-none
-        FCFLAGS_F90 = -ffree-form -ffree-line-length-none
-        LDFLAGS = -fdefault-real-8 -fdefault-integer-8 -finit-integer=0 -finit-real=zero -lmpi -lmpi -lfftw3 -lm
-endif
-
 # Program name
 PROG    = hit3d.x
 
@@ -93,7 +41,8 @@ OBJ     = main.o\
 	rhs_velocity.o\
 	rhs_scalars.o\
 	velocity_rescale.o\
-	write_tmp4.o
+	write_tmp4.o \
+	write_data.o
 
 
 # -------------------------------------------------------

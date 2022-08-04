@@ -189,18 +189,18 @@ subroutine rhs_velocity
                     ! ! taking the convective term, multiply it by "i"
                     ! ! (see how it's done in x_fftw.f90)
                     ! ! and adding the diffusion term
-                    ! rtmp =           - wrk(i+1,j,k,n) + wrk(i  ,j,k,4) * fields(i  ,j,k,n) &
-                    !                                   + fcomp(i  ,j,k,n)
-                    ! wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) + wrk(i+1,j,k,4) * fields(i+1,j,k,n) &
-                    !                                   + fcomp(i+1,j,k,n)
-                    ! wrk(i  ,j,k,n) = rtmp
-
-                    ! Validation by inviscid flow
-                    rtmp =           - wrk(i+1,j,k,n) & ! + wrk(i  ,j,k,4) * fields(i  ,j,k,n) &
+                    rtmp =           - wrk(i+1,j,k,n) + wrk(i  ,j,k,4) * fields(i  ,j,k,n) &
                                                       + fcomp(i  ,j,k,n)
-                    wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) & ! + wrk(i+1,j,k,4) * fields(i+1,j,k,n) &
+                    wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) + wrk(i+1,j,k,4) * fields(i+1,j,k,n) &
                                                       + fcomp(i+1,j,k,n)
                     wrk(i  ,j,k,n) = rtmp
+
+                    ! Validation by inviscid flow
+                    !rtmp =           - wrk(i+1,j,k,n) & ! + wrk(i  ,j,k,4) * fields(i  ,j,k,n) &
+                    !                                  + fcomp(i  ,j,k,n)
+                    !wrk(i+1,j,k,n) =   wrk(i  ,j,k,n) & ! + wrk(i+1,j,k,4) * fields(i+1,j,k,n) &
+                    !                                  + fcomp(i+1,j,k,n)
+                    !wrk(i  ,j,k,n) = rtmp
 
                  end do
 

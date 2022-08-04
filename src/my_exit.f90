@@ -65,6 +65,7 @@ subroutine my_exit(reason)
   write(out,*) "Done."
   call flush(out)
   close(out)
+  call mpi_finalize()
   stop
 
 

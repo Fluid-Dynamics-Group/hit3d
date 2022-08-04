@@ -75,6 +75,9 @@ program x_code
   ! need to dealias the fields at the beginning
   if (task.eq.'hydro') call dealias_all
 
+  call open_files()
+
+
 
 !********************************************************************************
 !  call benchmark
@@ -169,42 +172,53 @@ program x_code
         ! advance the time
         TIME = TIME + DT
 
-        ! write the restart file if it's the time
-        if (mod(itime,IPRINT2).eq.0) call restart_write_parallel
+        !! write the restart file if it's the time
+        !if (mod(itime,IPRINT2).eq.0) call restart_write_parallel
 
-        ! change the timestep in case we're running with variable timestep
-        if (variable_dt) call my_dt
+        !! change the timestep in case we're running with variable timestep
+        !if (variable_dt) call my_dt
 
-        ! CPU usage statistics
-        if (mod(itime,iprint1).eq.0) then
-           call m_timing_check
-           if (mod(itime,iwrite4).eq.0) then
-              sym = "*"
-           else
-              sym = " "
-           end if
-           write(out,9000) itime,time,dt,courant,cpu_hrs,cpu_min,cpu_sec,&
-                sym,les_model_name
-           call flush(out)
-        end if
+        !! CPU usage statistics
+        !if (mod(itime,iprint1).eq.0) then
+        !   call m_timing_check
+        !   if (mod(itime,iwrite4).eq.0) then
+        !      sym = "*"
+        !   else
+        !      sym = " "
+        !   end if
+        !   write(out,9000) itime,time,dt,courant,cpu_hrs,cpu_min,cpu_sec,&
+        !        sym,les_model_name
+        !   call flush(out)
+        !end if
 
-        if (mod(itime,iprint1).eq.0 .or. mod(itime,iwrite4).eq.0) then
+        !if (mod(itime,iprint1).eq.0 .or. mod(itime,iwrite4).eq.0) then
 
-           ! send the velocities to the "stats" part of the code for statistics
-           if (task_split) call fields_to_stats
-           ! checking if we need to stop the calculations due to simulation time
-           if (TIME.gt.TMAX) call my_exit(1)
+        !   ! send the velocities to the "stats" part of the code for statistics
+        !   if (task_split) call fields_to_stats
+        !   ! checking if we need to stop the calculations due to simulation time
+        !   if (TIME.gt.TMAX) call my_exit(1)
 
-           ! checking if we need to start advancing scalars
-           if (n_scalars.gt.0 .and. .not.int_scalars .and. time.gt.TSCALAR) then
-              int_scalars = .true.
-              call init_scalars
-              write(out,*) "Starting to move the scalars."
-              call flush(out)
-           end if
+        !   ! checking if we need to start advancing scalars
+        !   if (n_scalars.gt.0 .and. .not.int_scalars .and. time.gt.TSCALAR) then
+        !      int_scalars = .true.
+        !      call init_scalars
+        !      write(out,*) "Starting to move the scalars."
+        !      call flush(out)
+        !   end if
 
-        end if
+        !end if
      end if hydro
+
+     !
+     ! perform some io for the data that we are looking for
+     !
+
+     if (iammaster .and. modulo(itime,25) == 0) write(*, *) time
+
+     call calculate_energy()
+     call write_energy(time, ITIME)
+     call write_velocity_field(time, ITIME)
+
 !--------------------------------------------------------------------------------
 !                             STATISTICS PART
 !--------------------------------------------------------------------------------
